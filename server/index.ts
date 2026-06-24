@@ -1,4 +1,4 @@
-import { capsule, mutation, query, string, table } from "lakebed/server";
+import { capsule, endpoint, mutation, query, string, table, text } from "lakebed/server";
 import {
   cleanText,
   defaultCodexThreadId,
@@ -16,6 +16,7 @@ import {
   type SwipeAction,
   type SwipeCard,
 } from "../shared/decision";
+import { justSwipeInstallMarkdown } from "../shared/install";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -284,6 +285,14 @@ export default capsule({
       expiresAt: string(),
       pairedAt: string().default(""),
     }),
+  },
+  endpoints: {
+    installMarkdown: endpoint({ method: "GET", path: "/install.md" }, () =>
+      text(justSwipeInstallMarkdown),
+    ),
+    setupMarkdown: endpoint({ method: "GET", path: "/setup.md" }, () =>
+      text(justSwipeInstallMarkdown),
+    ),
   },
   queries: {
     integration: query((ctx) => getIntegration(ctx)),
