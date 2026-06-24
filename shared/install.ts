@@ -20,6 +20,8 @@ Add these JustSwipe rules to AGENTS.md and the skill:
 - Ask one clear decision per card.
 - Give 3 to 4 useful quick replies, then allow custom text.
 - Include only the context needed to decide: current state, tradeoff, risk, and next effect.
+- Use card context well: include an HTML artifact, diagram, screenshot summary, UI state, code diff, evidence checklist, or compact schema form when it helps the user decide faster.
+- Customize card context for this repo. Prefer the smallest useful artifact over a long explanation.
 - Treat JustSwipe responses as steering, not permission.
 - Do not claim you can see JustSwipe, the browser, or the user's machine unless tools prove it.
 - After a JustSwipe handoff, stop and wait. Do not keep working until a response packet arrives.
@@ -35,7 +37,7 @@ JUSTSWIPE_HANDOFF_JSON
       "title": "Pick the next step",
       "summary": "Choose the smallest useful step before Codex continues.",
       "recommendedAction": "yes",
-      "visualContext": "Current state, tradeoff, risk, and expected next effect.",
+      "visualContext": "Current state, tradeoff, risk, screenshot or artifact summary, and expected next effect.",
       "questionType": "yes_no",
       "quickRepliesByAction": {
         "yes": ["Build the smallest useful slice", "Keep it simple", "Prioritize reliability"],
@@ -52,7 +54,7 @@ JUSTSWIPE_HANDOFF_JSON
       "morePayloadSchema": [],
       "laterPayloadSchema": [],
       "optionPayloadSchemas": {},
-      "agentHtmlPreview": "<section><h2>Decision context</h2><ul><li>What changes next</li><li>Why it matters</li><li>Risk or fallback</li></ul></section>"
+      "agentHtmlPreview": "<section><h2>Decision context</h2><p>Show the useful artifact: UI state, screenshot summary, diagram, diff, or evidence.</p><ul><li>What changes next</li><li>Why it matters</li><li>Risk or fallback</li></ul></section>"
     }
   ]
 }

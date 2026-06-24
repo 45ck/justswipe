@@ -14,6 +14,8 @@ JustSwipe turns those moments into a lower-friction loop:
 
 The bet is not that every agent action should become a swipe. The bet is that human judgment should be requested in a way that respects attention.
 
+JustSwipe also treats the card as a small review artifact, not just a text prompt. Codex can attach the context that makes a decision fast: an HTML artifact, diagram, screenshot summary, UI preview, code diff, evidence checklist, or a short form with model-defined fields. The user can tune what belongs on cards for each repo.
+
 ## Product Thesis
 
 - AI agents increase output, but also increase oversight.
@@ -21,6 +23,7 @@ The bet is not that every agent action should become a swipe. The bet is that hu
 - More micro-decisions can create decision fatigue and context switching.
 - A swipe card can compress many small steering moments into a fast, low-attention interaction.
 - A phone-friendly decision layer lets agentic work continue while the user is away from the main machine.
+- HTML artifacts and visual review surfaces can make agent output easier to inspect than long Markdown or chat logs when the user needs to make a judgment.
 
 ## Sources
 
@@ -29,3 +32,5 @@ The bet is not that every agent action should become a swipe. The bet is that hu
 - [Fast Company: How AI Is Quietly Exhausting You](https://www.fastcompany.com/91523806/how-ai-is-quietly-exhausting-you-and-what-to-do-about-it)
 - [The Decision Lab: Decision Fatigue](https://thedecisionlab.com/biases/decision-fatigue)
 - [American Psychological Association: Why Our Attention Spans Are Shrinking](https://www.apa.org/news/podcasts/speaking-of-psychology/attention-spans)
+- [Lenny's Newsletter: HTML Is The New Markdown](https://www.lennysnewsletter.com/p/how-i-ai-html-is-the-new-markdown)
+- [Simon Willison: The Unreasonable Effectiveness Of HTML](https://simonwillison.net/2026/May/8/unreasonable-effectiveness-of-html/)

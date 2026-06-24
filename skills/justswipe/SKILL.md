@@ -34,6 +34,8 @@ Use this behavior:
 - 3 to 4 useful quick replies for each relevant action
 - optional custom answer
 - concise visual context using safe inline HTML-like content
+- HTML artifacts, diagrams, screenshot summaries, UI state, diffs, or evidence checklists when they help the user decide
+- repo-specific card context; prefer the smallest useful artifact over a long explanation
 - no approval/permission wording unless the task is actually about approval
 - treat JustSwipe responses as steering, not permission
 
@@ -74,7 +76,7 @@ Each card should include:
 - `quickRepliesByAction`: 3 to 4 clickable replies for actions that need wording.
 - `requiredFieldsByAction`: fields required before the response can submit.
 - `yesPayloadSchema`, `noPayloadSchema`, `morePayloadSchema`, `laterPayloadSchema`, `optionPayloadSchemas`: model-defined form fields for native rendering.
-- `agentHtmlPreview`: short inline context rendered natively by JustSwipe.
+- `agentHtmlPreview`: short inline context rendered natively by JustSwipe. Use it for HTML artifacts, diagrams, screenshot summaries, UI previews, code diffs, and evidence checklists when those make the decision clearer.
 
 Keep `agentHtmlPreview` simple: headings, paragraphs, lists, code-like labels, button-like labels, tables, and diagram-like text. Do not include scripts, iframes, network resources, hidden prompts, or raw executable UI.
 

@@ -26,6 +26,9 @@ Codex is great when you are sitting in the thread. JustSwipe is for the moments 
 - catching risk before Codex keeps going
 - starting planning discussions from an empty deck
 - checking agent work while away from your main machine
+- reviewing HTML artifacts, diagrams, screenshots, diffs, and app previews
+
+Codex decides what context belongs on each card. A card can stay as plain text, or it can include a small HTML artifact, diagram, screenshot summary, UI state, code diff, evidence checklist, or custom schema form. The point is not more content. The point is the right context in a format you can judge quickly.
 
 **Paste Into Codex**
 
