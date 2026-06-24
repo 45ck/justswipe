@@ -224,7 +224,7 @@ export const demoCards: SwipeCard[] = [
       "Codex wants to build the mobile-first swipe shell: pairing code, one-card inbox, drag gestures, and response handoff.",
     recommendedAction: "yes",
     visualContext:
-      "Thread pauses in Codex | JustSwipe shows one clear card | User swipes or adds context | Codex receives structured response and resumes",
+      "Current proof: local Lakebed app at localhost:3001 | Target: phone-first low-attention check-ins | This choice locks the first useful Codex handoff loop",
     questionType: "adaptive_form",
     yesPayloadSchema: [
       {

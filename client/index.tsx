@@ -12,16 +12,12 @@ import {
   actionVerb,
   defaultCodexThreadId,
   defaultCustomPrompt,
-  hasSchemaForAction,
   parseCards,
   parseResponses,
-  requiredFieldsForAction,
-  schemaForAction,
   type BridgeEvent,
   type Handoff,
   type Integration,
   type PairingCode,
-  type PayloadField,
   type SwipeAction,
   type SwipeCard,
 } from "../shared/decision";
@@ -192,15 +188,7 @@ function requiredMissing(
     return [];
   }
 
-  return requiredFieldsForAction(card, action).filter((fieldId) => {
-    const value = values[fieldId];
-
-    if (Array.isArray(value)) {
-      return value.length === 0;
-    }
-
-    return value === undefined || value === false || String(value).trim() === "";
-  });
+  return ["answer"];
 }
 
 function quickRepliesForAction(card: SwipeCard, action: SwipeAction): string[] {
@@ -398,59 +386,6 @@ function extractPreviewText(html: string) {
   }
 }
 
-function fieldLabelForId(card: SwipeCard, action: SwipeAction, fieldId: string) {
-  const field = schemaForAction(card, action).find((item) => item.id === fieldId);
-  return field?.label || fieldId.replaceAll("_", " ");
-}
-
-function ResponseSchemaPreview(props: { card: SwipeCard }) {
-  const yesRequired = requiredFieldsForAction(props.card, "yes").slice(0, 3);
-  const noRequired = requiredFieldsForAction(props.card, "no").slice(0, 3);
-  const yesReplies = quickRepliesForAction(props.card, "yes").slice(0, 2);
-  const noReplies = quickRepliesForAction(props.card, "no").slice(0, 2);
-
-  return (
-    <div class="grid gap-3 sm:grid-cols-2">
-      <div class="rounded bg-lime-300/[0.08] p-3">
-        <div class="flex items-center gap-2 text-sm font-semibold text-lime-100">
-          <Icon name="yes" class="h-4 w-4" />
-          Yes sends
-        </div>
-        <div class="mt-3 flex flex-wrap gap-2">
-          {yesReplies.map((reply) => (
-            <span class="rounded bg-lime-300/15 px-2 py-1 text-[11px] text-lime-100">
-              {reply}
-            </span>
-          ))}
-          {yesRequired.map((fieldId) => (
-            <span class="rounded border border-lime-300/20 px-2 py-1 text-[11px] text-zinc-300">
-              {fieldLabelForId(props.card, "yes", fieldId)}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div class="rounded bg-orange-400/[0.08] p-3">
-        <div class="flex items-center gap-2 text-sm font-semibold text-orange-100">
-          <Icon name="no" class="h-4 w-4" />
-          No sends
-        </div>
-        <div class="mt-3 flex flex-wrap gap-2">
-          {noReplies.map((reply) => (
-            <span class="rounded bg-orange-400/15 px-2 py-1 text-[11px] text-orange-100">
-              {reply}
-            </span>
-          ))}
-          {noRequired.map((fieldId) => (
-            <span class="rounded border border-orange-400/20 px-2 py-1 text-[11px] text-zinc-300">
-              {fieldLabelForId(props.card, "no", fieldId)}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AgentInlineShowcase(props: { card: SwipeCard }) {
   const preview = extractPreviewText(props.card.agentHtmlPreview);
   const title = preview.title || props.card.title;
@@ -482,7 +417,7 @@ function AgentInlineShowcase(props: { card: SwipeCard }) {
           <div class="rounded bg-[#061016] p-3 shadow-inner shadow-black/40">
             <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-zinc-500">
               <span>App slice</span>
-              <span>live card</span>
+              <span>evidence</span>
             </div>
             <div class="mt-3 rounded bg-white/[0.06] p-3">
               <div class="h-20 rounded bg-gradient-to-br from-cyan-300/25 via-white/8 to-lime-300/20 p-3">
@@ -490,13 +425,9 @@ function AgentInlineShowcase(props: { card: SwipeCard }) {
                 <div class="mt-3 h-2 w-28 rounded bg-white/35" />
                 <div class="mt-2 h-2 w-16 rounded bg-white/20" />
               </div>
-              <div class="mt-3 grid grid-cols-2 gap-2">
-                <div class="rounded border border-orange-400/35 p-2 text-center text-xs font-semibold text-orange-100">
-                  No
-                </div>
-                <div class="rounded bg-lime-300 p-2 text-center text-xs font-semibold text-zinc-950">
-                  Yes
-                </div>
+              <div class="mt-3 grid gap-2">
+                <div class="h-2 w-full rounded bg-cyan-300/35" />
+                <div class="h-2 w-3/4 rounded bg-white/20" />
               </div>
             </div>
             {preview.tags.length ? (
@@ -511,7 +442,6 @@ function AgentInlineShowcase(props: { card: SwipeCard }) {
           </div>
         </div>
       </div>
-      <ResponseSchemaPreview card={props.card} />
     </section>
   );
 }
@@ -609,14 +539,14 @@ function SwipeCardView(props: {
           </p>
         </div>
 
-        <div class="mt-8 rounded border border-white/10 bg-white/[0.04] p-4">
+        <div class="mt-8 rounded bg-white/[0.035] p-4">
           <p class="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-            Context
+            Evidence
           </p>
           <div class="mt-3 grid gap-2">
             {contextItems.length > 1 ? (
               contextItems.map((item) => (
-                <div class="flex items-start gap-2 rounded border border-white/10 bg-black/20 p-2 text-sm leading-5 text-zinc-200">
+                <div class="flex items-start gap-2 text-sm leading-5 text-zinc-200">
                   <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded bg-cyan-300" />
                   <span>{item}</span>
                 </div>
@@ -664,141 +594,6 @@ function ActionDock(props: {
   );
 }
 
-function FieldRenderer(props: {
-  field: PayloadField;
-  value: FormValues[string];
-  required: boolean;
-  onChange: (value: FormValues[string]) => void;
-}) {
-  const field = props.field;
-
-  if (field.type === "textarea") {
-    return (
-      <textarea
-        class="min-h-20 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-        placeholder={field.placeholder || ""}
-        value={String(props.value || "")}
-        onInput={(event) => props.onChange(event.currentTarget.value)}
-      />
-    );
-  }
-
-  if (field.type === "select") {
-    return (
-      <select
-        class="h-11 w-full rounded border border-white/10 bg-[#05080c] px-3 text-sm text-white outline-none focus:border-cyan-300/70"
-        value={String(props.value || "")}
-        onChange={(event) => props.onChange(event.currentTarget.value)}
-      >
-        <option value="">Choose one</option>
-        {(field.options || []).map((option) => (
-          <option value={option}>{option}</option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.type === "toggle") {
-    return (
-      <button
-        class={`flex h-11 w-full items-center justify-between rounded border px-3 text-sm transition ${
-          props.value
-            ? "border-lime-300/40 bg-lime-300/12 text-lime-100"
-            : "border-white/10 bg-[#05080c] text-zinc-300"
-        }`}
-        type="button"
-        onClick={() => props.onChange(!props.value)}
-      >
-        <span>{props.value ? "Enabled" : "Disabled"}</span>
-        <span class="grid h-6 w-6 place-items-center rounded border border-white/10">
-          {props.value ? <Icon name="yes" class="h-4 w-4" /> : null}
-        </span>
-      </button>
-    );
-  }
-
-  if (field.type === "checklist") {
-    const selected = Array.isArray(props.value) ? props.value : [];
-
-    return (
-      <div class="grid gap-2">
-        {(field.options || []).map((option) => {
-          const checked = selected.includes(option);
-          return (
-            <button
-              class={`flex min-h-10 items-center gap-2 rounded border px-3 text-left text-sm transition ${
-                checked
-                  ? "border-cyan-300/40 bg-cyan-300/12 text-cyan-100"
-                  : "border-white/10 bg-[#05080c] text-zinc-300"
-              }`}
-              type="button"
-              onClick={() =>
-                props.onChange(
-                  checked
-                    ? selected.filter((item) => item !== option)
-                    : [...selected, option],
-                )
-              }
-            >
-              <span class="grid h-5 w-5 shrink-0 place-items-center rounded border border-white/10">
-                {checked ? <Icon name="yes" class="h-3.5 w-3.5" /> : null}
-              </span>
-              <span>{option}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  if (field.type === "rating") {
-    const selected = Number(props.value || 0);
-
-    return (
-      <div class="grid grid-cols-5 gap-2">
-        {[1, 2, 3, 4, 5].map((rating) => (
-          <button
-            class={`h-11 rounded border text-sm font-semibold transition ${
-              selected === rating
-                ? "border-lime-300/50 bg-lime-300 text-zinc-950"
-                : "border-white/10 bg-[#05080c] text-zinc-400 hover:bg-white/10"
-            }`}
-            type="button"
-            onClick={() => props.onChange(String(rating))}
-          >
-            {rating}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  if (field.type === "evidence") {
-    return (
-      <div class="rounded border border-white/10 bg-[#05080c] p-3 text-sm leading-6 text-zinc-300">
-        {field.placeholder || "Evidence preview attached by the agent."}
-      </div>
-    );
-  }
-
-  if (field.type === "text") {
-    return (
-      <input
-        class="h-11 w-full rounded border border-white/10 bg-[#05080c] px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-        placeholder={field.placeholder || ""}
-        value={String(props.value || "")}
-        onInput={(event) => props.onChange(event.currentTarget.value)}
-      />
-    );
-  }
-
-  return (
-    <div class="rounded border border-orange-400/30 bg-orange-400/10 p-3 text-sm text-orange-100">
-      Unsupported field type. This card can still be answered without running raw model UI.
-    </div>
-  );
-}
-
 function PayloadSheet(props: {
   card: SwipeCard;
   action: SwipeAction;
@@ -809,11 +604,12 @@ function PayloadSheet(props: {
   onClose: () => void;
   onSubmit: () => void;
 }) {
-  const schema = schemaForAction(props.card, props.action);
-  const required = new Set(requiredFieldsForAction(props.card, props.action));
   const quickReplies = quickRepliesForAction(props.card, props.action);
   const selectedQuickReply = String(props.values.quick_reply || "");
   const customResponse = String(props.values.custom_response || "");
+  const optionalNote = String(props.values.optional_note || "");
+  const writingCustom = props.values.answer_mode === "custom" || customResponse.length > 0;
+  const hasAnswer = selectedQuickReply.length > 0 || customResponse.trim().length > 0;
 
   return (
     <section class="fixed inset-0 z-40 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
@@ -825,9 +621,9 @@ function PayloadSheet(props: {
               <Icon name={props.action} class="h-4 w-4" />
               {actionLabel(props.action)} / {actionVerb(props.action)}
             </p>
-            <h3 class="mt-3 text-xl font-semibold text-white">Choose a response</h3>
+            <h3 class="mt-3 text-xl font-semibold text-white">Pick what Codex should hear</h3>
             <p class="mt-1 text-sm leading-6 text-zinc-500">
-              Tap one reply, write your own, or add details before the thread resumes.
+              One tap is enough. Add a note only if Codex needs extra context.
             </p>
           </div>
           <button
@@ -847,7 +643,7 @@ function PayloadSheet(props: {
 
             return (
               <button
-                class={`flex min-h-11 items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition ${
+                class={`flex min-h-12 items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition ${
                   selected
                     ? `${actionTone(props.action)} bg-white/[0.08]`
                     : "border-white/10 bg-white/[0.03] text-zinc-200 hover:bg-white/[0.07]"
@@ -857,6 +653,7 @@ function PayloadSheet(props: {
                 onClick={() => {
                   props.onChange("quick_reply", reply);
                   props.onChange("custom_response", "");
+                  props.onChange("answer_mode", "");
                 }}
               >
                 <span>{reply}</span>
@@ -866,49 +663,49 @@ function PayloadSheet(props: {
           })}
         </div>
 
-        <label class="mt-4 grid gap-2 rounded border border-white/10 bg-white/[0.03] p-3">
-          <span class="text-sm font-medium text-zinc-100">Custom answer</span>
-          <textarea
-            class="min-h-24 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-            placeholder="Write a different answer for Codex."
-            value={customResponse}
-            onInput={(event) => {
-              props.onChange("custom_response", event.currentTarget.value);
+        {writingCustom ? (
+          <label class="mt-4 grid gap-2 rounded border border-white/10 bg-white/[0.03] p-3">
+            <span class="text-sm font-medium text-zinc-100">Custom answer</span>
+            <textarea
+              class="min-h-24 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
+              placeholder="Write a different answer for Codex."
+              value={customResponse}
+              onInput={(event) => {
+                props.onChange("custom_response", event.currentTarget.value);
+                props.onChange("quick_reply", "");
+              }}
+            />
+          </label>
+        ) : (
+          <button
+            class="mt-3 flex min-h-11 w-full items-center justify-between rounded border border-white/10 bg-white/[0.02] px-3 py-2 text-left text-sm text-zinc-300 transition hover:bg-white/[0.06]"
+            type="button"
+            onClick={() => {
+              props.onChange("answer_mode", "custom");
               props.onChange("quick_reply", "");
             }}
-          />
-        </label>
+          >
+            <span>Write a custom answer</span>
+            <Icon name="more" class="h-4 w-4" />
+          </button>
+        )}
 
-        {schema.length > 0 ? (
-          <details class="mt-4 rounded border border-white/10 bg-white/[0.02] p-3">
-            <summary class="cursor-pointer text-sm font-medium text-zinc-200">
-              More detail
-            </summary>
-            <div class="mt-3 grid gap-3">
-              {schema.map((field) => (
-                <div class="grid gap-2 rounded border border-white/10 bg-[#05080c] p-3">
-                  <span class="flex items-center justify-between gap-3">
-                    <span class="text-sm font-medium text-zinc-100">
-                      {field.label}
-                      {required.has(field.id) ? <span class="text-orange-300"> *</span> : null}
-                    </span>
-                    <span class="text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-                      {field.type}
-                    </span>
-                  </span>
-                  {field.helper ? (
-                    <span class="text-xs leading-5 text-zinc-500">{field.helper}</span>
-                  ) : null}
-                  <FieldRenderer
-                    field={field}
-                    required={required.has(field.id)}
-                    value={props.values[field.id]}
-                    onChange={(value) => props.onChange(field.id, value)}
-                  />
-                </div>
-              ))}
-            </div>
-          </details>
+        {selectedQuickReply ? (
+          <div class="mt-4 rounded border border-cyan-300/20 bg-cyan-300/[0.06] p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+              Codex will receive
+            </p>
+            <p class="mt-2 text-sm font-medium text-white">{selectedQuickReply}</p>
+            <label class="mt-3 grid gap-2">
+              <span class="text-xs text-zinc-500">Optional note</span>
+              <textarea
+                class="min-h-16 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
+                placeholder="Add extra context only if needed."
+                value={optionalNote}
+                onInput={(event) => props.onChange("optional_note", event.currentTarget.value)}
+              />
+            </label>
+          </div>
         ) : null}
 
         {props.error ? (
@@ -919,7 +716,7 @@ function PayloadSheet(props: {
 
         <button
           class={`mt-4 h-12 w-full rounded text-sm font-semibold transition disabled:opacity-40 ${actionSolid(props.action)}`}
-          disabled={props.submitting}
+          disabled={props.submitting || !hasAnswer}
           type="button"
           onClick={props.onSubmit}
         >
@@ -1341,16 +1138,11 @@ export function App() {
     await playFeedback(action);
     await new Promise((resolve) => setTimeout(resolve, 260));
 
-    if (hasSchemaForAction(activeCard, action)) {
-      setPendingAction(action);
-      setFormValues({});
-      setFormError("");
-      setMotion(null);
-      resetDrag();
-      return;
-    }
-
-    await submitResponse(action, {});
+    setPendingAction(action);
+    setFormValues({});
+    setFormError("");
+    setMotion(null);
+    resetDrag();
   }
 
   async function submitResponse(action: SwipeAction, payload: FormValues) {
