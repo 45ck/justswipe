@@ -43,13 +43,7 @@ AI agents make software work faster, but they also create more tiny decisions: a
 
 JustSwipe is a direct response to that. It gamifies the human-input loop without turning it into a toy: one card, clear context, quick action, agent resumes. It is built for shorter attention windows, interruption-heavy days, and agentic systems that need occasional high-quality human signal.
 
-**Sources**
-
-- [Harvard Business Review: When Using AI Leads to "Brain Fry"](https://hbr.org/2026/03/when-using-ai-leads-to-brain-fry)
-- [Thoughtworks: The Paradox of Acceleration](https://www.thoughtworks.com/en-us/insights/blog/generative-ai/paradox-acceleration-overcoming-ai-decision-fatigue-bottlenecks)
-- [Fast Company: How AI Is Quietly Exhausting You](https://www.fastcompany.com/91523806/how-ai-is-quietly-exhausting-you-and-what-to-do-about-it)
-- [The Decision Lab: Decision Fatigue](https://thedecisionlab.com/biases/decision-fatigue)
-- [American Psychological Association: Why Our Attention Spans Are Shrinking](https://www.apa.org/news/podcasts/speaking-of-psychology/attention-spans)
+Research background: [RATIONALE.md](RATIONALE.md)
 
 **Run The Bridge**
 
