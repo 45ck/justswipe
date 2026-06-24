@@ -26,7 +26,7 @@ The app runs on port `3001`.
 
 `bridge:watch` uses the Codex app-server relay by default. That sends completed
 JustSwipe packets into the saved Codex thread id and waits for the thread's turn
-to complete. The default turn timeout is 4 minutes; override it with
+to complete. The default turn timeout is 15 minutes; override it with
 `--timeout-ms` for slower local work. The old isolated CLI fallback is still
 available with:
 

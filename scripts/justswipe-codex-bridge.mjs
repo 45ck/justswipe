@@ -21,7 +21,7 @@ const clearState = args.has("--clear");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
-const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "240000", 10);
+const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
 const threadPrompt =
   valueAfter("--prompt") ??
@@ -60,6 +60,21 @@ function pairingLink(code) {
   const base = new URL(appBaseUrl());
   base.searchParams.set("justswipe_pair", code);
   return base.href;
+}
+
+function ownerIdForGuest() {
+  return guest.startsWith("guest:") ? guest : `guest:${guest}`;
+}
+
+function integrationForGuest(db) {
+  const ownerId = ownerIdForGuest();
+  const integrations = db.tables?.integrations ?? [];
+
+  return integrations.find((row) => row.ownerId === ownerId) ?? null;
+}
+
+function bridgeConnectionId(db) {
+  return valueAfter("--connection-id") ?? integrationForGuest(db)?.connectionId ?? "";
 }
 
 async function deployInspectTarget() {
@@ -374,8 +389,18 @@ async function createAppServerClient() {
 
 function queuedEvents(db) {
   const events = db.tables?.bridgeEvents ?? [];
+  const connectionId = bridgeConnectionId(db);
+  const ownerId = ownerIdForGuest();
+
   return events
     .filter((event) => event.status === "queued")
+    .filter((event) => {
+      if (connectionId) {
+        return event.connectionId === connectionId;
+      }
+
+      return event.ownerId === ownerId;
+    })
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
@@ -695,7 +720,7 @@ function todoHandoffCard() {
 
 async function createTodoHandoff() {
   let db = await dumpDb();
-  let integration = db.tables?.integrations?.[0];
+  let integration = integrationForGuest(db);
   let connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
   const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
 
@@ -706,7 +731,7 @@ async function createTodoHandoff() {
   if (!connectionId) {
     const code = await createPairingCode();
     db = await dumpDb();
-    integration = db.tables?.integrations?.[0];
+    integration = integrationForGuest(db);
     connectionId = integration?.connectionId ?? "";
 
     if (!connectionId) {
@@ -781,7 +806,7 @@ async function startNativeThread() {
   }
 
   const db = await dumpDb();
-  const integration = db.tables?.integrations?.[0];
+  const integration = integrationForGuest(db);
   await runMutation("saveIntegration", [
     threadId,
     integration?.customPrompt || "Treat JustSwipe packets as user steering, then continue or ask another JustSwipe card.",
