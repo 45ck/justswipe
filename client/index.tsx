@@ -24,6 +24,22 @@ import {
 
 type FormValues = Record<string, string | boolean | string[]>;
 
+function tryVibrate(pattern: VibratePattern) {
+  try {
+    const nav = navigator as Navigator & {
+      userActivation?: { hasBeenActive: boolean };
+    };
+
+    if (nav.userActivation && !nav.userActivation.hasBeenActive) {
+      return;
+    }
+
+    nav.vibrate?.(pattern);
+  } catch {
+    // Haptics are best effort and should never create console noise.
+  }
+}
+
 function Icon(props: { name: string; class?: string }) {
   const common = {
     class: props.class || "h-5 w-5",
@@ -191,13 +207,7 @@ function requiredMissing(
   return ["answer"];
 }
 
-function quickRepliesForAction(card: SwipeCard, action: SwipeAction): string[] {
-  const provided = card.quickRepliesByAction?.[action] || [];
-
-  if (provided.length > 0) {
-    return provided.slice(0, 4);
-  }
-
+function defaultQuickReplies(action: SwipeAction): string[] {
   if (action === "yes") {
     return [
       "Continue with this",
@@ -230,6 +240,21 @@ function quickRepliesForAction(card: SwipeCard, action: SwipeAction): string[] {
     "After one more card",
     "Before build starts",
   ];
+}
+
+function quickRepliesForAction(card: SwipeCard, action: SwipeAction): string[] {
+  const replies = [...(card.quickRepliesByAction?.[action] || []), ...defaultQuickReplies(action)];
+  const unique = new Set<string>();
+
+  for (const reply of replies) {
+    const trimmed = reply.trim();
+
+    if (trimmed) {
+      unique.add(trimmed);
+    }
+  }
+
+  return Array.from(unique).slice(0, 4);
 }
 
 function safeResult(value: string): { ok: boolean; error?: string; completed?: boolean } {
@@ -323,7 +348,7 @@ function Header(props: {
   );
 }
 
-function StatusRail(props: {
+function DeckBar(props: {
   handoff?: Handoff;
   cards: SwipeCard[];
   responses: number;
@@ -334,35 +359,46 @@ function StatusRail(props: {
     ? Math.min(Number.parseInt(props.handoff.activeCardIndex || "0", 10) + 1, total)
     : 0;
 
+  const label = props.handoff
+    ? handoffStatusLabel(props.handoff.status)
+    : bridgeStatusLabel(props.latestEvent?.status || "");
+
   return (
-    <section class="mx-auto grid w-full max-w-2xl grid-cols-3 gap-2">
-      <div class="rounded border border-white/10 bg-white/[0.03] p-3">
-        <p class="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Inbox</p>
-        <p class="mt-1 text-sm font-medium text-white">
-          {props.handoff ? `${active}/${total}` : "Clear"}
+    <section class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 rounded border border-white/10 bg-white/[0.03] px-3 py-2">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-medium text-white">
+          {props.handoff ? `Card ${active} of ${total}` : "No cards waiting"}
+        </p>
+        <p class="mt-0.5 truncate text-xs text-zinc-500">
+          {label}
+          {props.responses ? ` · ${props.responses} sent` : ""}
         </p>
       </div>
-      <div class="rounded border border-white/10 bg-white/[0.03] p-3">
-        <p class="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Thread</p>
-        <p class="mt-1 truncate text-sm font-medium text-white">
-          {props.handoff
-            ? handoffStatusLabel(props.handoff.status)
-            : bridgeStatusLabel(props.latestEvent?.status || "")}
-        </p>
-      </div>
-      <div class="rounded border border-white/10 bg-white/[0.03] p-3">
-        <p class="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Signal</p>
-        <p class="mt-1 text-sm font-medium text-white">
-          {props.responses ? `${props.responses} sent` : "Waiting"}
-        </p>
+      <div class="flex shrink-0 items-center gap-1" aria-label={`Card ${active} of ${total}`}>
+        {Array.from({ length: total }).map((_, index) => (
+          <span
+            class={`h-2 rounded-full transition-all ${
+              index + 1 === active
+                ? "w-6 bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.55)]"
+                : index + 1 < active
+                  ? "w-2 bg-lime-300"
+                  : "w-2 bg-white/15"
+            }`}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
-function extractPreviewText(html: string) {
+function extractAgentContent(html: string) {
   if (!html.trim()) {
-    return { title: "", description: "", tags: [] as string[] };
+    return {
+      title: "",
+      description: "",
+      bullets: [] as string[],
+      actions: [] as string[],
+    };
   }
 
   try {
@@ -375,73 +411,71 @@ function extractPreviewText(html: string) {
     const description =
       doc.querySelector("p")?.textContent?.trim().replace(/\s+/g, " ").slice(0, 180) ||
       "";
-    const tags = Array.from(doc.querySelectorAll("button,.yes,.no,.tag,.pill,li"))
+    const bullets = Array.from(doc.querySelectorAll("li"))
       .map((node) => node.textContent?.trim().replace(/\s+/g, " "))
       .filter((value): value is string => Boolean(value))
-      .slice(0, 5);
+      .slice(0, 4);
+    const actions = Array.from(doc.querySelectorAll("button,.yes,.no,.tag,.pill"))
+      .map((node) => node.textContent?.trim().replace(/\s+/g, " "))
+      .filter((value): value is string => Boolean(value))
+      .slice(0, 4);
 
-    return { title, description, tags };
+    return { title, description, bullets, actions };
   } catch {
-    return { title: "", description: "", tags: [] as string[] };
+    return {
+      title: "",
+      description: "",
+      bullets: [] as string[],
+      actions: [] as string[],
+    };
   }
 }
 
-function AgentInlineShowcase(props: { card: SwipeCard }) {
-  const preview = extractPreviewText(props.card.agentHtmlPreview);
-  const title = preview.title || props.card.title;
+function DecisionContext(props: { card: SwipeCard }) {
+  const preview = extractAgentContent(props.card.agentHtmlPreview);
+  const contextItems = props.card.visualContext
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const title = preview.title || "Context";
   const description = preview.description || props.card.visualContext;
-  const pathItems = ["Codex pauses", "You decide", "Structured reply", "Thread resumes"];
+  const bullets = preview.bullets.length ? preview.bullets : contextItems.slice(0, 4);
 
   return (
-    <section class="mt-6 grid gap-4">
-      <div class="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
-        <div class="rounded bg-cyan-300/[0.07] p-4">
+    <section class="mt-6 rounded border border-cyan-300/20 bg-cyan-300/[0.06] p-4">
+      <div class="flex items-start gap-3">
+        <div class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded bg-cyan-300/15 text-cyan-100">
+          <Icon name="inbox" class="h-5 w-5" />
+        </div>
+        <div class="min-w-0">
           <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
             What Codex is showing
           </p>
-          <h3 class="mt-3 text-xl font-semibold leading-tight text-white">{title}</h3>
+          <h3 class="mt-2 text-lg font-semibold leading-snug text-white">{title}</h3>
           <p class="mt-2 text-sm leading-6 text-zinc-300">{description}</p>
-          <div class="mt-4 grid grid-cols-4 gap-1.5">
-            {pathItems.map((item, index) => (
-              <div class="relative rounded bg-black/24 p-2 text-center">
-                <div class="mx-auto mb-2 h-2 w-2 rounded bg-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.9)]" />
-                <p class="text-[10px] leading-4 text-zinc-300">{item}</p>
-                {index < pathItems.length - 1 ? (
-                  <span class="absolute right-[-6px] top-3 h-px w-3 bg-cyan-300/60" />
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div class="rounded bg-white/[0.04] p-3">
-          <div class="rounded bg-[#061016] p-3 shadow-inner shadow-black/40">
-            <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.14em] text-zinc-500">
-              <span>App slice</span>
-              <span>evidence</span>
-            </div>
-            <div class="mt-3 rounded bg-white/[0.06] p-3">
-              <div class="h-20 rounded bg-gradient-to-br from-cyan-300/25 via-white/8 to-lime-300/20 p-3">
-                <div class="h-2 w-20 rounded bg-cyan-200/80" />
-                <div class="mt-3 h-2 w-28 rounded bg-white/35" />
-                <div class="mt-2 h-2 w-16 rounded bg-white/20" />
-              </div>
-              <div class="mt-3 grid gap-2">
-                <div class="h-2 w-full rounded bg-cyan-300/35" />
-                <div class="h-2 w-3/4 rounded bg-white/20" />
-              </div>
-            </div>
-            {preview.tags.length ? (
-              <div class="mt-3 flex flex-wrap gap-2">
-                {preview.tags.map((tag) => (
-                  <span class="rounded bg-white/[0.07] px-2 py-1 text-[11px] text-zinc-300">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
         </div>
       </div>
+
+      {bullets.length ? (
+        <div class="mt-4 grid gap-2">
+          {bullets.map((item) => (
+            <div class="flex items-start gap-2 text-sm leading-5 text-zinc-200">
+              <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded bg-cyan-300" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {preview.actions.length ? (
+        <div class="mt-4 flex flex-wrap gap-2">
+          {preview.actions.map((action) => (
+            <span class="rounded border border-white/10 bg-black/20 px-2.5 py-1.5 text-xs text-zinc-200">
+              {action}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -488,15 +522,11 @@ function SwipeCardView(props: {
           : activeCue === "later"
             ? "border-teal-300/70 shadow-teal-500/20"
             : "border-white/15 shadow-black/50";
-  const contextItems = props.card.visualContext
-    .split("|")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
   return (
     <section class="relative mx-auto w-full max-w-2xl">
       <article
-        class={`relative min-h-[520px] touch-none overflow-hidden rounded border bg-[#080d12] p-5 shadow-2xl transition-all duration-300 ${glow}`}
+        class={`relative min-h-[500px] touch-none overflow-hidden rounded border bg-[#080d12] p-5 shadow-2xl transition-all duration-300 ${glow} jsw-card-enter`}
         style={{ transform }}
         onPointerDown={props.onPointerDown}
         onPointerMove={props.onPointerMove}
@@ -505,7 +535,7 @@ function SwipeCardView(props: {
       >
         <div class="pointer-events-none absolute inset-x-5 top-5 flex items-center justify-between">
           <span class="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-400">
-            Card {props.index + 1} of {props.total}
+            Codex paused
           </span>
           <span class={`rounded border px-2 py-1 text-xs ${actionTone(props.card.recommendedAction)}`}>
             Best: {actionLabel(props.card.recommendedAction)}
@@ -539,25 +569,19 @@ function SwipeCardView(props: {
           </p>
         </div>
 
-        <div class="mt-8 rounded bg-white/[0.035] p-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-            Evidence
-          </p>
-          <div class="mt-3 grid gap-2">
-            {contextItems.length > 1 ? (
-              contextItems.map((item) => (
-                <div class="flex items-start gap-2 text-sm leading-5 text-zinc-200">
-                  <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded bg-cyan-300" />
-                  <span>{item}</span>
-                </div>
-              ))
-            ) : (
-              <p class="text-sm leading-6 text-zinc-200">{props.card.visualContext}</p>
-            )}
+        <div class="mt-5 rounded border border-white/10 bg-white/[0.03] p-3">
+          <div class="flex items-center gap-2">
+            <Icon name={props.card.recommendedAction} class="h-4 w-4 text-lime-200" />
+            <p class="text-sm font-medium text-white">
+              Suggested: {actionLabel(props.card.recommendedAction)} / {actionVerb(props.card.recommendedAction)}
+            </p>
           </div>
+          <p class="mt-1 text-xs leading-5 text-zinc-500">
+            Swipe now, then add a one-tap answer if Codex needs wording.
+          </p>
         </div>
 
-        <AgentInlineShowcase card={props.card} />
+        <DecisionContext card={props.card} />
 
         <div class="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-zinc-500">
           <span>Swipe left/right, or use buttons</span>
@@ -609,11 +633,12 @@ function PayloadSheet(props: {
   const customResponse = String(props.values.custom_response || "");
   const optionalNote = String(props.values.optional_note || "");
   const writingCustom = props.values.answer_mode === "custom" || customResponse.length > 0;
+  const showingNote = props.values.show_note === true || optionalNote.trim().length > 0;
   const hasAnswer = selectedQuickReply.length > 0 || customResponse.trim().length > 0;
 
   return (
     <section class="fixed inset-0 z-40 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <div class="max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded">
+      <div class="jsw-sheet-rise max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded">
         <div class="mx-auto mb-3 h-1 w-12 rounded bg-white/20 sm:hidden" />
         <div class="flex items-start justify-between gap-3">
           <div>
@@ -654,6 +679,8 @@ function PayloadSheet(props: {
                   props.onChange("quick_reply", reply);
                   props.onChange("custom_response", "");
                   props.onChange("answer_mode", "");
+                  props.onChange("optional_note", "");
+                  props.onChange("show_note", false);
                 }}
               >
                 <span>{reply}</span>
@@ -696,15 +723,26 @@ function PayloadSheet(props: {
               Codex will receive
             </p>
             <p class="mt-2 text-sm font-medium text-white">{selectedQuickReply}</p>
-            <label class="mt-3 grid gap-2">
-              <span class="text-xs text-zinc-500">Optional note</span>
-              <textarea
-                class="min-h-16 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-                placeholder="Add extra context only if needed."
-                value={optionalNote}
-                onInput={(event) => props.onChange("optional_note", event.currentTarget.value)}
-              />
-            </label>
+            {showingNote ? (
+              <label class="mt-3 grid gap-2">
+                <span class="text-xs text-zinc-500">Extra detail</span>
+                <textarea
+                  class="min-h-16 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
+                  placeholder="Only add what changes Codex's next step."
+                  value={optionalNote}
+                  onInput={(event) => props.onChange("optional_note", event.currentTarget.value)}
+                />
+              </label>
+            ) : (
+              <button
+                class="mt-3 inline-flex h-10 items-center gap-2 rounded border border-white/10 bg-black/15 px-3 text-sm text-zinc-300 transition hover:bg-white/[0.06]"
+                type="button"
+                onClick={() => props.onChange("show_note", true)}
+              >
+                <Icon name="more" class="h-4 w-4" />
+                Add detail
+              </button>
+            )}
           </div>
         ) : null}
 
@@ -845,7 +883,7 @@ function Modal(props: {
 }) {
   return (
     <section class="fixed inset-0 z-50 grid place-items-end bg-black/65 p-0 sm:place-items-center sm:p-4">
-      <div class="max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded">
+      <div class="jsw-sheet-rise max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded">
         <div class="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
           <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
             {props.title}
@@ -1090,11 +1128,7 @@ export function App() {
 
     setLastNotified(activeHandoff.handoffId);
 
-    try {
-      navigator.vibrate?.([18, 30, 18]);
-    } catch {
-      // Vibration is optional.
-    }
+    tryVibrate([18, 30, 18]);
 
     if (alertsEnabled && typeof Notification !== "undefined") {
       const card = parseCards(activeHandoff.cardsJson)[0];
@@ -1124,11 +1158,7 @@ export function App() {
   }
 
   async function playFeedback(action: SwipeAction) {
-    try {
-      navigator.vibrate?.(action === "yes" ? 18 : action === "no" ? [10, 25, 10] : 14);
-    } catch {
-      // Haptics are best effort.
-    }
+    tryVibrate(action === "yes" ? 18 : action === "no" ? [10, 25, 10] : 14);
   }
 
   async function chooseAction(action: SwipeAction) {
@@ -1203,7 +1233,15 @@ export function App() {
       return;
     }
 
-    await submitResponse(pendingAction, formValues);
+    const payload = { ...formValues };
+
+    delete payload.show_note;
+
+    if (typeof payload.optional_note === "string" && !payload.optional_note.trim()) {
+      delete payload.optional_note;
+    }
+
+    await submitResponse(pendingAction, payload);
   }
 
   async function createCode() {
@@ -1278,12 +1316,25 @@ export function App() {
   return (
     <main class="min-h-screen overflow-x-hidden bg-[#05080c] text-zinc-100">
       <style>{`
+        @keyframes jsw-card-enter {
+          from { opacity: 0; filter: blur(6px); }
+          to { opacity: 1; filter: blur(0); }
+        }
+        @keyframes jsw-sheet-rise {
+          from { opacity: 0; transform: translateY(22px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         @keyframes jsw-sent-pulse {
           0% { box-shadow: 0 0 0 rgba(163, 230, 53, 0); }
           35% { box-shadow: 0 0 40px rgba(163, 230, 53, 0.22); }
           100% { box-shadow: 0 0 0 rgba(163, 230, 53, 0); }
         }
+        .jsw-card-enter { animation: jsw-card-enter 360ms cubic-bezier(.2,.8,.2,1); }
+        .jsw-sheet-rise { animation: jsw-sheet-rise 180ms ease-out; }
         .jsw-sent-pulse { animation: jsw-sent-pulse 900ms ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .jsw-card-enter, .jsw-sheet-rise, .jsw-sent-pulse { animation: none; }
+        }
       `}</style>
       <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
         <Header
@@ -1297,7 +1348,7 @@ export function App() {
         />
 
         {connected ? (
-          <StatusRail
+          <DeckBar
             cards={activeCards}
             handoff={activeHandoff || backgroundHandoff}
             latestEvent={latestEvent}
