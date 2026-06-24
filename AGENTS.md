@@ -2,11 +2,17 @@
 
 Use `skills/justswipe/SKILL.md` when this repo or a consuming repo is being steered through JustSwipe.
 
+## Install/Merge Rule
+
+When installing JustSwipe into another repo, do not replace existing repo instructions. If `AGENTS.md` exists, preserve it and append a clearly marked JustSwipe section. If `skills/justswipe/SKILL.md` exists, update it carefully; otherwise create it.
+
 ## Operating Rule
 
 When you need human direction, stop the long chat question and emit a JustSwipe handoff instead. Treat the response as user steering, not as permission. Continue normal safety, approval, and repo rules after the response arrives.
 
-Hosted JustSwipe sessions start disconnected. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
+Hosted JustSwipe is the primary user surface. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
+
+The bridge is the listener: JustSwipe stores swipe/form responses as queued bridge events, and `npm run bridge:watch -- --app-url <hosted-url>` relays those events back into the saved Codex thread.
 
 End the turn with this exact status when waiting:
 

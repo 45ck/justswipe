@@ -15,7 +15,56 @@ Laptop bridge -> Codex response packet
 Codex -> continue work or create another JustSwipe handoff
 ```
 
-## Run
+## Hosted-First Quick Start
+
+JustSwipe is meant to feel like a hosted phone/browser remote with a local
+Codex bridge behind it. The cloud app shows notifications, swipe cards, and
+forms. The laptop bridge is the trusted process that can talk to your local
+Codex thread and repo.
+
+Use the live Lakebed URL as the user surface:
+
+```powershell
+$app = "https://your-justswipe.lakebed.app"
+npm run bridge:start-thread -- --app-url $app --cwd C:\path\to\project --prompt "Use JustSwipe when you need steering. Wait for a JustSwipe response before editing if you emit a handoff."
+npm run bridge:pair -- --app-url $app
+npm run bridge:watch -- --app-url $app
+```
+
+Open the printed pair link in the browser or phone you want to use. The pair
+code expires after 2 minutes; the paired browser stays connected for the day.
+
+Copy this into the Codex thread for the repo you want to steer:
+
+```txt
+Install JustSwipe into this repo without replacing existing repo instructions.
+
+If AGENTS.md already exists, preserve all existing content and append a clearly marked JustSwipe section. If it does not exist, create it. If skills/justswipe/SKILL.md already exists, update it carefully; otherwise create it.
+
+JustSwipe is a low-attention steering loop for Codex. When you need clarification, user taste, a checkpoint, or you are stuck, do not ask a long chat question. Emit a JustSwipe handoff card, then stop and wait.
+
+Use this behavior:
+- one clear decision per card
+- 3 to 4 useful quick replies for each relevant action
+- optional custom answer
+- concise visual context using safe inline HTML-like content
+- no approval/permission wording unless the task is actually about approval
+- treat JustSwipe responses as steering, not permission
+
+When waiting, end with:
+AWAITING_JUSTSWIPE_RESPONSE <handoff-id>
+```
+
+The runtime loop is:
+
+```txt
+Codex emits JUSTSWIPE_HANDOFF_JSON and waits
+Hosted JustSwipe shows the card and sends the swipe/form response
+Local bridge watches queued responses and reprompts the Codex thread
+Codex continues, finishes, or emits the next JustSwipe handoff
+```
+
+## Run Locally
 
 ```powershell
 npm run dev
@@ -66,7 +115,7 @@ Open the printed pair link or paste the short code in the connection modal. The
 browser session stays paired for the day.
 
 For a hosted Lakebed install, deploy the app, then point the laptop bridge at the
-hosted URL:
+hosted URL. This is the primary MVP path:
 
 ```powershell
 npx lakebed deploy --json
@@ -98,6 +147,8 @@ skills/justswipe/SKILL.md
 Then tell the Codex thread to use the `justswipe` skill when it needs human
 steering. The thread should emit `JUSTSWIPE_HANDOFF_JSON` packets and stop with
 `AWAITING_JUSTSWIPE_RESPONSE <handoff-id>` until the bridge sends a response.
+If the repo already has `AGENTS.md`, append the JustSwipe section instead of
+replacing existing project instructions.
 
 ## Pair A Phone Or Browser
 
@@ -136,6 +187,17 @@ thread first, then queue the todo-specific handoff:
 ```powershell
 npm run bridge:start-thread -- --cwd C:\path\to\todo-project --prompt "Wait for JustSwipe before editing. Ask for the first todo slice and end with AWAITING_JUSTSWIPE_RESPONSE."
 npm run handoff:todo
+```
+
+For a hosted todo-thread smoke test, use the same flow with `--app-url`:
+
+```powershell
+$app = "https://your-justswipe.lakebed.app"
+$todo = "C:\path\to\fresh-todo-project"
+npm run bridge:start-thread -- --app-url $app --cwd $todo --prompt "This repo is controlled through JustSwipe. First install JustSwipe by merging guidance into AGENTS.md and skills/justswipe/SKILL.md. Then wait for a JustSwipe response before building the todo app."
+npm run bridge:pair -- --app-url $app
+npm run handoff:todo -- --app-url $app
+npm run bridge:watch -- --app-url $app
 ```
 
 Each card can define separate Yes/No/More/Later payload fields. The model owns

@@ -11,12 +11,35 @@ Hosted JustSwipe starts disconnected. The laptop bridge creates a pair code or `
 
 ## Install In A Repo
 
-Add these two files to the target repo:
+Merge JustSwipe into the target repo without replacing existing repo guidance:
 
-- `AGENTS.md`: the agent contract and handoff packet format.
-- `skills/justswipe/SKILL.md`: this skill file.
+- If `AGENTS.md` exists, preserve it and append a clearly marked JustSwipe section.
+- If `AGENTS.md` does not exist, create it with the agent contract and handoff packet format.
+- If `skills/justswipe/SKILL.md` exists, update it carefully.
+- If `skills/justswipe/SKILL.md` does not exist, create it from this skill.
 
 Then tell the working Codex thread to use the `justswipe` skill when it needs human steering.
+
+Use this copy prompt for installation:
+
+```txt
+Install JustSwipe into this repo without replacing existing repo instructions.
+
+If AGENTS.md already exists, preserve all existing content and append a clearly marked JustSwipe section. If it does not exist, create it. If skills/justswipe/SKILL.md already exists, update it carefully; otherwise create it.
+
+JustSwipe is a low-attention steering loop for Codex. When you need clarification, user taste, a checkpoint, or you are stuck, do not ask a long chat question. Emit a JustSwipe handoff card, then stop and wait.
+
+Use this behavior:
+- one clear decision per card
+- 3 to 4 useful quick replies for each relevant action
+- optional custom answer
+- concise visual context using safe inline HTML-like content
+- no approval/permission wording unless the task is actually about approval
+- treat JustSwipe responses as steering, not permission
+
+When waiting, end with:
+AWAITING_JUSTSWIPE_RESPONSE <handoff-id>
+```
 
 ## When You Need A Decision
 
@@ -105,6 +128,15 @@ Use this baseline:
 ## After A Response
 
 Read the JustSwipe response as steering. Continue the current task if the answer is enough. If the answer creates another real choice, emit another small handoff. Do not claim you can see JustSwipe, the browser, or the user's machine unless the current tools prove it.
+
+The Codex thread does not self-listen in the background. The local bridge listens for queued JustSwipe responses and reprompts Codex:
+
+```txt
+Codex emits JUSTSWIPE_HANDOFF_JSON and waits
+Hosted JustSwipe stores the swipe/form response
+Local bridge relays the queued response into Codex
+Codex continues or emits the next handoff
+```
 
 ## Local MVP Commands
 
