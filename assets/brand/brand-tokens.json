@@ -1,0 +1,31 @@
+{
+  "brand": "JustSwipe",
+  "concept": "Decision Hinge",
+  "promise": "Pause. Decide. Move forward.",
+  "colors": {
+    "ink": "#050A0E",
+    "surface": "#0A1117",
+    "surface_2": "#111A22",
+    "graphite": "#121A22",
+    "white": "#F7F9FB",
+    "muted": "#85929E",
+    "line": "#24313B",
+    "lime": "#C8FF3D",
+    "mint": "#45E7A3",
+    "cyan": "#00D9FF",
+    "ember": "#FF6A2A"
+  },
+  "gradient": {
+    "primary": "linear-gradient(135deg, #C8FF3D 0%, #45E7A3 48%, #00D9FF 100%)",
+    "symbol": "linear-gradient(180deg, #C8FF3D 0%, #45E7A3 48%, #00D9FF 100%)"
+  },
+  "clearSpace": "One pivot diameter around every side of the mark.",
+  "minimumSize": {
+    "symbolDigital": "20px",
+    "horizontalDigital": "120px"
+  },
+  "type": {
+    "display": "Inter Display",
+    "fallback": "Inter, system-ui, sans-serif"
+  }
+}

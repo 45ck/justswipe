@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="JustSwipe Decision Hinge symbol">
+
+
+    <defs>
+      <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#C8FF3D"/>
+        <stop offset="48%" stop-color="#45E7A3"/>
+        <stop offset="100%" stop-color="#00D9FF"/>
+      </linearGradient>
+      <mask id="pivotMask" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="white"/>
+        <circle cx="256" cy="256" r="50" fill="black"/>
+      </mask>
+    </defs>
+    <g id="symbol">
+      <path d="M180.0 70 A48.0 48.0 0 0 1 228.0 118 V214.57536964558403 A50 50 0 0 0 228.0 297.42463035441597 V394 A48.0 48.0 0 0 1 180.0 442 A48.0 48.0 0 0 1 132 394 V118 A48.0 48.0 0 0 1 180.0 70 Z" fill-rule="evenodd" clip-rule="evenodd" fill="#F7F9FB"/>
+      <path d="M332.0 70 A48.0 48.0 0 0 1 380.0 118 V394 A48.0 48.0 0 0 1 332.0 442 A48.0 48.0 0 0 1 284 394 V297.42463035441597 A50 50 0 0 0 284 214.57536964558403 V118 A48.0 48.0 0 0 1 332.0 70 Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#barGrad)"/>
+    </g>
+    
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-label="JustSwipe logo">
+<defs><linearGradient id="wordGrad-horizontal" gradientUnits="userSpaceOnUse" x1="557.21875" y1="0" x2="983.7265625" y2="0">
+      <stop offset="0%" stop-color="#C8FF3D"/>
+      <stop offset="46%" stop-color="#45E7A3"/>
+      <stop offset="100%" stop-color="#00D9FF"/>
+    </linearGradient>
+    <mask id="wordMask-horizontal" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="1200" height="280">
+      <g id="horizontal-mask-paths" fill="#FFFFFF" transform="translate(557.219,201.000) scale(0.08007812,-0.08007812)"><path d="M640 -24C964 -24 1180 151 1180 410C1180 618 1044 746 754 818L585 860C369 914 286 981 286 1097C286 1245 423 1349 616 1349C818 1349 949 1236 960 1050H1138C1130 1336 932 1514 622 1514C311 1514 108 1345 108 1088C108 885 234 767 538 692L705 651C920 598 1000 526 1000 402C1000 242 857 140 640 140C401 140 262 267 262 480H78C78 170 296 -24 640 -24Z" transform="translate(0.000,0)"/><path d="M358 0H532L674 480C708 596 739 718 770 837C801 718 832 596 865 480L1004 0H1182L1510 1056H1332L1196 592C1159 465 1125 332 1090 203C1055 332 1022 465 986 592L854 1056H686L552 592C515 464 481 328 446 198C411 328 378 464 341 592L208 1056H30Z" transform="translate(1220.537,0)"/><path d="M126 0H296V1056H126ZM211 1262C275 1262 327 1314 327 1378C327 1442 275 1494 211 1494C147 1494 95 1442 95 1378C95 1314 147 1262 211 1262Z" transform="translate(2723.073,0)"/><path d="M126 -418H296V160H298C374 38 491 -20 628 -20C903 -20 1086 203 1086 528C1086 854 903 1076 628 1076C491 1076 362 1018 294 900H292V1056H126ZM602 133C406 133 282 289 282 528C282 767 406 924 602 924C785 924 914 787 914 528C914 269 785 133 602 133Z" transform="translate(3107.610,0)"/><path d="M562 -24C792 -24 972 114 1012 316H842C810 206 712 130 562 130C362 130 248 272 240 479H1030V526C1030 854 844 1080 550 1080C270 1080 72 847 72 526C72 208 252 -24 562 -24ZM242 625C260 811 377 928 550 928C724 928 842 811 860 625Z" transform="translate(4228.146,0)"/></g>
+    </mask></defs>
+<svg x="32" y="45" width="190" height="190" viewBox="0 0 512 512" overflow="visible">
+<defs>
+  <linearGradient id="barGrad-horizontal" gradientUnits="userSpaceOnUse" x1="332" y1="70" x2="332" y2="442">
+    <stop offset="0%" stop-color="#C8FF3D"/>
+    <stop offset="48%" stop-color="#45E7A3"/>
+    <stop offset="100%" stop-color="#00D9FF"/>
+  </linearGradient>
+  <mask id="pivotMask-horizontal" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+    <rect width="512" height="512" fill="white"/>
+    <circle cx="256" cy="256" r="50" fill="black"/>
+  </mask>
+</defs>
+<g>
+  <path d="M180.0 70 A48.0 48.0 0 0 1 228.0 118 V214.57536964558403 A50 50 0 0 0 228.0 297.42463035441597 V394 A48.0 48.0 0 0 1 180.0 442 A48.0 48.0 0 0 1 132 394 V118 A48.0 48.0 0 0 1 180.0 70 Z" fill-rule="evenodd" clip-rule="evenodd" fill="#050A0E"/>
+  <path d="M332.0 70 A48.0 48.0 0 0 1 380.0 118 V394 A48.0 48.0 0 0 1 332.0 442 A48.0 48.0 0 0 1 284 394 V297.42463035441597 A50 50 0 0 0 284 214.57536964558403 V118 A48.0 48.0 0 0 1 332.0 70 Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#barGrad-horizontal)"/>
+</g>
+</svg>
+<g id="word-just" fill="#050A0E" transform="translate(250.000,201.000) scale(0.08007812,-0.08007812)"><path d="M515 -20C774 -20 955 139 955 424V1490H775V424C775 239 671 140 515 140C359 140 255 239 255 424V504H75V424C75 139 256 -20 515 -20Z" transform="translate(0.000,0)"/><path d="M514 -20C648 -20 755 35 828 155V0H994V1056H824V438C824 225 700 136 546 136C388 136 296 229 296 412V1056H126V400C126 119 301 -20 514 -20Z" transform="translate(1057.537,0)"/><path d="M494 -24C724 -24 898 92 898 288C898 440 806 533 604 581L434 621C332 645 270 692 270 772C270 862 353 934 483 934C619 934 706 852 708 740H874C868 950 703 1080 483 1080C257 1080 100 952 100 772C100 618 202 518 398 472L568 432C662 410 727 364 727 284C727 190 636 122 490 122C342 122 256 190 244 316H76C90 86 268 -24 494 -24Z" transform="translate(2140.073,0)"/><path d="M587 1056H373V1344H203V1056H15V910H203V238C203 79 292 0 473 0H587V146H489C402 146 373 174 373 256V910H587Z" transform="translate(3074.610,0)"/></g>
+<rect x="557.21875" y="0" width="426.50781250000006" height="280" fill="url(#wordGrad-horizontal)" mask="url(#wordMask-horizontal)"/>
+</svg>
