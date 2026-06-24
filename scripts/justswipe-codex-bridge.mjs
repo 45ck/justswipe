@@ -692,10 +692,10 @@ function todoHandoffCard() {
     optionPayloadSchemas: {},
     quickRepliesByAction: {
       yes: [
-        "Build add-and-list todos first",
+        "Build add, complete, and delete todos",
         "Keep it one-screen and minimal",
         "Start with localStorage persistence",
-        "Make completion swipeable first",
+        "Add delete controls and completion state",
       ],
       no: [
         "Do not build yet",
@@ -744,7 +744,7 @@ async function createTodoHandoff() {
     connectionId,
     threadId,
     JSON.stringify([todoHandoffCard()]),
-    "Todo Codex thread is blocked on the first build slice.",
+    "Todo Codex thread needs the next concrete todo slice.",
   ]);
 
   console.log(`Todo handoff queued: ${handoffId}`);
