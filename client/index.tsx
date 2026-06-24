@@ -24,6 +24,18 @@ import {
 
 type FormValues = Record<string, string | boolean | string[]>;
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  const tagName = target.tagName.toLowerCase();
+
+  return target.isContentEditable || tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
+function hasResponseDraft(values: FormValues): boolean {
+  return String(values.quick_reply || "").length > 0 || String(values.custom_response || "").trim().length > 0;
+}
+
 function tryVibrate(pattern: VibratePattern) {
   try {
     const nav = navigator as Navigator & {
@@ -597,6 +609,12 @@ function ActionDock(props: {
   onAction: (action: SwipeAction) => void;
 }) {
   const actions: SwipeAction[] = ["no", "yes", "more", "later"];
+  const shortcuts: Record<SwipeAction, string> = {
+    yes: "Y / ArrowRight",
+    no: "N / ArrowLeft",
+    more: "M / ArrowUp",
+    later: "L / ArrowDown",
+  };
 
   return (
     <div class="mx-auto mt-4 grid w-full max-w-2xl grid-cols-4 gap-2">
@@ -608,7 +626,7 @@ function ActionDock(props: {
           disabled={props.disabled}
           type="button"
           onClick={() => props.onAction(action)}
-          title={`${actionLabel(action)} / ${actionVerb(action)}`}
+          title={`${actionLabel(action)} / ${actionVerb(action)} (${shortcuts[action]})`}
         >
           <Icon name={action} class="h-5 w-5" />
           <span>{actionLabel(action)}</span>
@@ -634,10 +652,17 @@ function PayloadSheet(props: {
   const optionalNote = String(props.values.optional_note || "");
   const writingCustom = props.values.answer_mode === "custom" || customResponse.length > 0;
   const showingNote = props.values.show_note === true || optionalNote.trim().length > 0;
-  const hasAnswer = selectedQuickReply.length > 0 || customResponse.trim().length > 0;
+  const hasAnswer = hasResponseDraft(props.values);
 
   return (
-    <section class="fixed inset-0 z-40 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
+    <section
+      class="fixed inset-0 z-40 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget && !props.submitting) {
+          props.onClose();
+        }
+      }}
+    >
       <div class="jsw-sheet-rise max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded">
         <div class="mx-auto mb-3 h-1 w-12 rounded bg-white/20 sm:hidden" />
         <div class="flex items-start justify-between gap-3">
@@ -817,6 +842,12 @@ function EmptyInbox(props: {
             placeholder="Ask Codex to plan the next slice. It can answer or create new swipe cards."
             value={props.planningPrompt}
             onInput={(event) => props.setPlanningPrompt(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                props.onStartPlanning();
+              }
+            }}
           />
           <button
             class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded bg-cyan-300 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-40"
@@ -882,7 +913,14 @@ function Modal(props: {
   children: ComponentChildren;
 }) {
   return (
-    <section class="fixed inset-0 z-50 grid place-items-end bg-black/65 p-0 sm:place-items-center sm:p-4">
+    <section
+      class="fixed inset-0 z-50 grid place-items-end bg-black/65 p-0 sm:place-items-center sm:p-4"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) {
+          props.onClose();
+        }
+      }}
+    >
       <div class="jsw-sheet-rise max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded">
         <div class="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
           <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
@@ -988,6 +1026,12 @@ function PairingPanel(props: {
             placeholder={defaultCustomPrompt}
             value={props.promptDraft}
             onInput={(event) => props.setPromptDraft(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                props.onSave();
+              }
+            }}
           />
           <button
             class="mt-2 h-10 w-full rounded border border-cyan-300/30 bg-cyan-300/10 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
@@ -1043,12 +1087,10 @@ function ThreadLog(props: { events: BridgeEvent[] }) {
 }
 
 export function App() {
-  const auth = useAuth();
   const handoffs = (useQuery("activeHandoffs") || []) as Handoff[];
   const bridgeEvents = (useQuery("bridgeEvents") || []) as BridgeEvent[];
   const integration = useQuery("integration") as Integration | undefined;
   const pairCodes = (useQuery("pairingCodes") || []) as PairingCode[];
-  const seedDemo = useMutation<[], void>("seedDemo");
   const resetDemo = useMutation<[], void>("resetDemo");
   const createPairingCode = useMutation<[], string>("createPairingCode");
   const pairWithCode = useMutation<[code: string], string>("pairWithCode");
@@ -1064,7 +1106,6 @@ export function App() {
     [handoffRowId: string, cardId: string, action: string, payloadJson: string],
     string
   >("submitCardResponse");
-  const [hasSeeded, setHasSeeded] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(
     null,
   );
@@ -1084,6 +1125,7 @@ export function App() {
   const [planningBusy, setPlanningBusy] = useState(false);
   const [modal, setModal] = useState<"connection" | "thread" | null>(null);
   const [isDisconnected, setIsDisconnected] = useState(false);
+  const [autoPairCode, setAutoPairCode] = useState("");
   const [alertsEnabled, setAlertsEnabled] = useState(
     typeof Notification !== "undefined" && Notification.permission === "granted",
   );
@@ -1105,11 +1147,36 @@ export function App() {
   const busy = Boolean(motion || pendingAction || submitting || activeHandoff?.status === "responding_to_codex");
 
   useEffect(() => {
-    if (!auth.isLoading && !hasSeeded && !isDisconnected && handoffs.length === 0) {
-      setHasSeeded(true);
-      void seedDemo();
+    if (typeof window === "undefined" || autoPairCode) {
+      return;
     }
-  }, [auth.isLoading, handoffs.length, hasSeeded, isDisconnected]);
+
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("justswipe_pair") || url.searchParams.get("pair");
+
+    if (!code) {
+      return;
+    }
+
+    const cleanCode = code.toUpperCase();
+    setAutoPairCode(cleanCode);
+    setCodeDraft(cleanCode);
+
+    void (async () => {
+      const message = await pairWithCode(cleanCode);
+      setPairMessage(message);
+      setToast(message.includes("Connected") ? "JustSwipe connected" : message);
+
+      if (message.includes("Connected")) {
+        setIsDisconnected(false);
+        url.searchParams.delete("justswipe_pair");
+        url.searchParams.delete("pair");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      }
+
+      setTimeout(() => setToast(""), 1800);
+    })();
+  }, [autoPairCode, pairWithCode]);
 
   useEffect(() => {
     if (integration?.codexThreadId) {
@@ -1259,8 +1326,14 @@ export function App() {
   }
 
   async function saveBridge() {
-    await saveIntegration(threadDraft || defaultCodexThreadId, promptDraft || defaultCustomPrompt);
+    const savedThreadId = threadDraft.trim() || defaultCodexThreadId;
+    const savedPrompt = promptDraft.trim() || defaultCustomPrompt;
+
+    await saveIntegration(savedThreadId, savedPrompt);
+    setThreadDraft(savedThreadId);
+    setPromptDraft(savedPrompt);
     setIsDisconnected(false);
+    setModal(null);
     setToast("Bridge prompt saved");
     setTimeout(() => setToast(""), 1400);
   }
@@ -1307,11 +1380,71 @@ export function App() {
 
   async function reset() {
     await resetDemo();
-    setHasSeeded(true);
     setPendingAction(null);
     setMotion(null);
     resetDrag();
   }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      const isTyping = isTypingTarget(event.target);
+
+      if (key === "escape") {
+        if (modal) {
+          event.preventDefault();
+          setModal(null);
+          return;
+        }
+
+        if (pendingAction && !submitting) {
+          event.preventDefault();
+          setPendingAction(null);
+          setFormError("");
+          return;
+        }
+      }
+
+      if (pendingAction) {
+        if ((event.ctrlKey || event.metaKey) && key === "enter" && !submitting && hasResponseDraft(formValues)) {
+          event.preventDefault();
+          void submitPendingForm();
+          return;
+        }
+
+        if (!isTyping && key === "enter" && !submitting && hasResponseDraft(formValues)) {
+          event.preventDefault();
+          void submitPendingForm();
+        }
+
+        return;
+      }
+
+      if (modal || isTyping || busy || !activeCard || !activeHandoff || event.repeat) {
+        return;
+      }
+
+      const shortcutAction =
+        key === "arrowright" || key === "y"
+          ? "yes"
+          : key === "arrowleft" || key === "n"
+            ? "no"
+            : key === "arrowup" || key === "m"
+              ? "more"
+              : key === "arrowdown" || key === "l" || key === "d"
+                ? "later"
+                : null;
+
+      if (shortcutAction) {
+        event.preventDefault();
+        void chooseAction(shortcutAction);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeCard, activeHandoff, busy, formValues, modal, pendingAction, submitting]);
 
   return (
     <main class="min-h-screen overflow-x-hidden bg-[#05080c] text-zinc-100">

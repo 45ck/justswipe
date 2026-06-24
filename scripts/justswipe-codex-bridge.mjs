@@ -7,6 +7,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
 const port = valueAfter("--port") ?? "3001";
 const guest = valueAfter("--guest") ?? "local";
+const appUrl = valueAfter("--app-url") ?? valueAfter("--url") ?? process.env.JUSTSWIPE_APP_URL ?? "";
+const deployIdArg = valueAfter("--deploy-id") ?? process.env.JUSTSWIPE_DEPLOY_ID ?? "";
+const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSPECT_TOKEN ?? "";
 const dryRun = args.has("--dry-run");
 const runAll = args.has("--all");
 const watch = args.has("--watch");
@@ -14,6 +17,7 @@ const pair = args.has("--pair");
 const demoHandoff = args.has("--demo-handoff");
 const startThread = args.has("--start-thread");
 const todoHandoff = args.has("--todo-handoff");
+const clearState = args.has("--clear");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -30,6 +34,54 @@ function valueAfter(flag) {
 
 function psQuote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function appBaseUrl() {
+  if (appUrl) {
+    const parsed = new URL(appUrl);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.href.replace(/\/$/, "");
+  }
+
+  return `http://localhost:${port}`;
+}
+
+function lakebedWsUrl() {
+  const base = new URL(appBaseUrl());
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
+  base.pathname = "/__lakebed/ws";
+  base.search = `?lakebed_guest=${encodeURIComponent(guest)}`;
+  base.hash = "";
+  return base.href;
+}
+
+function pairingLink(code) {
+  const base = new URL(appBaseUrl());
+  base.searchParams.set("justswipe_pair", code);
+  return base.href;
+}
+
+async function deployInspectTarget() {
+  if (deployIdArg) {
+    return deployIdArg;
+  }
+
+  if (!appUrl) {
+    return "";
+  }
+
+  try {
+    const metadata = JSON.parse(await readFile(join(root, "lakebed.json"), "utf8"));
+
+    if (metadata?.deployId) {
+      return metadata.deployId;
+    }
+  } catch {
+    // Fall back to the app URL for unbound deployments.
+  }
+
+  return appUrl;
 }
 
 function run(command, commandArgs, options = {}) {
@@ -332,9 +384,14 @@ function nextQueuedEvent(db) {
 }
 
 async function dumpDb() {
-  if (!/^\d+$/.test(port)) {
+  if (!appUrl && !/^\d+$/.test(port)) {
     throw new Error("--port must be numeric.");
   }
+
+  const hostedTarget = await deployInspectTarget();
+  const target = appUrl
+    ? `${psQuote(hostedTarget)}${inspectToken ? ` --inspect-token ${psQuote(inspectToken)}` : ""}`
+    : `--port ${port}`;
 
   const result = await run(
     "powershell.exe",
@@ -343,7 +400,7 @@ async function dumpDb() {
       "-ExecutionPolicy",
       "Bypass",
       "-Command",
-      `npx --yes lakebed db dump --port ${port}`,
+      `npx --yes lakebed db dump ${target}`,
     ],
   );
   if (result.code !== 0) {
@@ -525,7 +582,7 @@ async function runMutation(name, mutationArgs = []) {
     throw new Error("This Node runtime does not expose WebSocket.");
   }
 
-  const url = `ws://localhost:${port}/__lakebed/ws?lakebed_guest=${encodeURIComponent(guest)}`;
+  const url = lakebedWsUrl();
   const ws = new WebSocket(url);
 
   await new Promise((resolvePromise, reject) => {
@@ -583,7 +640,9 @@ async function maybeCreateNextHandoff(event, response) {
 async function createPairingCode() {
   const code = await runMutation("createPairingCode", []);
   console.log(`JustSwipe pairing code: ${code}`);
+  console.log(`Pair link: ${pairingLink(code)}`);
   console.log("Expires in 2 minutes. The paired browser stays connected for today.");
+  return code;
 }
 
 async function createDemoHandoff() {
@@ -635,13 +694,24 @@ function todoHandoffCard() {
 }
 
 async function createTodoHandoff() {
-  const db = await dumpDb();
-  const integration = db.tables?.integrations?.[0];
-  const connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "local-demo";
+  let db = await dumpDb();
+  let integration = db.tables?.integrations?.[0];
+  let connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
   const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
 
   if (!threadId) {
     throw new Error("No Codex thread id is saved. Run npm run bridge:start-thread first or pass --thread-id.");
+  }
+
+  if (!connectionId) {
+    const code = await createPairingCode();
+    db = await dumpDb();
+    integration = db.tables?.integrations?.[0];
+    connectionId = integration?.connectionId ?? "";
+
+    if (!connectionId) {
+      throw new Error(`Could not create a JustSwipe connection for pairing code ${code}.`);
+    }
   }
 
   await runMutation("clearConnectionState", []);
@@ -654,6 +724,11 @@ async function createTodoHandoff() {
 
   console.log(`Todo handoff queued: ${handoffId}`);
   console.log(`Thread: ${threadId}`);
+}
+
+async function clearConnectionState() {
+  await runMutation("clearConnectionState", []);
+  console.log("JustSwipe connection state cleared.");
 }
 
 async function startNativeThread() {
@@ -720,6 +795,11 @@ async function startNativeThread() {
 }
 
 async function main() {
+  if (clearState) {
+    await clearConnectionState();
+    return;
+  }
+
   if (startThread) {
     await startNativeThread();
     return;

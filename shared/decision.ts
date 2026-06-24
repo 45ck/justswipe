@@ -114,6 +114,7 @@ export type PairingCode = {
   code: string;
   connectionId: string;
   threadId: string;
+  customPrompt: string;
   status: string;
   expiresAt: string;
   pairedAt: string;
@@ -122,7 +123,7 @@ export type PairingCode = {
 };
 
 export const defaultCodexThreadId = "019ef89d-058c-7df3-aad4-d9a4fa9e750e";
-export const defaultConnectionId = "local-demo";
+export const defaultConnectionId = "";
 
 export const defaultCustomPrompt =
   "You are the Codex worker behind JustSwipe. Treat each JustSwipe packet as user steering, not approval. Use the structured response, either continue the work or ask for another JustSwipe handoff, then be explicit about what you did next.";

@@ -83,7 +83,7 @@ function ensureIntegration(ctx: any): Integration {
   ctx.db.integrations.insert({
     ownerId: ctx.auth.userId,
     connectionId: defaultConnectionId,
-    pairedUntil: hoursFromNow(24),
+    pairedUntil: "",
     codexThreadId: defaultCodexThreadId,
     customPrompt: defaultCustomPrompt,
   });
@@ -102,6 +102,14 @@ function canAccessHandoff(ctx: any, handoff: Handoff): boolean {
   }
 
   return Boolean(handoff.connectionId && handoff.connectionId === connectionFor(ctx));
+}
+
+function canAccessBridgeEvent(ctx: any, event: any): boolean {
+  if (event.ownerId === ctx.auth.userId) {
+    return true;
+  }
+
+  return Boolean(event.connectionId && event.connectionId === connectionFor(ctx));
 }
 
 function normalizeCardsJson(cardsJson: string): SwipeCard[] {
@@ -271,6 +279,7 @@ export default capsule({
       code: string(),
       connectionId: string(),
       threadId: string(),
+      customPrompt: string().default(defaultCustomPrompt),
       status: string().default("active"),
       expiresAt: string(),
       pairedAt: string().default(""),
@@ -362,6 +371,7 @@ export default capsule({
         code,
         connectionId,
         threadId: integration.codexThreadId || defaultCodexThreadId,
+        customPrompt: integration.customPrompt || defaultCustomPrompt,
         status: "active",
         expiresAt: minutesFromNow(2),
         pairedAt: "",
@@ -383,7 +393,7 @@ export default capsule({
         connectionId: row.connectionId,
         pairedUntil: hoursFromNow(24),
         codexThreadId: row.threadId || defaultCodexThreadId,
-        customPrompt: existing?.customPrompt || defaultCustomPrompt,
+        customPrompt: row.customPrompt || existing?.customPrompt || defaultCustomPrompt,
       };
 
       if (existing) {
@@ -588,7 +598,7 @@ export default capsule({
     markBridgeSent: mutation((ctx, id: string, response: string) => {
       const event = ctx.db.bridgeEvents.get(id);
 
-      if (!event || event.ownerId !== ctx.auth.userId) {
+      if (!event || !canAccessBridgeEvent(ctx, event)) {
         return;
       }
 
@@ -599,7 +609,7 @@ export default capsule({
 
       const handoff = ctx.db.handoffs.get(event.handoffRowId);
 
-      if (handoff && handoff.ownerId === event.ownerId) {
+      if (handoff && canAccessHandoff(ctx, handoff)) {
         ctx.db.handoffs.update(handoff.id, {
           status: "codex_resumed",
         });
@@ -609,7 +619,7 @@ export default capsule({
     markBridgeFailed: mutation((ctx, id: string, error: string) => {
       const event = ctx.db.bridgeEvents.get(id);
 
-      if (!event || event.ownerId !== ctx.auth.userId) {
+      if (!event || !canAccessBridgeEvent(ctx, event)) {
         return;
       }
 
@@ -620,7 +630,7 @@ export default capsule({
 
       const handoff = ctx.db.handoffs.get(event.handoffRowId);
 
-      if (handoff && handoff.ownerId === event.ownerId) {
+      if (handoff && canAccessHandoff(ctx, handoff)) {
         ctx.db.handoffs.update(handoff.id, {
           status: "failed",
         });

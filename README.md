@@ -47,6 +47,58 @@ You can target a specific local project and initial wait prompt:
 npm run bridge:start-thread -- --cwd C:\path\to\project --prompt "Wait for JustSwipe before editing. Ask for the first decision and end with AWAITING_JUSTSWIPE_RESPONSE."
 ```
 
+## Install Shapes
+
+JustSwipe has two parts:
+
+- the Lakebed app, which can run locally or hosted
+- the laptop bridge, which must run on the machine that can talk to Codex
+
+For a local-only install, run the app and bridge on the same laptop:
+
+```powershell
+npm run dev
+npm run bridge:pair
+npm run bridge:watch
+```
+
+Open the printed pair link or paste the short code in the connection modal. The
+browser session stays paired for the day.
+
+For a hosted Lakebed install, deploy the app, then point the laptop bridge at the
+hosted URL:
+
+```powershell
+npx lakebed deploy --json
+npm run bridge:start-thread -- --app-url https://your-deploy-url --cwd C:\path\to\project --prompt "Wait for JustSwipe steering before editing."
+npm run bridge:pair -- --app-url https://your-deploy-url
+npm run bridge:watch -- --app-url https://your-deploy-url
+```
+
+Hosted JustSwipe starts disconnected on purpose. Lakebed cannot know which phone
+or browser belongs to the local Codex bridge until you open a pair link such as:
+
+```txt
+https://your-deploy-url/?justswipe_pair=ABC-123
+```
+
+The code expires after 2 minutes. A successful pair creates a day-long
+connection for that browser session.
+
+Create or save the Codex thread before pairing, because the pair code copies the
+current thread id and bridge prompt into the browser session.
+
+For repo-agent install, copy these files into the repo Codex will work on:
+
+```txt
+AGENTS.md
+skills/justswipe/SKILL.md
+```
+
+Then tell the Codex thread to use the `justswipe` skill when it needs human
+steering. The thread should emit `JUSTSWIPE_HANDOFF_JSON` packets and stop with
+`AWAITING_JUSTSWIPE_RESPONSE <handoff-id>` until the bridge sends a response.
+
 ## Pair A Phone Or Browser
 
 Create a short-lived connection code from the laptop-side bridge:
@@ -57,6 +109,12 @@ npm run bridge:pair
 
 The code looks like `ABC-123`, expires after 2 minutes, and pairs the browser to
 the current JustSwipe connection for the day.
+
+Use `--app-url` when the app is hosted:
+
+```powershell
+npm run bridge:pair -- --app-url https://your-deploy-url
+```
 
 ## Demo Handoff
 
@@ -93,6 +151,7 @@ npm run bridge
 npm run bridge:all
 npm run bridge:watch
 npm run bridge:start-thread
+npm run bridge:clear
 npm run handoff:todo
 ```
 
@@ -104,6 +163,10 @@ Use thread ids created by `bridge:start-thread` or another app-server-compatible
 Codex thread. Some background/app-created threads can be readable but not
 resumable through the local app-server protocol; in that case the bridge fails
 closed and tells you to use an app-server thread or `--relay exec`.
+
+`bridge:clear` clears local handoffs and queued bridge events for the current
+connection. Use it when you want the empty-deck planning prompt or a clean
+manual test state.
 
 ## Verify
 
