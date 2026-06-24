@@ -6,17 +6,26 @@
 
 **Pause. Decide. Move forward.**
 
-This repo contains the JustSwipe Lakebed app, local Codex bridge, public install doc, and brand assets.
+JustSwipe is a low-attention decision layer for Codex and agentic engineering.
 
-JustSwipe is a cloud swipe UI for steering Codex. Codex pauses with one clear decision card, you swipe or add a short answer, and the local bridge sends that response back into the thread.
+Codex is great when you are sitting in the thread. JustSwipe is for the moments when Codex needs quick human judgment while you are doing something else. It turns agent questions into small swipe cards you can answer from your phone, laptop, or desktop, then the local bridge sends that answer back into the same Codex thread.
 
-**Useful For**
+**Why Use It Over Normal Codex Chat**
 
-- quick yes/no calls
-- option picks
-- design taste checks
-- scope and risk checkpoints
-- phone-friendly feedback while Codex works locally
+- Codex can keep working without you watching the thread all day.
+- You get one clear decision at a time instead of a long chat interruption.
+- You can respond from anywhere with a swipe, quick reply, or short custom answer.
+- Codex can ask for taste, scope, risk, planning, or checkpoint input without derailing your day.
+- The response is structured, so Codex can resume with the exact signal it asked for.
+
+**What It Is Useful For**
+
+- approving the next build slice
+- choosing between implementation options
+- giving UI/UX taste feedback
+- catching risk before Codex keeps going
+- starting planning discussions from an empty deck
+- checking agent work while away from your main machine
 
 **Paste Into Codex**
 
@@ -27,6 +36,20 @@ https://clear-harbor-b4fc257b5a.lakebed.app/install.md
 
 Assume you can inspect this repo, edit files, and run local commands. Preserve existing repo instructions. Install JustSwipe steering, verify it, and use hosted JustSwipe whenever you need a human decision.
 ```
+
+**Why This Exists**
+
+AI agents make software work faster, but they also create more tiny decisions: approve this direction, pick this option, clarify this edge case, review this screen, continue or stop. That oversight load can become its own fatigue.
+
+JustSwipe is a direct response to that. It gamifies the human-input loop without turning it into a toy: one card, clear context, quick action, agent resumes. It is built for shorter attention windows, interruption-heavy days, and agentic systems that need occasional high-quality human signal.
+
+**Sources**
+
+- [Harvard Business Review: When Using AI Leads to "Brain Fry"](https://hbr.org/2026/03/when-using-ai-leads-to-brain-fry)
+- [Thoughtworks: The Paradox of Acceleration](https://www.thoughtworks.com/en-us/insights/blog/generative-ai/paradox-acceleration-overcoming-ai-decision-fatigue-bottlenecks)
+- [Fast Company: How AI Is Quietly Exhausting You](https://www.fastcompany.com/91523806/how-ai-is-quietly-exhausting-you-and-what-to-do-about-it)
+- [The Decision Lab: Decision Fatigue](https://thedecisionlab.com/biases/decision-fatigue)
+- [American Psychological Association: Why Our Attention Spans Are Shrinking](https://www.apa.org/news/podcasts/speaking-of-psychology/attention-spans)
 
 **Run The Bridge**
 
