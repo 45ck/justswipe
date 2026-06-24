@@ -1,0 +1,23 @@
+{
+  "name": "justswipe",
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/45ck/justswipe.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes lakebed dev . --port 3001",
+    "build": "npx --yes lakebed build . --target anonymous --out .lakebed/artifacts/app.json --json",
+    "bridge": "node scripts/justswipe-codex-bridge.mjs --once",
+    "bridge:all": "node scripts/justswipe-codex-bridge.mjs --all",
+    "bridge:watch": "node scripts/justswipe-codex-bridge.mjs --watch",
+    "bridge:dry-run": "node scripts/justswipe-codex-bridge.mjs --dry-run",
+    "bridge:pair": "node scripts/justswipe-codex-bridge.mjs --pair",
+    "handoff:demo": "node scripts/justswipe-codex-bridge.mjs --demo-handoff",
+    "db": "npx --yes lakebed db dump --port 3001",
+    "logs": "npx --yes lakebed logs --port 3001"
+  }
+}
