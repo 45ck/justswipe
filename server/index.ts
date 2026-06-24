@@ -477,6 +477,22 @@ export default capsule({
       },
     ),
 
+    clearConnectionState: mutation((ctx) => {
+      const connectionId = connectionFor(ctx);
+
+      if (!connectionId) {
+        return;
+      }
+
+      for (const row of ctx.db.handoffs.where("connectionId", connectionId).all()) {
+        ctx.db.handoffs.delete(row.id);
+      }
+
+      for (const row of ctx.db.bridgeEvents.where("connectionId", connectionId).all()) {
+        ctx.db.bridgeEvents.delete(row.id);
+      }
+    }),
+
     submitCardResponse: mutation(
       (
         ctx,

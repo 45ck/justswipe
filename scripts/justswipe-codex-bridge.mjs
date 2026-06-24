@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,9 +12,16 @@ const runAll = args.has("--all");
 const watch = args.has("--watch");
 const pair = args.has("--pair");
 const demoHandoff = args.has("--demo-handoff");
+const startThread = args.has("--start-thread");
+const todoHandoff = args.has("--todo-handoff");
+const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
-const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "90000", 10);
+const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "240000", 10);
+const threadCwd = valueAfter("--cwd") ?? root;
+const threadPrompt =
+  valueAfter("--prompt") ??
+  "You are the Codex worker behind JustSwipe. Wait for a JustSwipe decision before editing files. Reply in under 120 words with the decision you need, then end with AWAITING_JUSTSWIPE_RESPONSE.";
 
 function valueAfter(flag) {
   const index = process.argv.indexOf(flag);
@@ -69,12 +76,248 @@ function run(command, commandArgs, options = {}) {
   });
 }
 
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function findCodexEntrypoint() {
+  if (process.env.CODEX_APP_SERVER_JS) {
+    if (!(await pathExists(process.env.CODEX_APP_SERVER_JS))) {
+      throw new Error(`CODEX_APP_SERVER_JS does not exist: ${process.env.CODEX_APP_SERVER_JS}`);
+    }
+
+    return {
+      command: process.execPath,
+      args: [process.env.CODEX_APP_SERVER_JS],
+    };
+  }
+
+  if (process.platform !== "win32") {
+    return {
+      command: "codex",
+      args: [],
+    };
+  }
+
+  const where = await run("where.exe", ["codex"]);
+  const candidates = where.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => join(dirname(line), "node_modules", "@openai", "codex", "bin", "codex.js"));
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return {
+        command: process.execPath,
+        args: [candidate],
+      };
+    }
+  }
+
+  throw new Error(
+    "Could not locate the Codex app-server entrypoint. Set CODEX_APP_SERVER_JS to @openai/codex/bin/codex.js.",
+  );
+}
+
 function parseDump(stdout) {
   const jsonStart = stdout.indexOf("{");
   if (jsonStart < 0) {
     throw new Error("Lakebed DB dump did not include JSON.");
   }
   return JSON.parse(stdout.slice(jsonStart));
+}
+
+function finalTextFromTurn(turn) {
+  const items = Array.isArray(turn?.items) ? turn.items : [];
+  const finalAnswer = [...items]
+    .reverse()
+    .find((item) => item.type === "agentMessage" && item.phase === "final_answer");
+  const lastAgentMessage = [...items]
+    .reverse()
+    .find((item) => item.type === "agentMessage");
+
+  return (finalAnswer?.text || lastAgentMessage?.text || "").trim();
+}
+
+function finalTextFromThreadRead(result, turnId) {
+  const turns = Array.isArray(result?.thread?.turns)
+    ? result.thread.turns
+    : Array.isArray(result?.turns)
+      ? result.turns
+      : [];
+  const matchingTurn = turns.find((turn) => turn.id === turnId) || turns[0];
+
+  return finalTextFromTurn(matchingTurn);
+}
+
+async function createAppServerClient() {
+  const entrypoint = await findCodexEntrypoint();
+  const child = spawn(
+    entrypoint.command,
+    [...entrypoint.args, "app-server", "--listen", "stdio://"],
+    {
+      cwd: root,
+      windowsHide: true,
+    },
+  );
+  const pending = new Map();
+  const notifications = new Map();
+  let buffer = "";
+  let stderr = "";
+  let nextId = 1;
+  let closed = false;
+
+  function close() {
+    if (closed) return;
+    closed = true;
+
+    try {
+      child.stdin.end();
+    } catch {
+      // The process may already be closing.
+    }
+
+    setTimeout(() => {
+      if (child.exitCode !== null) return;
+      if (process.platform === "win32") {
+        spawn("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
+          windowsHide: true,
+        });
+      } else {
+        child.kill("SIGKILL");
+      }
+    }, 500);
+  }
+
+  function emitNotification(message) {
+    const listeners = notifications.get(message.method) || [];
+
+    for (const listener of listeners) {
+      listener(message.params);
+    }
+  }
+
+  function handleLine(line) {
+    let message;
+
+    try {
+      message = JSON.parse(line);
+    } catch {
+      return;
+    }
+
+    if (message.id !== undefined && pending.has(message.id)) {
+      const request = pending.get(message.id);
+      pending.delete(message.id);
+
+      if (message.error) {
+        request.reject(new Error(message.error.message || JSON.stringify(message.error)));
+      } else {
+        request.resolve(message.result);
+      }
+
+      return;
+    }
+
+    if (message.method) {
+      emitNotification(message);
+    }
+  }
+
+  child.stdout?.on("data", (chunk) => {
+    buffer += String(chunk);
+
+    let newlineIndex = buffer.indexOf("\n");
+    while (newlineIndex >= 0) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (line) {
+        handleLine(line);
+      }
+
+      newlineIndex = buffer.indexOf("\n");
+    }
+  });
+
+  child.stderr?.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+
+  child.on("close", () => {
+    for (const request of pending.values()) {
+      request.reject(new Error(`Codex app-server closed before responding.\n${stderr.trim()}`));
+    }
+    pending.clear();
+  });
+
+  function request(method, params) {
+    const id = nextId;
+    nextId += 1;
+
+    return new Promise((resolvePromise, reject) => {
+      pending.set(id, { resolve: resolvePromise, reject });
+      child.stdin.write(JSON.stringify({ id, method, params }) + "\n");
+    });
+  }
+
+  function onceNotification(method, predicate, timeoutMs) {
+    return new Promise((resolvePromise, reject) => {
+      let remove = () => {};
+      const timer = setTimeout(() => {
+        remove();
+        reject(new Error(`Timed out waiting for ${method}.`));
+      }, timeoutMs);
+      const listener = (params) => {
+        if (predicate && !predicate(params)) {
+          return;
+        }
+
+        clearTimeout(timer);
+        remove();
+        resolvePromise(params);
+      };
+
+      remove = () => {
+        const listeners = notifications.get(method) || [];
+        notifications.set(
+          method,
+          listeners.filter((item) => item !== listener),
+        );
+      };
+
+      notifications.set(method, [...(notifications.get(method) || []), listener]);
+    });
+  }
+
+  await request("initialize", {
+    clientInfo: {
+      name: "justswipe-bridge",
+      title: "JustSwipe bridge",
+      version: "0.1.0",
+    },
+    capabilities: {
+      experimentalApi: true,
+      requestAttestation: false,
+      optOutNotificationMethods: [
+        "item/agentMessage/delta",
+        "rawResponseItem/completed",
+        "item/reasoning/textDelta",
+      ],
+    },
+  });
+
+  return {
+    request,
+    onceNotification,
+    close,
+  };
 }
 
 function queuedEvents(db) {
@@ -109,14 +352,18 @@ async function dumpDb() {
   return parseDump(result.stdout);
 }
 
-async function runCodex(event) {
+function promptForEvent(event) {
+  return `${event.prompt}
+
+Keep normal prose under 180 words. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above.`;
+}
+
+async function runCodexExec(event) {
   await mkdir(bridgeDir, { recursive: true });
   const safeId = event.id.replace(/[^a-zA-Z0-9-]/g, "");
   const promptPath = join(bridgeDir, `${safeId}.prompt.txt`);
   const responsePath = join(bridgeDir, `${safeId}.response.txt`);
-  const prompt = `${event.prompt}
-
-Keep normal prose under 180 words. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above.`;
+  const prompt = promptForEvent(event);
 
   await writeFile(promptPath, prompt, "utf8");
   const command = [
@@ -145,6 +392,80 @@ Keep normal prose under 180 words. If you need another JustSwipe card bundle, ap
     throw new Error("codex exec completed without a response body.");
   }
   return response;
+}
+
+async function runCodexAppServer(event) {
+  if (!event.threadId) {
+    throw new Error("Codex app-server relay needs a threadId on the bridge event.");
+  }
+
+  const client = await createAppServerClient();
+  let turnId = "";
+
+  try {
+    try {
+      await client.request("thread/resume", { threadId: event.threadId });
+    } catch (error) {
+      throw new Error(
+        [
+          `Could not resume Codex thread ${event.threadId} through app-server.`,
+          "Use a thread created by the native app-server bridge, or rerun with --relay exec for the isolated CLI fallback.",
+          error instanceof Error ? error.message : String(error),
+        ].join("\n"),
+      );
+    }
+
+    const turn = await client.request("turn/start", {
+      threadId: event.threadId,
+      input: [
+        {
+          type: "text",
+          text: promptForEvent(event),
+          text_elements: [],
+        },
+      ],
+    });
+    turnId = turn?.turn?.id || "";
+
+    if (!turnId) {
+      throw new Error("Codex app-server did not return a turn id.");
+    }
+
+    const completed = await client.onceNotification(
+      "turn/completed",
+      (params) => params?.threadId === event.threadId && params?.turn?.id === turnId,
+      codexTimeoutMs,
+    );
+    let response = finalTextFromTurn(completed?.turn);
+
+    if (!response) {
+      const refreshed = await client.request("thread/read", {
+        threadId: event.threadId,
+        includeTurns: true,
+      });
+      response = finalTextFromThreadRead(refreshed, turnId);
+    }
+
+    if (!response) {
+      throw new Error("Codex app-server completed without a final response body.");
+    }
+
+    return response;
+  } finally {
+    client.close();
+  }
+}
+
+async function runCodex(event) {
+  if (relayMode === "exec") {
+    return runCodexExec(event);
+  }
+
+  if (relayMode === "app-server") {
+    return runCodexAppServer(event);
+  }
+
+  throw new Error(`Unknown relay mode "${relayMode}". Use app-server or exec.`);
 }
 
 function extractNextHandoff(response) {
@@ -270,7 +591,145 @@ async function createDemoHandoff() {
   console.log("Demo handoff bundle reset.");
 }
 
+function todoHandoffCard() {
+  return {
+    cardId: "todo-first-slice",
+    title: "Pick the first todo slice",
+    summary:
+      "The todo Codex thread is waiting for one product direction before it edits files.",
+    recommendedAction: "yes",
+    visualContext:
+      "Thread: native Codex todo worker | App goal: tiny local todo app | Decision needed: first useful slice",
+    questionType: "adaptive_form",
+    yesPayloadSchema: [],
+    noPayloadSchema: [],
+    morePayloadSchema: [],
+    laterPayloadSchema: [],
+    optionPayloadSchemas: {},
+    quickRepliesByAction: {
+      yes: [
+        "Build add-and-list todos first",
+        "Keep it one-screen and minimal",
+        "Start with localStorage persistence",
+        "Make completion swipeable first",
+      ],
+      no: [
+        "Do not build yet",
+        "Ask for a smaller prototype",
+        "Clarify the target user first",
+      ],
+      more: [
+        "Show 3 todo slice options",
+        "Compare storage vs UI first",
+        "Give the lowest-risk path",
+      ],
+      later: [
+        "Ask me after setup",
+        "Save this decision",
+      ],
+    },
+    requiredFieldsByAction: {},
+    agentHtmlPreview:
+      "<section><h2>Todo first slice</h2><p>Choose the smallest useful todo behavior for Codex to build now.</p><ul><li>Add todo input</li><li>Visible task list</li><li>Complete/delete affordance</li><li>Local persistence optional</li></ul><button>Build add-and-list todos first</button><button>Show alternatives</button></section>",
+  };
+}
+
+async function createTodoHandoff() {
+  const db = await dumpDb();
+  const integration = db.tables?.integrations?.[0];
+  const connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "local-demo";
+  const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
+
+  if (!threadId) {
+    throw new Error("No Codex thread id is saved. Run npm run bridge:start-thread first or pass --thread-id.");
+  }
+
+  await runMutation("clearConnectionState", []);
+  const handoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    threadId,
+    JSON.stringify([todoHandoffCard()]),
+    "Todo Codex thread is blocked on the first build slice.",
+  ]);
+
+  console.log(`Todo handoff queued: ${handoffId}`);
+  console.log(`Thread: ${threadId}`);
+}
+
+async function startNativeThread() {
+  const cwd = resolve(threadCwd);
+
+  await mkdir(cwd, { recursive: true });
+
+  const client = await createAppServerClient();
+  let threadId = "";
+  let final = "";
+
+  try {
+    const started = await client.request("thread/start", {
+      cwd,
+      ephemeral: false,
+      threadSource: "user",
+    });
+    threadId = started?.thread?.id || "";
+
+    if (!threadId) {
+      throw new Error("Codex app-server did not return a thread id.");
+    }
+
+    if (threadPrompt.trim()) {
+      const turn = await client.request("turn/start", {
+        threadId,
+        input: [
+          {
+            type: "text",
+            text: threadPrompt.trim(),
+            text_elements: [],
+          },
+        ],
+      });
+      const turnId = turn?.turn?.id || "";
+
+      if (!turnId) {
+        throw new Error("Codex app-server did not return an initial turn id.");
+      }
+
+      const completed = await client.onceNotification(
+        "turn/completed",
+        (params) => params?.threadId === threadId && params?.turn?.id === turnId,
+        codexTimeoutMs,
+      );
+      final = finalTextFromTurn(completed?.turn);
+    }
+  } finally {
+    client.close();
+  }
+
+  const db = await dumpDb();
+  const integration = db.tables?.integrations?.[0];
+  await runMutation("saveIntegration", [
+    threadId,
+    integration?.customPrompt || "Treat JustSwipe packets as user steering, then continue or ask another JustSwipe card.",
+  ]);
+
+  console.log(`Native Codex thread created and saved: ${threadId}`);
+  console.log(`cwd: ${cwd}`);
+  if (final) {
+    console.log(final);
+  }
+}
+
 async function main() {
+  if (startThread) {
+    await startNativeThread();
+    return;
+  }
+
+  if (todoHandoff) {
+    await createTodoHandoff();
+    return;
+  }
+
   if (pair) {
     await createPairingCode();
     return;
@@ -282,7 +741,7 @@ async function main() {
   }
 
   if (watch) {
-    console.log(`Watching JustSwipe responses on port ${port}.`);
+    console.log(`Watching JustSwipe responses on port ${port} with ${relayMode} relay.`);
     while (true) {
       const handled = await processQueued({ all: false, quiet: true });
       if (!handled) {
@@ -315,6 +774,7 @@ async function processQueued({ all, quiet }) {
           action: event.action,
           connectionId: event.connectionId,
           threadId: event.threadId,
+          relayMode,
           queuedCount: queuedEvents(db).length,
           promptPreview: event.prompt.slice(0, 260),
         },
