@@ -12,6 +12,8 @@ When you need human direction, stop the long chat question and emit a JustSwipe 
 
 Hosted JustSwipe is the primary user surface. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
 
+Do not build JustSwipe, recreate its UI, or add a replacement JustSwipe browser control page to target repos. Target repos receive the steering contract only; the hosted app and local bridge provide the runtime loop.
+
 The bridge is the listener: JustSwipe stores swipe/form responses as queued bridge events, and `npm run bridge:watch -- --app-url <hosted-url>` relays those events back into the saved Codex thread.
 
 End the turn with this exact status when waiting:

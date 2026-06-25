@@ -68,6 +68,22 @@ The expected flow is:
 
 Phones should not connect directly to local IPs in the default MVP. Hosted JustSwipe is the shared state and the local bridge is the trusted messenger.
 
+## Cloud-First Install Contract
+
+Every normal user starts with the hosted app. The target repo should not receive a JustSwipe app implementation.
+
+Install means:
+
+1. Add the repo steering contract.
+2. Locate or clone the local bridge tooling outside the target repo.
+3. Create a hosted pair code/link.
+4. Open the pair link automatically for desktop pairing when possible.
+5. Print the same code/link for phone or second-browser pairing.
+6. Queue a setup handoff so the user can confirm the connection from hosted JustSwipe.
+7. Stop before project work until setup is proven or the exact blocker is reported.
+
+If Codex cannot identify the current thread id, it should use the automatic bridge-created thread path. If a thread id is known, it can use the existing-thread path with `--thread-id`.
+
 ## Future Account Model
 
 Google sign-in or another identity layer is useful later for convenience, not for MVP routing.
@@ -89,5 +105,6 @@ Even with accounts, the bridge still needs to register a trusted local connectio
 - Add Device modal in the app with QR and expiry countdown.
 - Device list and revoke controls.
 - Cleaner bridge status: connected repo, thread id, paired devices, queued cards, last response.
+- Better current-thread attachment so a pasted prompt can bind the current Codex thread without creating a bridge-managed thread.
 - Optional Google sign-in after accountless pairing is proven.
 - Split send/receive skills only after live testing proves the single skill causes model confusion.

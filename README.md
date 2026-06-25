@@ -33,11 +33,15 @@ Codex decides what context belongs on each card. A card can stay as plain text, 
 **Paste Into Codex**
 
 ```txt
-Read and follow this JustSwipe install doc:
+Read and follow this cloud-first JustSwipe install doc:
 
 https://clear-harbor-b4fc257b5a.lakebed.app/install.md
 
-Assume you can inspect this repo, edit files, and run local commands. Preserve existing repo instructions. Install JustSwipe steering, verify it, and use hosted JustSwipe whenever you need a human decision.
+Use the hosted JustSwipe app. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement.
+
+Install only the repo steering contract, preserve existing repo instructions, set up pairing to hosted JustSwipe, and open the pair link automatically if you can. Print the pair code/link too so I can pair my phone or another browser.
+
+Before continuing my project work, prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created, and setup handoff queued or exact blocker reported.
 ```
 
 **Why This Exists**
@@ -55,7 +59,8 @@ $app = "https://clear-harbor-b4fc257b5a.lakebed.app"
 $repo = "C:\path\to\your-repo"
 
 npm run bridge:start-thread -- --app-url $app --cwd $repo --prompt "Use hosted JustSwipe for steering. Stop and wait after any JustSwipe handoff."
-npm run bridge:pair -- --app-url $app
+npm run bridge:pair -- --app-url $app --open
+npm run handoff:setup -- --app-url $app
 npm run bridge:watch -- --app-url $app
 ```
 

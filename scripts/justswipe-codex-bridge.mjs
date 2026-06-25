@@ -14,8 +14,11 @@ const dryRun = args.has("--dry-run");
 const runAll = args.has("--all");
 const watch = args.has("--watch");
 const pair = args.has("--pair");
+const openPairLink = args.has("--open") || args.has("--open-browser");
 const demoHandoff = args.has("--demo-handoff");
 const startThread = args.has("--start-thread");
+const setupHandoff = args.has("--setup-handoff");
+const setup = args.has("--setup");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
@@ -60,6 +63,25 @@ function pairingLink(code) {
   const base = new URL(appBaseUrl());
   base.searchParams.set("justswipe_pair", code);
   return base.href;
+}
+
+function openUrl(url) {
+  let command = "xdg-open";
+  let commandArgs = [url];
+
+  if (process.platform === "win32") {
+    command = "cmd.exe";
+    commandArgs = ["/c", "start", "", url];
+  } else if (process.platform === "darwin") {
+    command = "open";
+  }
+
+  const child = spawn(command, commandArgs, {
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  child.unref();
 }
 
 function ownerIdForGuest() {
@@ -664,9 +686,14 @@ async function maybeCreateNextHandoff(event, response) {
 
 async function createPairingCode() {
   const code = await runMutation("createPairingCode", []);
+  const link = pairingLink(code);
   console.log(`JustSwipe pairing code: ${code}`);
-  console.log(`Pair link: ${pairingLink(code)}`);
+  console.log(`Pair link: ${link}`);
   console.log("Expires in 2 minutes. The paired browser stays connected for today.");
+  if (openPairLink) {
+    openUrl(link);
+    console.log("Opened pair link in the default browser.");
+  }
   return code;
 }
 
@@ -716,6 +743,76 @@ function todoHandoffCard() {
     agentHtmlPreview:
       "<section><h2>Todo first slice</h2><p>Choose the smallest useful todo behavior for Codex to build now.</p><ul><li>Add todo input</li><li>Visible task list</li><li>Complete/delete affordance</li><li>Local persistence optional</li></ul><button>Build add-and-list todos first</button><button>Show alternatives</button></section>",
   };
+}
+
+function setupHandoffCard(code, link) {
+  return {
+    cardId: "justswipe-setup",
+    title: "Connect this repo to JustSwipe?",
+    summary:
+      "Pair your browser or phone with hosted JustSwipe before Codex keeps working in this repo.",
+    recommendedAction: "yes",
+    visualContext: `Pair code: ${code}. Pair link: ${link}. Use desktop, phone, or both.`,
+    questionType: "yes_no",
+    yesPayloadSchema: [],
+    noPayloadSchema: [],
+    morePayloadSchema: [],
+    laterPayloadSchema: [],
+    optionPayloadSchemas: {},
+    quickRepliesByAction: {
+      yes: [
+        "Use desktop browser",
+        "Use phone",
+        "Use both desktop and phone",
+        "Pair now, then continue",
+      ],
+      no: [
+        "Do not pair yet",
+        "Show manual setup steps",
+        "Use normal Codex chat for now",
+      ],
+      more: [
+        "Explain the bridge",
+        "Show phone setup",
+        "Show desktop setup",
+      ],
+      later: [
+        "Ask again after repo setup",
+        "Park pairing for later",
+      ],
+    },
+    requiredFieldsByAction: {},
+    agentHtmlPreview:
+      `<section><h2>Hosted JustSwipe setup</h2><p>Open the pair link on desktop, phone, or both. Do not build a replacement JustSwipe UI in this repo.</p><ul><li>Code: <strong>${code}</strong></li><li>Pair link: ${link}</li><li>After pairing, Codex can send one-card decisions to hosted JustSwipe.</li></ul><button>Use desktop</button><button>Use phone</button><button>Use both</button></section>`,
+  };
+}
+
+async function createSetupHandoff() {
+  const code = await createPairingCode();
+  const link = pairingLink(code);
+  const db = await dumpDb();
+  const integration = integrationForGuest(db);
+  const connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
+  const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
+
+  if (!threadId) {
+    throw new Error("No Codex thread id is saved. Run npm run bridge:start-thread first or pass --thread-id.");
+  }
+
+  if (!connectionId) {
+    throw new Error(`Could not create a JustSwipe connection for pairing code ${code}.`);
+  }
+
+  await runMutation("clearConnectionState", []);
+  const handoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    threadId,
+    JSON.stringify([setupHandoffCard(code, link)]),
+    "Connect this repo to hosted JustSwipe.",
+  ]);
+
+  console.log(`Setup handoff queued: ${handoffId}`);
+  console.log(`Thread: ${threadId}`);
 }
 
 async function createTodoHandoff() {
@@ -825,8 +922,20 @@ async function main() {
     return;
   }
 
+  if (setup) {
+    await startNativeThread();
+    await createSetupHandoff();
+    console.log("Start the watcher with: npm run bridge:watch -- --app-url " + appBaseUrl());
+    return;
+  }
+
   if (startThread) {
     await startNativeThread();
+    return;
+  }
+
+  if (setupHandoff) {
+    await createSetupHandoff();
     return;
   }
 

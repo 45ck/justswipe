@@ -9,6 +9,8 @@ Use JustSwipe as a low-attention decision remote for agent work. Ask one clear q
 
 Hosted JustSwipe starts disconnected. The laptop bridge creates a pair code or `?justswipe_pair=ABC-123` share link, and the browser session must pair before it can see cards or send planning prompts. Do not assume a cloud browser belongs to the Codex bridge until that pairing is complete.
 
+Do not build JustSwipe or a replacement browser UI inside the target repo. The hosted app already exists. The target repo only gets instructions and the local bridge connection.
+
 ## Install In A Repo
 
 Merge JustSwipe into the target repo without replacing existing repo guidance:
@@ -19,6 +21,8 @@ Merge JustSwipe into the target repo without replacing existing repo guidance:
 - If `skills/justswipe/SKILL.md` does not exist, create it from this skill.
 
 Then tell the working Codex thread to use the `justswipe` skill when it needs human steering.
+
+Before doing unrelated project work, pair the hosted app or report the exact blocker. If the bridge can open a browser, use the pair link with the `justswipe_pair` parameter and also print the code/link for phone pairing.
 
 Use this copy prompt for installation:
 

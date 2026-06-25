@@ -1,21 +1,35 @@
-export const justSwipeInstallMarkdown = `# JustSwipe Install For Codex
+export const justSwipeInstallMarkdown = `# JustSwipe Cloud Install For Codex
 
-You are Codex working inside a target repo. Assume you can inspect files, edit files, and run local commands.
+You are Codex working inside a target repo.
 
 Hosted JustSwipe app:
 https://clear-harbor-b4fc257b5a.lakebed.app
 
-Goal:
-Install JustSwipe as a steering loop for this repo. Codex should pause for short human decisions through hosted JustSwipe, then continue after the local bridge sends the response back into the thread.
+Bridge repo:
+https://github.com/45ck/justswipe
 
-Do this:
+## Non-Negotiable Boundary
+
+Use the hosted JustSwipe app. Do not build JustSwipe. Do not recreate a JustSwipe UI, swipe UI, bridge UI, or browser control page inside the target repo.
+
+The target repo only receives steering instructions:
+
+1. Preserve or create AGENTS.md.
+2. Create or update skills/justswipe/SKILL.md.
+3. Configure Codex to emit and consume JustSwipe handoff packets.
+
+The local bridge is separate tooling. It talks to the hosted app and relays responses back into Codex.
+
+## Install The Repo Contract
+
 1. Inspect the repo before editing.
 2. Preserve existing instructions. If AGENTS.md exists, append a JustSwipe section. Do not replace existing content.
 3. If AGENTS.md is missing, create it.
 4. Create or update skills/justswipe/SKILL.md.
-5. If this repo has package scripts or docs for local setup, use them. You may run commands needed to verify your changes.
+5. Do not continue the user's project work until the hosted pairing step is complete or clearly blocked.
 
 Add these JustSwipe rules to AGENTS.md and the skill:
+
 - Use JustSwipe when you need user taste, clarification, a checkpoint, a visual decision, or you are stuck.
 - Ask one clear decision per card.
 - Give 3 to 4 useful quick replies, then allow custom text.
@@ -25,6 +39,47 @@ Add these JustSwipe rules to AGENTS.md and the skill:
 - Treat JustSwipe responses as steering, not permission.
 - Do not claim you can see JustSwipe, the browser, or the user's machine unless tools prove it.
 - After a JustSwipe handoff, stop and wait. Do not keep working until a response packet arrives.
+
+## Pair Hosted JustSwipe
+
+After installing the repo contract, set up the cloud app connection.
+
+First locate bridge tooling:
+
+- If JUSTSWIPE_BRIDGE_DIR is set, use that directory.
+- Else if E:\\justswipe exists on Windows, use E:\\justswipe.
+- Else clone https://github.com/45ck/justswipe into the user's home directory under .justswipe/bridge.
+
+Then use one of these paths.
+
+Automatic path, preferred for a new JustSwipe-controlled Codex thread:
+
+powershell:
+$app = "https://clear-harbor-b4fc257b5a.lakebed.app"
+$repo = "<absolute path to target repo>"
+$bridge = "<absolute path to JustSwipe bridge repo>"
+
+Set-Location $bridge
+npm install
+npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
+npm run bridge:watch -- --app-url $app
+
+Existing-thread path, only if the current Codex thread id is known:
+
+powershell:
+$app = "https://clear-harbor-b4fc257b5a.lakebed.app"
+$bridge = "<absolute path to JustSwipe bridge repo>"
+$thread = "<current Codex thread id>"
+
+Set-Location $bridge
+npm install
+npm run bridge:pair -- --app-url $app --open
+npm run handoff:setup -- --app-url $app --thread-id $thread
+npm run bridge:watch -- --app-url $app
+
+If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
+
+## Handoff Format
 
 When you need a decision, emit this exact shape:
 
@@ -61,8 +116,19 @@ JUSTSWIPE_HANDOFF_JSON
 END_JUSTSWIPE_HANDOFF_JSON
 
 After emitting the packet, stop and end with:
+
 AWAITING_JUSTSWIPE_RESPONSE next-decision
 
-Bridge expectation:
-The user's local JustSwipe bridge watches the hosted app, relays swipe responses into this Codex thread, and may run commands locally. When a response packet arrives, use the installed JustSwipe skill (skills/justswipe/SKILL.md, or /justswipe if supported) to consume it as steering and continue the task.
+## Completion Standard
+
+A successful install means:
+
+- AGENTS.md is preserved or created.
+- skills/justswipe/SKILL.md exists.
+- Hosted JustSwipe pair code/link was created.
+- The pair link was opened automatically when possible.
+- The user was given the pair code/link for phone or second-browser pairing.
+- A setup handoff was queued, or the exact blocker and next command were reported.
+
+If any part is blocked, do not build a local replacement. Report the blocker and the exact next command.
 `;
