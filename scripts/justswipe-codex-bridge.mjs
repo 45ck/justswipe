@@ -21,6 +21,7 @@ const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
+const smoke = args.has("--smoke");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -878,6 +879,70 @@ async function createDemoHandoff() {
   console.log("Demo handoff bundle reset.");
 }
 
+async function runSmoke() {
+  await clearConnectionState();
+
+  const code = await runMutation("createPairingCode", [
+    JSON.stringify({
+      deviceId: "smoke-local-bridge",
+      label: "Smoke test browser",
+      browser: "Bridge",
+      platform: process.platform,
+    }),
+  ]);
+
+  if (!/^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(String(code))) {
+    throw new Error(`Smoke failed: invalid pair code "${code}".`);
+  }
+
+  const started = JSON.parse(
+    await runMutation("startPlanningDiscussion", [
+      "Smoke test idea. Do not call Codex from this smoke command.",
+      "",
+      "new_thread",
+    ]),
+  );
+
+  if (!started.ok) {
+    throw new Error(`Smoke failed: could not queue idea: ${started.error || "unknown error"}`);
+  }
+
+  const queued = queuedEvents(await dumpDb());
+  const event = queued[0];
+
+  if (!event) {
+    throw new Error("Smoke failed: no bridge event queued.");
+  }
+
+  if (event.action !== "project_idea_new_thread") {
+    throw new Error(`Smoke failed: expected project_idea_new_thread, got ${event.action}.`);
+  }
+
+  if (!event.connectionId || !event.handoffId || !event.prompt.includes("JUSTSWIPE PLANNING START")) {
+    throw new Error("Smoke failed: queued idea is missing required bridge packet fields.");
+  }
+
+  const claimed = await claimEvent(event);
+
+  if (!claimed.ok) {
+    throw new Error(`Smoke failed: could not claim queued event: ${claimed.error || "unknown error"}`);
+  }
+
+  const duplicateClaim = await claimEvent(event);
+
+  if (duplicateClaim.ok) {
+    throw new Error("Smoke failed: duplicate event claim was allowed.");
+  }
+
+  await markFailed(event, "Smoke test intentionally stopped before Codex relay.");
+  await clearConnectionState();
+
+  console.log("JustSwipe bridge smoke passed.");
+  console.log(`Pair code format: ${code}`);
+  console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
+  console.log("Duplicate claim blocked.");
+}
+
 function todoHandoffCard() {
   return {
     cardId: "todo-first-slice",
@@ -1137,6 +1202,11 @@ async function startNativeThread() {
 }
 
 async function main() {
+  if (smoke) {
+    await runSmoke();
+    return;
+  }
+
   if (clearState) {
     await clearConnectionState();
     return;
