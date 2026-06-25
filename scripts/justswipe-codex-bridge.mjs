@@ -26,8 +26,9 @@ const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
-const threadPrompt =
-  valueAfter("--prompt") ??
+const threadPromptArg = valueAfter("--prompt");
+const threadPromptFile = valueAfter("--prompt-file");
+const defaultThreadPrompt =
   "You are the Codex worker behind JustSwipe. Wait for a JustSwipe decision before editing files. Reply in under 120 words with the decision you need, then end with AWAITING_JUSTSWIPE_RESPONSE.";
 
 function valueAfter(flag) {
@@ -37,6 +38,14 @@ function valueAfter(flag) {
 
 function psQuote(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+async function readThreadPrompt() {
+  if (threadPromptFile) {
+    return (await readFile(resolve(threadPromptFile), "utf8")).trim();
+  }
+
+  return (threadPromptArg ?? defaultThreadPrompt).trim();
 }
 
 function appBaseUrl() {
@@ -855,6 +864,7 @@ async function clearConnectionState() {
 
 async function startNativeThread() {
   const cwd = resolve(threadCwd);
+  const prompt = await readThreadPrompt();
 
   await mkdir(cwd, { recursive: true });
 
@@ -874,13 +884,13 @@ async function startNativeThread() {
       throw new Error("Codex app-server did not return a thread id.");
     }
 
-    if (threadPrompt.trim()) {
+    if (prompt) {
       const turn = await client.request("turn/start", {
         threadId,
         input: [
           {
             type: "text",
-            text: threadPrompt.trim(),
+            text: prompt,
             text_elements: [],
           },
         ],

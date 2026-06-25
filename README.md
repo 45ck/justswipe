@@ -33,17 +33,21 @@ Codex decides what context belongs on each card. A card can stay as plain text, 
 **Paste Into Codex**
 
 ```txt
-Read and follow this cloud-first JustSwipe install doc:
+I want to use JustSwipe in this repo.
+
+First read and follow this cloud-first JustSwipe install doc:
 
 https://clear-harbor-b4fc257b5a.lakebed.app/install.md
 
 Use the hosted JustSwipe app as the only JustSwipe UI. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
 
-Install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
+Phase 1 is mandatory setup. Do not decide JustSwipe is unnecessary. Before doing my project work, install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
 
 Default to the frictionless path: open the hosted pair link automatically with the justswipe_pair parameter, print the same code/link for my phone, and ask me only if you need to know whether I want desktop, phone, or both.
 
-Before continuing my project work, prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, setup handoff queued, and bridge watch command running or exact blocker reported.
+Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, setup handoff queued, and bridge watch command running or exact blocker reported.
+
+After setup is proven, continue my project request normally. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 ```
 
 **Why This Exists**

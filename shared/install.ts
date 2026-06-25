@@ -20,7 +20,9 @@ The target repo only receives steering instructions:
 
 The local bridge is separate tooling. It talks to the hosted app and relays responses back into Codex.
 
-## Install The Repo Contract
+## Install The Repo Contract First
+
+This setup phase is mandatory. Do not decide JustSwipe is unnecessary because the current project request seems clear. Complete or clearly block setup before continuing normal project work.
 
 1. Inspect the repo before editing.
 2. Preserve existing instructions. If AGENTS.md exists, append a JustSwipe section. Do not replace existing content.
@@ -42,7 +44,7 @@ Add these JustSwipe rules to AGENTS.md and the skill:
 
 ## Pair Hosted JustSwipe
 
-After installing the repo contract, set up the cloud app connection.
+After installing the repo contract, set up the cloud app connection before continuing project work.
 
 Default setup behavior:
 
@@ -88,6 +90,8 @@ npm run bridge:watch -- --app-url $app
 If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
 
 The expected result is simple: the hosted app opens, the user can pair this browser, the same link can be opened on a phone, and both devices see the same JustSwipe cards for this repo connection.
+
+After setup is proven, continue the user's original project request. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 
 ## Handoff Format
 
