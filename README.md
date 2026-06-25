@@ -35,13 +35,17 @@ Codex decides what context belongs on each card. A card can stay as plain text, 
 ```txt
 I want to use JustSwipe in this repo.
 
-First read and follow this cloud-first JustSwipe install doc:
+First read and follow this JustSwipe install doc from GitHub:
 
-https://clear-harbor-b4fc257b5a.lakebed.app/install.md
+https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md
 
-Use the hosted JustSwipe app as the only JustSwipe UI. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
+Use the hosted JustSwipe app as the only JustSwipe UI:
 
-If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations. Switch the bridge app URL to local development (`npm run dev` in the JustSwipe bridge repo, then `$app = "http://localhost:3001"`) until hosted quota resets. Do not build a replacement JustSwipe UI in the target repo.
+https://clear-harbor-b4fc257b5a.lakebed.app
+
+Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
+
+If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations or hosted normal reads. Continue from the GitHub install doc above, switch the bridge app URL to local development (`npm run dev` in the JustSwipe bridge repo, then `$app = "http://localhost:3001"`) until hosted quota resets, and do not build a replacement JustSwipe UI in the target repo.
 
 Phase 1 is mandatory setup. Do not decide JustSwipe is unnecessary. Before doing my project work, install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
 
@@ -98,10 +102,13 @@ Report the exact blocker as: `hosted mutation quota exhausted; switch bridge app
 
 **Public Install Docs**
 
-- Hosted: `https://clear-harbor-b4fc257b5a.lakebed.app/install.md`
-- Alias: `https://clear-harbor-b4fc257b5a.lakebed.app/setup.md`
+- Primary, quota-safe: `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md`
 - Repo copy: `INSTALL.md`
+- Hosted mirror: `https://clear-harbor-b4fc257b5a.lakebed.app/install.md`
+- Alias mirror: `https://clear-harbor-b4fc257b5a.lakebed.app/setup.md`
 - Protocol and future flow: [docs/protocol.md](docs/protocol.md)
+
+Use the GitHub/raw doc for installation. The hosted mirrors are convenient when Lakebed quota is available, but they can be blocked by hosted quota because they are served by the Lakebed app.
 
 **Check**
 

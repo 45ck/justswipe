@@ -7,6 +7,8 @@ description: Use when a Codex thread or agent workflow should pause for human st
 
 Use JustSwipe as a low-attention decision remote for agent work. Ask one clear question, provide enough visual/contextual evidence to decide quickly, then wait for the structured response.
 
+Use `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md` as the canonical install document. Hosted `/install.md` and `/setup.md` are mirrors only; if Lakebed quota blocks hosted reads, keep using the GitHub/raw install doc and switch the bridge app URL to local dev when needed.
+
 Hosted JustSwipe starts disconnected. The laptop bridge creates a pair code or `?justswipe_pair=ABC-123` share link, and the browser session must pair before it can see cards or send planning prompts. Do not assume a cloud browser belongs to the Codex bridge until that pairing is complete.
 
 Do not build JustSwipe or a replacement browser UI inside the target repo. The hosted app already exists. The target repo only gets instructions and the local bridge connection.

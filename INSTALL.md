@@ -2,11 +2,16 @@
 
 You are Codex working inside a target repo.
 
+Primary install doc:
+https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md
+
 Hosted JustSwipe app:
 https://clear-harbor-b4fc257b5a.lakebed.app
 
 Bridge repo:
 https://github.com/45ck/justswipe
+
+The GitHub/raw install doc is the canonical source. Hosted `/install.md` and `/setup.md` are convenience mirrors only; if Lakebed quota blocks them, keep using this GitHub doc and continue with the same setup flow.
 
 ## Non-Negotiable Boundary
 
@@ -52,7 +57,7 @@ Default setup behavior:
 - Open the hosted pair link automatically when the environment allows it.
 - Print the same pair code/link so the user can pair a phone browser or second desktop browser.
 - Ask one short question only if needed: "Pair desktop, phone, or both?"
-- If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations and switch `$app` to local development until hosted quota resets.
+- If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations or hosted normal reads and switch `$app` to local development until hosted quota resets.
 - Do not build a local JustSwipe UI if pairing is blocked. Report the blocker and the next command.
 
 First locate bridge tooling:
@@ -98,7 +103,7 @@ The expected result is simple: the hosted app opens, the user can pair this brow
 
 Lakebed exposes deploy limits with `npx lakebed inspect <deploy-url-or-id> --json`. For this hosted deploy, the important operational limits are `mutationsPerDay: 1000` and `requestsPerDay: 10000`.
 
-If the hosted app reports `mutations quota exceeded`, do not keep retrying hosted setup, pairing, browser-session cleanup, or handoff mutations. Switch active work to the local JustSwipe dev server:
+If the hosted app reports `mutations quota exceeded`, do not keep retrying hosted setup, pairing, browser-session cleanup, handoff mutations, or hosted normal reads such as `/install.md`. Keep using the GitHub/raw install doc and switch active work to the local JustSwipe dev server:
 
 ```powershell
 # Terminal 1: keep the local JustSwipe app running

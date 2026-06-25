@@ -6,6 +6,8 @@ Use `skills/justswipe/SKILL.md` when this repo or a consuming repo is being stee
 
 When installing JustSwipe into another repo, do not replace existing repo instructions. If `AGENTS.md` exists, preserve it and append a clearly marked JustSwipe section. If `skills/justswipe/SKILL.md` exists, update it carefully; otherwise create it.
 
+Use `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md` as the canonical install document. Hosted `/install.md` and `/setup.md` are mirrors only; if Lakebed quota blocks hosted reads, keep using the GitHub/raw install doc and switch the bridge app URL to local dev when needed.
+
 ## Operating Rule
 
 When you need human direction, stop the long chat question and emit a JustSwipe handoff instead. Treat the response as user steering, not as permission. Continue normal safety, approval, and repo rules after the response arrives.

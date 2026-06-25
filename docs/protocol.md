@@ -72,6 +72,8 @@ Phones should not connect directly to local IPs in the default MVP. Hosted JustS
 
 Every normal user starts with the hosted app. The target repo should not receive a JustSwipe app implementation.
 
+The canonical install instructions live at `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md`. Hosted `/install.md` and `/setup.md` are mirrors only; if Lakebed quota blocks those hosted reads, Codex should keep using the GitHub/raw install doc and continue with local-dev bridge fallback when needed.
+
 Install means:
 
 1. Add the repo steering contract.
