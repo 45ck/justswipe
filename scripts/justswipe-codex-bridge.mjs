@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
 const port = valueAfter("--port") ?? "3001";
-const guest = valueAfter("--guest") ?? "local";
+const explicitGuest = valueAfter("--guest");
+const smoke = args.has("--smoke");
+const guest = explicitGuest ?? (smoke ? "smoke" : "local");
 const appUrl = valueAfter("--app-url") ?? valueAfter("--url") ?? process.env.JUSTSWIPE_APP_URL ?? "";
 const deployIdArg = valueAfter("--deploy-id") ?? process.env.JUSTSWIPE_DEPLOY_ID ?? "";
 const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSPECT_TOKEN ?? "";
@@ -23,7 +25,6 @@ const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
-const smoke = args.has("--smoke");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -680,6 +681,7 @@ async function printStatusReport() {
   const report = {
     appUrl: appBaseUrl(),
     mode: isLocalAppUrl() ? "local" : "hosted",
+    guest: ownerIdForGuest(),
     connected,
     connectionId: connectionId || "",
     pairedUntil: integration?.pairedUntil || "",
@@ -705,6 +707,7 @@ async function printStatusReport() {
   console.log("JustSwipe bridge status");
   console.log(`appUrl: ${report.appUrl}`);
   console.log(`mode: ${report.mode}`);
+  console.log(`guest: ${report.guest}`);
   console.log(`connection: ${connected ? "connected" : "not connected"}`);
   console.log(`connectionId: ${report.connectionId || "none"}`);
   console.log(`pairedUntil: ${report.pairedUntil || "none"}`);
@@ -1059,8 +1062,8 @@ async function runSmoke() {
 
   const code = await runMutation("createPairingCode", [
     JSON.stringify({
-      deviceId: "smoke-local-bridge",
-      label: "Smoke test browser",
+      deviceId: "justswipe-smoke-bridge",
+      label: "JustSwipe smoke bridge",
       browser: "Bridge",
       platform: process.platform,
     }),

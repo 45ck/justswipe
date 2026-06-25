@@ -113,3 +113,4 @@ npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 ```
 
 Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
+`npm run bridge:smoke` uses an isolated `guest:smoke` session unless you pass `--guest`.
