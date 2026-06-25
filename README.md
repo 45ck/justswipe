@@ -66,6 +66,7 @@ Open the printed pair link on your phone or browser. Pair codes last 2 minutes. 
 - Hosted: `https://clear-harbor-b4fc257b5a.lakebed.app/install.md`
 - Alias: `https://clear-harbor-b4fc257b5a.lakebed.app/setup.md`
 - Repo copy: `INSTALL.md`
+- Protocol and future flow: [docs/protocol.md](docs/protocol.md)
 
 **Check**
 

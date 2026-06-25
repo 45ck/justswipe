@@ -70,6 +70,7 @@ END_JUSTSWIPE_HANDOFF_JSON
 When a JustSwipe response packet arrives:
 
 - Read the chosen action and payload.
+- Use `skills/justswipe/SKILL.md` or `/justswipe` if the bridge packet includes that reminder.
 - Apply the steering to the current task.
 - Continue work if the next step is clear.
 - Emit another JustSwipe handoff if the thread would otherwise ask a broad or slow question.

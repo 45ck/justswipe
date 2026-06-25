@@ -145,6 +145,7 @@ function buildResponsePrompt(
     "",
     "A user responded to a paused Codex handoff in JustSwipe.",
     "Treat this as steering, not permission. Use the signal, then decide whether to continue work or ask JustSwipe for another handoff.",
+    "Use the repo JustSwipe skill to consume this response: skills/justswipe/SKILL.md, or /justswipe if this host supports slash skills.",
     "",
     `Handoff id: ${handoff.handoffId}`,
     `Connection id: ${handoff.connectionId}`,

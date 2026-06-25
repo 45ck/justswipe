@@ -64,5 +64,5 @@ After emitting the packet, stop and end with:
 AWAITING_JUSTSWIPE_RESPONSE next-decision
 
 Bridge expectation:
-The user's local JustSwipe bridge watches the hosted app, relays swipe responses into this Codex thread, and may run commands locally. When a response packet arrives, use it as steering and continue the task.
+The user's local JustSwipe bridge watches the hosted app, relays swipe responses into this Codex thread, and may run commands locally. When a response packet arrives, use the installed JustSwipe skill (skills/justswipe/SKILL.md, or /justswipe if supported) to consume it as steering and continue the task.
 `;

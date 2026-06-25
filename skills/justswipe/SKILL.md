@@ -131,6 +131,8 @@ Use this baseline:
 
 Read the JustSwipe response as steering. Continue the current task if the answer is enough. If the answer creates another real choice, emit another small handoff. Do not claim you can see JustSwipe, the browser, or the user's machine unless the current tools prove it.
 
+If the bridge response packet says to use `skills/justswipe/SKILL.md` or `/justswipe`, follow this skill for response handling. The packet is the user signal. Do not ask the user to repeat the same answer in chat.
+
 The Codex thread does not self-listen in the background. The local bridge listens for queued JustSwipe responses and reprompts Codex:
 
 ```txt
