@@ -60,6 +60,67 @@ function appBaseUrl() {
   return `http://localhost:${port}`;
 }
 
+function isLocalAppUrl() {
+  const host = new URL(appBaseUrl()).hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function extractQuotaDetails(message) {
+  const text = String(message || "");
+  const details = {};
+
+  const resetAt =
+    text.match(/"resetAt"\s*:\s*"([^"]+)"/)?.[1] ||
+    text.match(/\bresetAt[:=]\s*([0-9TZ:.\-]+)/i)?.[1] ||
+    "";
+  const retryAfterSeconds =
+    text.match(/"retryAfterSeconds"\s*:\s*(\d+)/)?.[1] ||
+    text.match(/\bretryAfterSeconds[:=]\s*(\d+)/i)?.[1] ||
+    "";
+
+  if (resetAt) {
+    details.resetAt = resetAt;
+  }
+
+  if (retryAfterSeconds) {
+    details.retryAfterSeconds = retryAfterSeconds;
+  }
+
+  return details;
+}
+
+function formatLakebedError(message) {
+  const text = String(message || "Lakebed mutation failed.");
+
+  if (/mutations quota exceeded/i.test(text)) {
+    const details = extractQuotaDetails(text);
+    const timing = [
+      details.resetAt ? `resetAt: ${details.resetAt}` : "",
+      details.retryAfterSeconds ? `retryAfterSeconds: ${details.retryAfterSeconds}` : "",
+    ].filter(Boolean);
+    const fallback = [
+      "hosted mutation quota exhausted; switch bridge app URL to local dev",
+      "Run: npm run dev",
+      "Then use: --app-url http://localhost:3001",
+      ...timing,
+    ];
+
+    return fallback.join("\n");
+  }
+
+  return text;
+}
+
+function formatTopLevelError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  if (!isLocalAppUrl() && /mutations quota exceeded/i.test(message)) {
+    return formatLakebedError(message);
+  }
+
+  return message || "JustSwipe bridge failed.";
+}
+
 function lakebedWsUrl() {
   const base = new URL(appBaseUrl());
   base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
@@ -781,7 +842,7 @@ function lakebedRequest(ws, op, payload = {}) {
       if (message.ok) {
         resolvePromise(message.result);
       } else {
-        reject(new Error(message.error ?? "Lakebed mutation failed."));
+        reject(new Error(formatLakebedError(message.error ?? "Lakebed mutation failed.")));
       }
       ws.close();
     });
@@ -880,6 +941,18 @@ async function createDemoHandoff() {
 }
 
 async function runSmoke() {
+  const quotaMessage = formatLakebedError(
+    'mutations quota exceeded {"resetAt":"2026-06-26T00:00:00.000Z","retryAfterSeconds":7200}',
+  );
+
+  if (
+    !quotaMessage.includes("hosted mutation quota exhausted; switch bridge app URL to local dev") ||
+    !quotaMessage.includes("resetAt: 2026-06-26T00:00:00.000Z") ||
+    !quotaMessage.includes("retryAfterSeconds: 7200")
+  ) {
+    throw new Error("Smoke failed: quota fallback message did not include required guidance.");
+  }
+
   await clearConnectionState();
 
   const code = await runMutation("createPairingCode", [
@@ -941,6 +1014,7 @@ async function runSmoke() {
   console.log(`Pair code format: ${code}`);
   console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
   console.log("Duplicate claim blocked.");
+  console.log("Quota fallback guidance verified.");
 }
 
 function todoHandoffCard() {
@@ -1351,6 +1425,6 @@ async function processQueued({ all, quiet }) {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  console.error(formatTopLevelError(error));
   process.exitCode = 1;
 });
