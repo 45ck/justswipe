@@ -52,6 +52,42 @@ async function readThreadPrompt() {
   return (threadPromptArg ?? defaultThreadPrompt).trim();
 }
 
+function setupThreadPrompt(prompt) {
+  return [
+    "JUSTSWIPE TARGET REPO SETUP",
+    "",
+    "You are setting up this target repo to be controlled by the external JustSwipe app.",
+    "Do not build JustSwipe, a swipe UI, a local dashboard, a bridge UI, or an auth shell in this repo.",
+    "",
+    "Mandatory repo contract before normal project work:",
+    "1. Inspect the repo.",
+    "2. Preserve existing instructions.",
+    "3. Create AGENTS.md if missing, or append a JustSwipe section if it exists.",
+    "4. Create or update skills/justswipe/SKILL.md.",
+    "5. State that hosted/local JustSwipe is the only UI and this repo only consumes steering packets.",
+    "6. If you need user direction, emit one JUSTSWIPE_HANDOFF_JSON card and stop.",
+    "",
+    "Skill requirements:",
+    "- Consume JUSTSWIPE RESPONSE PACKET messages as user steering.",
+    "- Treat JustSwipe responses as steering, not permission.",
+    "- Ask one clear decision per card.",
+    "- Provide 3 to 4 quick replies plus custom text.",
+    "- Include compact HTML/artifact context when it helps the user decide.",
+    "- Handoff requests must be wrapped in JUSTSWIPE_HANDOFF_JSON and END_JUSTSWIPE_HANDOFF_JSON markers.",
+    "- After the marker block, end with AWAITING_JUSTSWIPE_RESPONSE <cardId>.",
+    "- After emitting a JustSwipe handoff, stop and wait for a response packet.",
+    "",
+    "Minimum handoff marker shape the skill must document:",
+    "JUSTSWIPE_HANDOFF_JSON",
+    "{\"reason\":\"Need one human decision before continuing.\",\"cards\":[{\"cardId\":\"next-decision\",\"title\":\"Pick the next step\",\"summary\":\"One clear choice.\",\"recommendedAction\":\"yes\",\"visualContext\":\"Current state, tradeoff, risk, and next effect.\",\"questionType\":\"yes_no\",\"quickRepliesByAction\":{\"yes\":[\"Do this\",\"Keep it simple\",\"Ship this slice\"],\"no\":[\"Not this\",\"Too broad\",\"Try smaller\"]},\"requiredFieldsByAction\":{\"yes\":[\"quick_reply\"],\"no\":[\"quick_reply\"]},\"yesPayloadSchema\":[],\"noPayloadSchema\":[],\"morePayloadSchema\":[],\"laterPayloadSchema\":[],\"optionPayloadSchemas\":{},\"agentHtmlPreview\":\"<section><h2>Decision context</h2><p>Show the concrete thing the user is deciding on.</p></section>\"}]}",
+    "END_JUSTSWIPE_HANDOFF_JSON",
+    "AWAITING_JUSTSWIPE_RESPONSE next-decision",
+    "",
+    "User setup prompt:",
+    prompt || defaultThreadPrompt,
+  ].join("\n");
+}
+
 function appBaseUrl() {
   if (appUrl) {
     const parsed = new URL(appUrl);
@@ -1294,7 +1330,8 @@ async function clearConnectionState() {
 
 async function startNativeThread() {
   const cwd = resolve(threadCwd);
-  const prompt = await readThreadPrompt();
+  const rawPrompt = await readThreadPrompt();
+  const prompt = setup ? setupThreadPrompt(rawPrompt) : rawPrompt;
 
   await mkdir(cwd, { recursive: true });
 
