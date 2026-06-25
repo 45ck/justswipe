@@ -1508,6 +1508,7 @@ function PayloadSheet(props: {
   submitting: boolean;
   onChange: (fieldId: string, value: FormValues[string]) => void;
   onClose: () => void;
+  onQuickSubmit: (reply: string) => void;
   onSubmit: () => void;
 }) {
   const quickReplies = quickRepliesForAction(props.card, props.action);
@@ -1566,13 +1567,10 @@ function PayloadSheet(props: {
                     : "border-white/10 bg-white/[0.03] text-zinc-200 hover:bg-white/[0.07]"
                 }`}
                 aria-pressed={selected}
+                disabled={props.submitting}
                 type="button"
                 onClick={() => {
-                  props.onChange("quick_reply", reply);
-                  props.onChange("custom_response", "");
-                  props.onChange("answer_mode", "");
-                  props.onChange("optional_note", "");
-                  props.onChange("show_note", false);
+                  props.onQuickSubmit(reply);
                 }}
               >
                 <span>{reply}</span>
@@ -2833,6 +2831,11 @@ export function App() {
             setPendingAction(null);
             setFormError("");
           }}
+          onQuickSubmit={(reply) =>
+            void submitResponse(pendingAction, {
+              quick_reply: reply,
+            })
+          }
           onSubmit={() => void submitPendingForm()}
         />
       ) : null}

@@ -1318,12 +1318,23 @@ export default capsule({
       const projectName =
         cleanText(meta.projectName || event.projectName || "", 80) || projectNameFromCwd(cwd);
       const threadTitle = fallbackThreadTitle(threadId, cwd, meta.threadTitle || event.threadTitle || "");
+      const nextHandoff = ctx.db.handoffs
+        .where("connectionId", event.connectionId)
+        .all()
+        .find((row: Handoff) =>
+          row.id !== event.handoffRowId &&
+          row.threadId === threadId &&
+          ["awaiting_justswipe", "in_progress", "responding_to_codex", "failed"].includes(row.status),
+        ) as Handoff | undefined;
+      const nextThreadStatus = nextHandoff
+        ? normalizeThreadStatus(nextHandoff.threadStatus || "awaiting_justswipe")
+        : "idle";
 
       ctx.db.bridgeEvents.update(id, {
         status: "sent",
         threadId,
         threadTitle,
-        threadStatus: "idle",
+        threadStatus: nextThreadStatus,
         cwd,
         projectName,
         response: cleanBridgeResponse(response),
@@ -1334,7 +1345,7 @@ export default capsule({
           connectionId: event.connectionId,
           threadId,
           threadTitle,
-          threadStatus: "idle",
+          threadStatus: nextThreadStatus,
           cwd,
           projectName,
           lastActivityAt: meta.lastActivityAt || nowIso(),
