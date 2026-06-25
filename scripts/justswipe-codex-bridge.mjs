@@ -114,6 +114,15 @@ function projectNameFromCwd(cwd) {
   return name || "Project";
 }
 
+function projectNameForMetadata(projectName, cwd) {
+  const label = String(projectName || "").trim();
+  if (label && label !== "Project") {
+    return label;
+  }
+
+  return projectNameFromCwd(cwd);
+}
+
 function shortThreadId(threadId) {
   return threadId ? String(threadId).slice(0, 8) : "new";
 }
@@ -129,7 +138,7 @@ function threadTitleFallback(threadId, cwd, title = "") {
 
 function threadMetadataFromThread(thread, fallback = {}) {
   const cwd = thread?.cwd || fallback.cwd || resolve(threadCwd);
-  const threadId = thread?.id || fallback.threadId || "";
+  const threadId = thread?.id || thread?.threadId || thread?.thread_id || fallback.threadId || "";
   const fallbackTitle = String(fallback.threadTitle || "");
   const usableFallbackTitle =
     fallbackTitle && fallbackTitle !== "New thread" && !/\bthread new$/i.test(fallbackTitle)
@@ -150,22 +159,38 @@ function threadMetadataFromThread(thread, fallback = {}) {
     threadTitle: threadTitleFallback(threadId, cwd, thread?.title || usableFallbackTitle),
     threadStatus: status,
     cwd,
-    projectName: fallback.projectName || projectNameFromCwd(cwd),
+    projectName: projectNameForMetadata(fallback.projectName, cwd),
     lastActivityAt: new Date().toISOString(),
   };
 }
 
+function ensureThreadMetadata(metadata, fallback = {}) {
+  const cwd = metadata?.cwd || fallback.cwd || resolve(threadCwd);
+  const threadId = metadata?.threadId || fallback.threadId || "";
+
+  return {
+    threadId,
+    threadTitle: threadTitleFallback(threadId, cwd, metadata?.threadTitle || fallback.threadTitle || ""),
+    threadStatus: metadata?.threadStatus || fallback.threadStatus || "unknown",
+    cwd,
+    projectName: projectNameForMetadata(metadata?.projectName || fallback.projectName, cwd),
+    lastActivityAt: metadata?.lastActivityAt || fallback.lastActivityAt || new Date().toISOString(),
+  };
+}
+
 function threadMetadataFromEvent(event, overrides = {}) {
+  const cwd = overrides.cwd || event.cwd || resolve(threadCwd);
+
   return {
     threadId: overrides.threadId || event.threadId || "",
     threadTitle: threadTitleFallback(
       overrides.threadId || event.threadId || "",
-      overrides.cwd || event.cwd || resolve(threadCwd),
+      cwd,
       overrides.threadTitle || event.threadTitle || "",
     ),
     threadStatus: overrides.threadStatus || event.threadStatus || "unknown",
-    cwd: overrides.cwd || event.cwd || resolve(threadCwd),
-    projectName: overrides.projectName || event.projectName || projectNameFromCwd(overrides.cwd || event.cwd || resolve(threadCwd)),
+    cwd,
+    projectName: projectNameForMetadata(overrides.projectName || event.projectName, cwd),
     lastActivityAt: overrides.lastActivityAt || new Date().toISOString(),
   };
 }
@@ -689,7 +714,11 @@ async function runCodexAppServer(event) {
 
     return {
       response,
-      threadMeta,
+      threadMeta: ensureThreadMetadata(threadMeta, {
+        threadId,
+        cwd: event.cwd || threadCwd,
+        threadStatus: "idle",
+      }),
     };
   } finally {
     client.close();

@@ -1290,6 +1290,27 @@ function DecisionContext(props: { card: SwipeCard }) {
   );
 }
 
+function visualCueItems(card: SwipeCard): { label: string; value: string }[] {
+  return card.visualContext
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const separator = item.indexOf(":");
+
+      if (separator === -1) {
+        return { label: "Context", value: item };
+      }
+
+      return {
+        label: item.slice(0, separator).trim(),
+        value: item.slice(separator + 1).trim(),
+      };
+    })
+    .filter((item) => item.value)
+    .slice(0, 3);
+}
+
 function SwipeCardView(props: {
   card: SwipeCard;
   handoff: Handoff;
@@ -1333,11 +1354,12 @@ function SwipeCardView(props: {
           : activeCue === "later"
             ? "border-teal-300/70 shadow-teal-500/20"
             : "border-white/15 shadow-black/50";
+  const cues = visualCueItems(props.card);
 
   return (
     <section class="relative mx-auto w-full max-w-2xl">
       <article
-        class={`relative min-h-[500px] touch-none overflow-hidden rounded border bg-[#080d12] p-5 shadow-2xl transition-all duration-300 ${glow} jsw-card-enter`}
+        class={`relative min-h-[min(72vh,560px)] touch-none overflow-hidden rounded border bg-[#080d12] p-4 shadow-2xl transition-all duration-300 sm:p-5 ${glow} jsw-card-enter`}
         style={{ transform }}
         onPointerDown={props.onPointerDown}
         onPointerMove={props.onPointerMove}
@@ -1369,28 +1391,42 @@ function SwipeCardView(props: {
           </p>
         </div>
 
-        <div class="pt-16">
+        <div class="pt-14 sm:pt-16">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
             {props.handoff.projectName || "Project"} handoff
           </p>
-          <h2 class="mt-4 text-3xl font-semibold leading-tight text-white sm:text-4xl">
+          <h2 class="mt-3 text-2xl font-semibold leading-tight text-white sm:mt-4 sm:text-4xl">
             {props.card.title}
           </h2>
-          <p class="mt-4 text-base leading-7 text-zinc-300">
+          <p class="mt-3 text-base leading-7 text-zinc-300 sm:mt-4">
             {props.card.summary}
           </p>
         </div>
 
-        <div class="mt-5 rounded border border-white/10 bg-white/[0.03] p-3">
-          <div class="flex items-center gap-2">
-            <Icon name={props.card.recommendedAction} class="h-4 w-4 text-lime-200" />
-            <p class="text-sm font-medium text-white">
-              Suggested: {actionLabel(props.card.recommendedAction)} / {actionVerb(props.card.recommendedAction)}
+        <div class="mt-5 grid gap-2">
+          <div class="rounded border border-lime-300/25 bg-lime-300/[0.08] p-3">
+            <div class="flex items-center gap-2">
+              <Icon name={props.card.recommendedAction} class="h-4 w-4 text-lime-200" />
+              <p class="text-sm font-medium text-white">
+                {actionLabel(props.card.recommendedAction)} / {actionVerb(props.card.recommendedAction)}
+              </p>
+            </div>
+            <p class="mt-1 text-xs leading-5 text-lime-100/70">
+              Swipe, then pick one short reply.
             </p>
           </div>
-          <p class="mt-1 text-xs leading-5 text-zinc-500">
-            Swipe now, then add a one-tap answer if Codex needs wording.
-          </p>
+          {cues.length ? (
+            <div class="grid gap-2 sm:grid-cols-3">
+              {cues.map((cue) => (
+                <div class="min-w-0 rounded border border-white/10 bg-white/[0.03] p-2.5">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    {cue.label}
+                  </p>
+                  <p class="mt-1 text-sm leading-5 text-zinc-200">{cue.value}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <DecisionContext card={props.card} />
@@ -2281,15 +2317,26 @@ export function App() {
 
     setLastNotified(activeHandoff.handoffId);
 
-    tryVibrate([18, 30, 18]);
+    tryVibrate(12);
 
     if (alertsEnabled && typeof Notification !== "undefined") {
       const card = parseCards(activeHandoff.cardsJson)[0];
-      new Notification("JustSwipe needs a response", {
-        body: `${activeHandoff.projectName || "Project"} · ${activeHandoff.threadTitle || "Codex thread"}: ${card?.title || activeHandoff.reason}`,
+      new Notification("JustSwipe", {
+        body: card?.title || activeHandoff.reason || "Codex is waiting.",
+        renotify: false,
+        silent: true,
+        tag: `justswipe-${activeHandoff.handoffId}`,
       });
     }
   }, [activeHandoff?.handoffId, alertsEnabled, lastNotified]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.title = activeHandoff ? `• ${brandName}` : brandName;
+  }, [activeHandoff?.handoffId]);
 
   function resetDrag() {
     setDragStart(null);
@@ -2311,7 +2358,7 @@ export function App() {
   }
 
   async function playFeedback(action: SwipeAction) {
-    tryVibrate(action === "yes" ? 18 : action === "no" ? [10, 25, 10] : 14);
+    tryVibrate(action === "yes" ? 14 : action === "no" ? [8, 18, 8] : 10);
   }
 
   async function chooseAction(action: SwipeAction) {

@@ -191,7 +191,7 @@ export type DeviceSessionPayload = {
   platform: string;
 };
 
-export const defaultCodexThreadId = "019ef89d-058c-7df3-aad4-d9a4fa9e750e";
+export const defaultCodexThreadId = "";
 export const defaultConnectionId = "";
 
 export const defaultCustomPrompt =
@@ -289,34 +289,27 @@ export function normalizeCard(input: Partial<SwipeCard>, index = 0): SwipeCard {
 export const demoCards: SwipeCard[] = [
   normalizeCard({
     cardId: "build-slice",
-    title: "Pick the next build slice for Codex",
+    title: "Build mobile swipe shell first?",
     summary:
-      "Codex wants to build the mobile-first swipe shell: pairing code, one-card inbox, drag gestures, and response handoff.",
+      "Ship the phone-first card loop before deeper bridge controls.",
     recommendedAction: "yes",
     visualContext:
-      "Current proof: local Lakebed app at localhost:3001 | Target: phone-first low-attention check-ins | This choice locks the first useful Codex handoff loop",
-    questionType: "adaptive_form",
+      "Decision: mobile shell first | Risk: too much setup UI before the loop feels real | Next: one-card inbox, drag gestures, response sheet",
+    questionType: "yes_no",
     yesPayloadSchema: [
       {
         id: "chosen_option",
         label: "Chosen option",
         type: "select",
         required: true,
-        options: ["Mobile swipe shell first", "Pairing flow first", "Adaptive forms first"],
+        options: ["Mobile swipe shell first", "Pairing flow first", "Adaptive forms later"],
       },
       {
         id: "implementation_notes",
         label: "Implementation notes",
         type: "textarea",
-        required: true,
+        required: false,
         placeholder: "Keep it simple, animated, and phone friendly.",
-      },
-      {
-        id: "priority",
-        label: "Priority",
-        type: "rating",
-        required: true,
-        helper: "5 means Codex should do this before anything else.",
       },
     ],
     noPayloadSchema: [
@@ -359,7 +352,7 @@ export const demoCards: SwipeCard[] = [
       },
     ],
     requiredFieldsByAction: {
-      yes: ["chosen_option", "implementation_notes", "priority"],
+      yes: ["chosen_option"],
       no: ["reason", "preferred_direction"],
       more: ["variant_focus"],
     },
@@ -389,16 +382,16 @@ export const demoCards: SwipeCard[] = [
       ],
     },
     agentHtmlPreview:
-      `<section><h2>Mobile swipe shell</h2><p>Codex is proposing the smallest useful loop: paired thread, one decision card, tactile swipe, structured response, then resume.</p><ul><li>Phone-first card stack</li><li>Thread paused state</li><li>Inline evidence preview</li><li>Adaptive response form</li></ul><button>Yes</button><button>No</button></section>`,
+      `<section><h2>Mobile swipe shell</h2><p>Build the tactile phone loop first.</p><ul><li>Decision: one-card inbox</li><li>Risk: setup UI can wait</li><li>Next: drag, tap, send response</li></ul><button>Build it</button><button>Go smaller</button></section>`,
   }),
   normalizeCard({
     cardId: "copy-density",
     title: "Should this card be shorter?",
     summary:
-      "The current direction is powerful, but the user wants low-attention UX. Codex needs a copy-density rule before generating more cards.",
+      "Keep only the decision, risk, and next effect visible.",
     recommendedAction: "yes",
     visualContext:
-      "Title under 9 words | Summary under 30 words | One visual proof block | One obvious action",
+      "Decision: shorter cards | Risk: slow reading breaks the remote-control feel | Next: hide extra context behind the response sheet",
     questionType: "yes_no",
     yesPayloadSchema: [
       {
@@ -442,16 +435,16 @@ export const demoCards: SwipeCard[] = [
       ],
     },
     agentHtmlPreview:
-      `<section><h2>Low-attention card rule</h2><p>The card should be scannable before the user thinks about the form. Evidence first, options second.</p><ul><li>Decision in one line</li><li>Risk shown as a chip</li><li>Context shown visually</li><li>Details hidden until needed</li></ul><button>Keep it short</button><button>Show more evidence</button></section>`,
+      `<section><h2>Short card rule</h2><p>Keep decision and risk only.</p><ul><li>Decision in one line</li><li>Risk as a visible cue</li><li>Details only when asked</li></ul><button>Keep it short</button><button>Show more</button></section>`,
   }),
   normalizeCard({
     cardId: "alerts",
     title: "Enable soft alerts for new handoffs?",
     summary:
-      "When Codex pauses, JustSwipe should get your attention without feeling like another work dashboard.",
+      "Use quiet haptics and a small badge when Codex waits.",
     recommendedAction: "yes",
     visualContext:
-      "Badge changes | Browser notification if enabled | Short mobile vibration | Quiet sent pulse after submit",
+      "Decision: tactile but quiet | Risk: loud alerts make JustSwipe feel like a dashboard | Next: badge, short vibration, compact notification",
     questionType: "adaptive_form",
     yesPayloadSchema: [
       {
@@ -459,7 +452,7 @@ export const demoCards: SwipeCard[] = [
         label: "Alert style",
         type: "select",
         required: true,
-        options: ["Quiet", "Tactile", "High visibility"],
+        options: ["Tactile but quiet", "In-app only", "High visibility"],
       },
     ],
     noPayloadSchema: [
@@ -491,6 +484,6 @@ export const demoCards: SwipeCard[] = [
       ],
     },
     agentHtmlPreview:
-      `<section><h2>Attention hook</h2><p>Codex should get attention only when blocked, then get out of the way once the response is sent.</p><ul><li>New card badge</li><li>Soft vibration</li><li>Sent pulse</li><li>Thread resumes</li></ul><button>Tactile but quiet</button><button>In-app only</button></section>`,
+      `<section><h2>Quiet attention</h2><p>Alert only when Codex is blocked.</p><ul><li>Badge changes</li><li>Short vibration</li><li>No sound</li></ul><button>Tactile but quiet</button><button>In-app only</button></section>`,
   }),
 ];
