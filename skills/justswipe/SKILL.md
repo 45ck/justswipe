@@ -160,6 +160,7 @@ npm run handoff:todo
 ```
 
 Use `npm run bridge:dry-run` to inspect queued packets before relaying them.
+Use `npm --silent run bridge:status -- --app-url <app-url> --json` when the agent needs machine-readable connection, queue, and thread state.
 
 Hosted quota fallback:
 

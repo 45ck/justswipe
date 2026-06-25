@@ -169,6 +169,7 @@ A successful install means:
 - Hosted JustSwipe pair code/link was created, or local-dev pair code/link was created because hosted mutation quota was exhausted.
 - The pair link was opened automatically when possible.
 - The user was given the pair code/link for phone or second-browser pairing.
+- \`npm --silent run bridge:status -- --app-url <app-url> --json\` reports the connection and queue state.
 - A setup handoff was queued, or the exact blocker and next command were reported.
 
 If any part is blocked, do not build a local replacement. Report the blocker and the exact next command.

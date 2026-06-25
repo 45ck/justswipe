@@ -108,8 +108,8 @@ Report the exact blocker as: `hosted mutation quota exhausted; switch bridge app
 ```powershell
 npm run build
 npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
-npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
+npm --silent run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
 npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 ```
 
-Use `npm run bridge:status -- --app-url http://localhost:3001` while hosted quota is exhausted.
+Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
