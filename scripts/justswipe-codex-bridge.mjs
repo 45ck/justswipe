@@ -637,7 +637,7 @@ async function dumpDb() {
       "-ExecutionPolicy",
       "Bypass",
       "-Command",
-      `npx --yes lakebed db dump ${target}`,
+      `npx --yes --cache ${psQuote(join(root, ".lakebed", "npm-cache"))} lakebed db dump ${target}`,
     ],
   );
   if (result.code !== 0) {
@@ -1204,16 +1204,20 @@ function setupHandoffCard(code, link) {
 }
 
 async function createSetupHandoff() {
-  const code = await createPairingCode();
-  const link = pairingLink(code);
-  const db = await dumpDb();
-  const integration = integrationForGuest(db);
-  const connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
+  await runMutation("clearConnectionState", []);
+  let db = await dumpDb();
+  let integration = integrationForGuest(db);
   const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
 
   if (!threadId) {
     throw new Error("No Codex thread id is saved. Run npm run bridge:start-thread first or pass --thread-id.");
   }
+
+  const code = await createPairingCode();
+  const link = pairingLink(code);
+  db = await dumpDb();
+  integration = integrationForGuest(db);
+  const connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
 
   if (!connectionId) {
     throw new Error(`Could not create a JustSwipe connection for pairing code ${code}.`);
@@ -1227,7 +1231,6 @@ async function createSetupHandoff() {
     threadStatus: "awaiting_justswipe",
   });
 
-  await runMutation("clearConnectionState", []);
   const handoffId = await runMutation("createHandoffFromBridge", [
     connectionId,
     threadId,
@@ -1241,6 +1244,7 @@ async function createSetupHandoff() {
 }
 
 async function createTodoHandoff() {
+  await runMutation("clearConnectionState", []);
   let db = await dumpDb();
   let integration = integrationForGuest(db);
   let connectionId = valueAfter("--connection-id") ?? integration?.connectionId ?? "";
@@ -1269,7 +1273,6 @@ async function createTodoHandoff() {
     threadStatus: "awaiting_justswipe",
   });
 
-  await runMutation("clearConnectionState", []);
   const handoffId = await runMutation("createHandoffFromBridge", [
     connectionId,
     threadId,

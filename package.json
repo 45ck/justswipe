@@ -9,8 +9,8 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "npx --yes lakebed dev . --port 3001",
-    "build": "npx --yes lakebed build . --target anonymous --out .lakebed/artifacts/app.json --json",
+    "dev": "npx --yes --cache .lakebed/npm-cache lakebed dev . --port 3001",
+    "build": "npx --yes --cache .lakebed/npm-cache lakebed build . --target anonymous --out .lakebed/artifacts/app.json --json",
     "bridge": "node scripts/justswipe-codex-bridge.mjs --once",
     "bridge:all": "node scripts/justswipe-codex-bridge.mjs --all",
     "bridge:watch": "node scripts/justswipe-codex-bridge.mjs --watch",
@@ -24,7 +24,7 @@
     "handoff:setup": "node scripts/justswipe-codex-bridge.mjs --setup-handoff",
     "handoff:todo": "node scripts/justswipe-codex-bridge.mjs --todo-handoff",
     "handoff:demo": "node scripts/justswipe-codex-bridge.mjs --demo-handoff",
-    "db": "npx --yes lakebed db dump --port 3001",
-    "logs": "npx --yes lakebed logs --port 3001"
+    "db": "npx --yes --cache .lakebed/npm-cache lakebed db dump --port 3001",
+    "logs": "npx --yes --cache .lakebed/npm-cache lakebed logs --port 3001"
   }
 }
