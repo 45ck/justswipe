@@ -16,6 +16,7 @@
     "bridge:watch": "node scripts/justswipe-codex-bridge.mjs --watch",
     "bridge:dry-run": "node scripts/justswipe-codex-bridge.mjs --dry-run",
     "bridge:smoke": "node scripts/justswipe-codex-bridge.mjs --smoke",
+    "bridge:status": "node scripts/justswipe-codex-bridge.mjs --status",
     "bridge:pair": "node scripts/justswipe-codex-bridge.mjs --pair",
     "bridge:setup": "node scripts/justswipe-codex-bridge.mjs --setup",
     "bridge:clear": "node scripts/justswipe-codex-bridge.mjs --clear",

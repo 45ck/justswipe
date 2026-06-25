@@ -11,6 +11,7 @@ const appUrl = valueAfter("--app-url") ?? valueAfter("--url") ?? process.env.JUS
 const deployIdArg = valueAfter("--deploy-id") ?? process.env.JUSTSWIPE_DEPLOY_ID ?? "";
 const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSPECT_TOKEN ?? "";
 const dryRun = args.has("--dry-run");
+const statusReport = args.has("--status") || args.has("--doctor");
 const runAll = args.has("--all");
 const watch = args.has("--watch");
 const pair = args.has("--pair");
@@ -170,6 +171,31 @@ function bridgeConnectionId(db) {
   return valueAfter("--connection-id") ?? integrationForGuest(db)?.connectionId ?? "";
 }
 
+function isFuture(value) {
+  return Boolean(value) && String(value) > new Date().toISOString();
+}
+
+function statusCounts(rows, field = "status") {
+  return rows.reduce((counts, row) => {
+    const key = row[field] || "unknown";
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function formatCounts(counts) {
+  const entries = Object.entries(counts);
+
+  if (!entries.length) {
+    return "none";
+  }
+
+  return entries
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, count]) => `${key}:${count}`)
+    .join(", ");
+}
+
 function projectNameFromCwd(cwd) {
   const normalized = String(cwd || "").replaceAll("\\", "/");
   const name = normalized.split("/").filter(Boolean).pop();
@@ -268,6 +294,10 @@ async function deployInspectTarget() {
 
   if (!appUrl) {
     return "";
+  }
+
+  if (isLocalAppUrl()) {
+    return appBaseUrl();
   }
 
   try {
@@ -616,6 +646,55 @@ async function dumpDb() {
     throw new Error(`Lakebed DB dump failed.\n${result.stderr || result.stdout}`);
   }
   return parseDump(result.stdout);
+}
+
+async function printStatusReport() {
+  const db = await dumpDb();
+  const integration = integrationForGuest(db);
+  const connectionId = bridgeConnectionId(db);
+  const queued = queuedEvents(db);
+  const handoffs = (db.tables?.handoffs ?? []).filter((row) =>
+    connectionId ? row.connectionId === connectionId : row.ownerId === ownerIdForGuest(),
+  );
+  const activeHandoffs = handoffs.filter((row) =>
+    ["awaiting_justswipe", "in_progress", "responding_to_codex", "failed"].includes(row.status),
+  );
+  const threads = (db.tables?.codexThreads ?? []).filter((row) =>
+    connectionId ? row.connectionId === connectionId : row.ownerId === ownerIdForGuest(),
+  );
+  const pairedDevices = (db.tables?.integrations ?? []).filter((row) =>
+    connectionId ? row.connectionId === connectionId && isFuture(row.pairedUntil) : false,
+  );
+  const activePairCodes = (db.tables?.pairingCodes ?? []).filter((row) =>
+    row.ownerId === ownerIdForGuest() && row.status === "active" && isFuture(row.expiresAt),
+  );
+  const connected = Boolean(connectionId && integration?.pairedUntil && isFuture(integration.pairedUntil));
+  const nextAction = queued.length
+    ? `run: npm run bridge${runAll ? ":all" : ""} -- --app-url ${appBaseUrl()}`
+    : activeHandoffs.some((row) => ["awaiting_justswipe", "in_progress"].includes(row.status))
+      ? `open: ${appBaseUrl()}`
+      : connected
+        ? "no cards waiting; send an idea from JustSwipe or keep watcher running"
+        : `pair: npm run bridge:pair -- --app-url ${appBaseUrl()} --open`;
+
+  console.log("JustSwipe bridge status");
+  console.log(`appUrl: ${appBaseUrl()}`);
+  console.log(`mode: ${isLocalAppUrl() ? "local" : "hosted"}`);
+  console.log(`connection: ${connected ? "connected" : "not connected"}`);
+  console.log(`connectionId: ${connectionId || "none"}`);
+  console.log(`pairedUntil: ${integration?.pairedUntil || "none"}`);
+  console.log(`pairedDevices: ${pairedDevices.length}`);
+  console.log(`activePairCodes: ${activePairCodes.length}`);
+  console.log(`activeHandoffs: ${activeHandoffs.length} (${formatCounts(statusCounts(activeHandoffs))})`);
+  console.log(`queuedBridgeEvents: ${queued.length}`);
+  console.log(`threads: ${threads.length} (${formatCounts(statusCounts(threads, "threadStatus"))})`);
+  console.log(`next: ${nextAction}`);
+
+  if (!isLocalAppUrl()) {
+    console.log(
+      "hostedFallback: if Lakebed reports mutations quota exceeded, use --app-url http://localhost:3001 until reset",
+    );
+  }
 }
 
 function promptForEvent(event) {
@@ -1276,6 +1355,11 @@ async function startNativeThread() {
 }
 
 async function main() {
+  if (statusReport) {
+    await printStatusReport();
+    return;
+  }
+
   if (smoke) {
     await runSmoke();
     return;
