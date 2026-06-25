@@ -731,14 +731,16 @@ async function runCodexExec(event) {
   const promptPath = join(bridgeDir, `${safeId}.prompt.txt`);
   const responsePath = join(bridgeDir, `${safeId}.response.txt`);
   const prompt = promptForEvent(event);
+  const targetCwd = resolve(event.cwd || threadCwd);
 
+  await mkdir(targetCwd, { recursive: true });
   await writeFile(promptPath, prompt, "utf8");
   const command = [
     "Get-Content -Raw -LiteralPath",
     psQuote(promptPath),
     "|",
     "codex exec --skip-git-repo-check -C",
-    psQuote(root),
+    psQuote(targetCwd),
     "--output-last-message",
     psQuote(responsePath),
     "-",
