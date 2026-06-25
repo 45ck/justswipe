@@ -1161,6 +1161,10 @@ export default capsule({
       for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
         ctx.db.codexThreads.delete(row.id);
       }
+
+      for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
+        ctx.db.pairingCodes.delete(row.id);
+      }
     }),
 
     submitCardResponse: mutation(

@@ -10,6 +10,7 @@ const guest = valueAfter("--guest") ?? "local";
 const appUrl = valueAfter("--app-url") ?? valueAfter("--url") ?? process.env.JUSTSWIPE_APP_URL ?? "";
 const deployIdArg = valueAfter("--deploy-id") ?? process.env.JUSTSWIPE_DEPLOY_ID ?? "";
 const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSPECT_TOKEN ?? "";
+const jsonOutput = args.has("--json");
 const dryRun = args.has("--dry-run");
 const statusReport = args.has("--status") || args.has("--doctor");
 const runAll = args.has("--all");
@@ -676,24 +677,46 @@ async function printStatusReport() {
       : connected
         ? "no cards waiting; send an idea from JustSwipe or keep watcher running"
         : `pair: npm run bridge:pair -- --app-url ${appBaseUrl()} --open`;
+  const report = {
+    appUrl: appBaseUrl(),
+    mode: isLocalAppUrl() ? "local" : "hosted",
+    connected,
+    connectionId: connectionId || "",
+    pairedUntil: integration?.pairedUntil || "",
+    pairedDevices: pairedDevices.length,
+    activePairCodes: activePairCodes.length,
+    activeHandoffs: activeHandoffs.length,
+    activeHandoffStatuses: statusCounts(activeHandoffs),
+    queuedBridgeEvents: queued.length,
+    threads: threads.length,
+    threadStatuses: statusCounts(threads, "threadStatus"),
+    nextAction,
+    hostedFallback:
+      isLocalAppUrl()
+        ? ""
+        : "if Lakebed reports mutations quota exceeded, use --app-url http://localhost:3001 until reset",
+  };
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
 
   console.log("JustSwipe bridge status");
-  console.log(`appUrl: ${appBaseUrl()}`);
-  console.log(`mode: ${isLocalAppUrl() ? "local" : "hosted"}`);
+  console.log(`appUrl: ${report.appUrl}`);
+  console.log(`mode: ${report.mode}`);
   console.log(`connection: ${connected ? "connected" : "not connected"}`);
-  console.log(`connectionId: ${connectionId || "none"}`);
-  console.log(`pairedUntil: ${integration?.pairedUntil || "none"}`);
-  console.log(`pairedDevices: ${pairedDevices.length}`);
-  console.log(`activePairCodes: ${activePairCodes.length}`);
-  console.log(`activeHandoffs: ${activeHandoffs.length} (${formatCounts(statusCounts(activeHandoffs))})`);
-  console.log(`queuedBridgeEvents: ${queued.length}`);
-  console.log(`threads: ${threads.length} (${formatCounts(statusCounts(threads, "threadStatus"))})`);
-  console.log(`next: ${nextAction}`);
+  console.log(`connectionId: ${report.connectionId || "none"}`);
+  console.log(`pairedUntil: ${report.pairedUntil || "none"}`);
+  console.log(`pairedDevices: ${report.pairedDevices}`);
+  console.log(`activePairCodes: ${report.activePairCodes}`);
+  console.log(`activeHandoffs: ${report.activeHandoffs} (${formatCounts(report.activeHandoffStatuses)})`);
+  console.log(`queuedBridgeEvents: ${report.queuedBridgeEvents}`);
+  console.log(`threads: ${report.threads} (${formatCounts(report.threadStatuses)})`);
+  console.log(`next: ${report.nextAction}`);
 
-  if (!isLocalAppUrl()) {
-    console.log(
-      "hostedFallback: if Lakebed reports mutations quota exceeded, use --app-url http://localhost:3001 until reset",
-    );
+  if (report.hostedFallback) {
+    console.log(`hostedFallback: ${report.hostedFallback}`);
   }
 }
 
