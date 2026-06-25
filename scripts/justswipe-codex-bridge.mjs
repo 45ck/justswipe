@@ -294,11 +294,7 @@ async function deployInspectTarget() {
     return deployIdArg;
   }
 
-  if (!appUrl) {
-    return "";
-  }
-
-  if (isLocalAppUrl()) {
+  if (appUrl) {
     return appBaseUrl();
   }
 
