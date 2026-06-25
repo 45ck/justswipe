@@ -65,7 +65,7 @@ Then use one of these paths.
 
 Automatic path, preferred for a new JustSwipe-controlled Codex thread:
 
-powershell:
+~~~powershell
 $app = "https://clear-harbor-b4fc257b5a.lakebed.app"
 $repo = "<absolute path to target repo>"
 $bridge = "<absolute path to JustSwipe bridge repo>"
@@ -74,10 +74,11 @@ Set-Location $bridge
 npm install
 npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 npm run bridge:watch -- --app-url $app
+~~~
 
 Existing-thread path, only if the current Codex thread id is known:
 
-powershell:
+~~~powershell
 $app = "https://clear-harbor-b4fc257b5a.lakebed.app"
 $bridge = "<absolute path to JustSwipe bridge repo>"
 $thread = "<current Codex thread id>"
@@ -87,6 +88,7 @@ npm install
 npm run bridge:pair -- --app-url $app --open
 npm run handoff:setup -- --app-url $app --thread-id $thread
 npm run bridge:watch -- --app-url $app
+~~~
 
 If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
 
@@ -98,15 +100,16 @@ Lakebed exposes deploy limits with \`npx lakebed inspect <deploy-url-or-id> --js
 
 If the hosted app reports \`mutations quota exceeded\`, do not keep retrying hosted setup, pairing, browser-session cleanup, or handoff mutations. Switch active work to the local JustSwipe dev server:
 
-powershell:
+~~~powershell
 # Terminal 1: keep the local JustSwipe app running
 $bridge = "<absolute path to JustSwipe bridge repo>"
 
 Set-Location $bridge
 npm install
 npm run dev
+~~~
 
-powershell:
+~~~powershell
 # Terminal 2: point the bridge at local dev
 $bridge = "<absolute path to JustSwipe bridge repo>"
 $repo = "<absolute path to target repo>"
@@ -115,6 +118,7 @@ Set-Location $bridge
 $app = "http://localhost:3001"
 npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 npm run bridge:watch -- --app-url $app
+~~~
 
 Report this blocker exactly: \`hosted mutation quota exhausted; switch bridge app URL to local dev\`. If Lakebed's 429 body includes \`resetAt\` or \`retryAfterSeconds\`, include that timing in the report, then continue active work locally. Hosted JustSwipe can resume after the Lakebed quota resets. This is not permission to build or install a replacement JustSwipe UI inside the target repo.
 
