@@ -25,6 +25,7 @@ const startThread = args.has("--start-thread");
 const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
 const e2eLocal = args.has("--e2e-local");
+const e2eHosted = args.has("--e2e-hosted");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
@@ -1639,9 +1640,15 @@ async function prepareE2eTarget() {
   return target;
 }
 
-async function runLocalE2e() {
-  if (!isLocalAppUrl()) {
+async function runBridgeE2e(mode) {
+  const local = isLocalAppUrl();
+
+  if (mode === "local" && !local) {
     throw new Error("E2E local proof requires --app-url http://localhost:3001 or another local app URL.");
+  }
+
+  if (mode === "hosted" && local) {
+    throw new Error("E2E hosted proof requires a hosted --app-url, not a localhost URL.");
   }
 
   const target = await prepareE2eTarget();
@@ -1721,7 +1728,20 @@ async function runLocalE2e() {
     "-Json",
   ]);
 
-  if (jsonDoctor.code !== 0 || !jsonDoctor.stdout.includes('"status"')) {
+  let doctorJson;
+
+  try {
+    doctorJson = JSON.parse(jsonDoctor.stdout);
+  } catch {
+    doctorJson = null;
+  }
+
+  const doctorJsonPassed =
+    doctorJson?.ok === true ||
+    doctorJson?.status === "pass" ||
+    doctorJson?.status === "passed";
+
+  if (jsonDoctor.code !== 0 || !doctorJsonPassed) {
     throw new Error(`E2E failed: target doctor JSON failed.\n${jsonDoctor.stderr || jsonDoctor.stdout}`);
   }
 
@@ -1737,6 +1757,7 @@ async function runLocalE2e() {
 
   const report = {
     status: "pass",
+    mode,
     appUrl: appBaseUrl(),
     target,
     threadId: started.threadId,
@@ -1750,12 +1771,20 @@ async function runLocalE2e() {
     return;
   }
 
-  console.log("JustSwipe local E2E passed.");
+  console.log(`JustSwipe ${mode} E2E passed.`);
   console.log(`target: ${report.target}`);
   console.log(`threadId: ${report.threadId}`);
   console.log(`setupAnswer: ${report.setupAnswer.reply}`);
   console.log(`workAnswer: ${report.workAnswer.reply}`);
   console.log(`doctor: ${report.doctorPath}`);
+}
+
+async function runLocalE2e() {
+  await runBridgeE2e("local");
+}
+
+async function runHostedE2e() {
+  await runBridgeE2e("hosted");
 }
 
 async function main() {
@@ -1776,6 +1805,11 @@ async function main() {
 
   if (e2eLocal) {
     await runLocalE2e();
+    return;
+  }
+
+  if (e2eHosted) {
+    await runHostedE2e();
     return;
   }
 

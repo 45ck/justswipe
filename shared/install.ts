@@ -181,6 +181,7 @@ A successful install means:
 - \`npm --silent run bridge:status -- --app-url <app-url> --json\` reports the connection and queue state.
 - \`npm run bridge:doctor -- --app-url <app-url>\` reports the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
 - \`npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000\` proves the local setup, handoff, response, relay, follow-up card, and target-repo doctor loop when hosted quota blocks cloud testing.
+- After hosted quota resets, \`npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000\` proves the same loop against the hosted app.
 - A setup handoff was queued, or the exact blocker and next command were reported.
 
 If any part is blocked, do not build a local replacement. Report the blocker and the exact next command.

@@ -117,6 +117,7 @@ npm run build
 npm run bridge:doctor -- --app-url http://localhost:3001
 npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
 npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000
+npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000
 npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 npm --silent run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
 npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
@@ -125,4 +126,5 @@ npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
 Use `npm run bridge:doctor -- --app-url http://localhost:3001` to verify the raw install doc, local install mirror, pairing state, queue state, and next bridge action without touching hosted quota.
 Use `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` for a full local round trip: disposable target repo, setup handoff, swipe response, bridge relay, follow-up card, second response, and target-repo doctor proof.
+After hosted quota resets, use `npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000` for the same proof against the hosted app.
 `npm run bridge:smoke` uses an isolated `guest:smoke` session unless you pass `--guest`.
