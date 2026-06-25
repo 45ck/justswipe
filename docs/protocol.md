@@ -90,7 +90,18 @@ Default pairing posture:
 - Auto-open the desktop pair link when possible.
 - Print the same pair link and code for phone setup.
 - Let the user pair desktop, phone, or both against the same day-long connection.
+- If hosted Lakebed reports `mutations quota exceeded`, stop hosted mutation retries and point the bridge at a local JustSwipe dev server until hosted quota resets.
 - Treat failed pairing as a setup blocker, not a reason to build another UI.
+
+Hosted quota fallback:
+
+1. Confirm the limit with `npx lakebed inspect <deploy-url-or-id> --json` when needed. The current hosted deploy reports `mutationsPerDay: 1000` and `requestsPerDay: 10000`.
+2. Run `npm run dev` in the JustSwipe bridge repo and keep that terminal running.
+3. In a second terminal, set the bridge app URL to `http://localhost:3001`.
+4. Run the same `bridge:setup`, `bridge:pair`, `handoff:setup`, and `bridge:watch` commands against that local app URL.
+5. Report the exact blocker as `hosted mutation quota exhausted; switch bridge app URL to local dev`, including `resetAt` or `retryAfterSeconds` if Lakebed includes them in the 429 body.
+
+This fallback changes only the JustSwipe app URL. It does not put a JustSwipe implementation into the target repo, and it does not change the bridge/watch contract.
 
 ## Future Account Model
 

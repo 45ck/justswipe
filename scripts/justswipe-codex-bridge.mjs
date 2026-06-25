@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,6 +106,72 @@ function integrationForGuest(db) {
 
 function bridgeConnectionId(db) {
   return valueAfter("--connection-id") ?? integrationForGuest(db)?.connectionId ?? "";
+}
+
+function projectNameFromCwd(cwd) {
+  const normalized = String(cwd || "").replaceAll("\\", "/");
+  const name = normalized.split("/").filter(Boolean).pop();
+  return name || "Project";
+}
+
+function shortThreadId(threadId) {
+  return threadId ? String(threadId).slice(0, 8) : "new";
+}
+
+function threadTitleFallback(threadId, cwd, title = "") {
+  const cleanTitle = String(title || "").trim();
+  if (cleanTitle && cleanTitle !== "New thread" && !/\bthread new$/i.test(cleanTitle)) {
+    return cleanTitle.slice(0, 140);
+  }
+
+  return `${projectNameFromCwd(cwd)} thread ${shortThreadId(threadId)}`;
+}
+
+function threadMetadataFromThread(thread, fallback = {}) {
+  const cwd = thread?.cwd || fallback.cwd || resolve(threadCwd);
+  const threadId = thread?.id || fallback.threadId || "";
+  const fallbackTitle = String(fallback.threadTitle || "");
+  const usableFallbackTitle =
+    fallbackTitle && fallbackTitle !== "New thread" && !/\bthread new$/i.test(fallbackTitle)
+      ? fallbackTitle
+      : "";
+  const rawStatus = typeof thread?.status === "string" ? thread.status : thread?.status?.type;
+  const status =
+    rawStatus === "idle" ||
+    rawStatus === "running" ||
+    rawStatus === "awaiting_justswipe" ||
+    rawStatus === "queued" ||
+    rawStatus === "failed"
+      ? rawStatus
+      : fallback.threadStatus || "unknown";
+
+  return {
+    threadId,
+    threadTitle: threadTitleFallback(threadId, cwd, thread?.title || usableFallbackTitle),
+    threadStatus: status,
+    cwd,
+    projectName: fallback.projectName || projectNameFromCwd(cwd),
+    lastActivityAt: new Date().toISOString(),
+  };
+}
+
+function threadMetadataFromEvent(event, overrides = {}) {
+  return {
+    threadId: overrides.threadId || event.threadId || "",
+    threadTitle: threadTitleFallback(
+      overrides.threadId || event.threadId || "",
+      overrides.cwd || event.cwd || resolve(threadCwd),
+      overrides.threadTitle || event.threadTitle || "",
+    ),
+    threadStatus: overrides.threadStatus || event.threadStatus || "unknown",
+    cwd: overrides.cwd || event.cwd || resolve(threadCwd),
+    projectName: overrides.projectName || event.projectName || projectNameFromCwd(overrides.cwd || event.cwd || resolve(threadCwd)),
+    lastActivityAt: overrides.lastActivityAt || new Date().toISOString(),
+  };
+}
+
+function metadataJson(metadata) {
+  return JSON.stringify(metadata);
 }
 
 async function deployInspectTarget() {
@@ -504,32 +570,66 @@ async function runCodexExec(event) {
   if (!response) {
     throw new Error("codex exec completed without a response body.");
   }
-  return response;
+  return {
+    response,
+    threadMeta: threadMetadataFromEvent(event, {
+      threadStatus: "idle",
+    }),
+  };
 }
 
 async function runCodexAppServer(event) {
-  if (!event.threadId) {
+  const createsThread = event.action === "project_idea_new_thread" || !event.threadId;
+
+  if (!event.threadId && !createsThread) {
     throw new Error("Codex app-server relay needs a threadId on the bridge event.");
   }
 
   const client = await createAppServerClient();
+  let threadId = event.threadId || "";
   let turnId = "";
+  let threadMeta = threadMetadataFromEvent(event, {
+    threadStatus: "running",
+  });
 
   try {
-    try {
-      await client.request("thread/resume", { threadId: event.threadId });
-    } catch (error) {
-      throw new Error(
-        [
-          `Could not resume Codex thread ${event.threadId} through app-server.`,
-          "Use a thread created by the native app-server bridge, or rerun with --relay exec for the isolated CLI fallback.",
-          error instanceof Error ? error.message : String(error),
-        ].join("\n"),
-      );
+    if (createsThread) {
+      const cwd = resolve(event.cwd || threadCwd);
+      await mkdir(cwd, { recursive: true });
+      const started = await client.request("thread/start", {
+        cwd,
+        ephemeral: false,
+        threadSource: "user",
+      });
+
+      threadId = started?.thread?.id || "";
+
+      if (!threadId) {
+        throw new Error("Codex app-server did not return a thread id for the JustSwipe idea.");
+      }
+
+      threadMeta = threadMetadataFromThread(started?.thread, {
+        ...threadMetadataFromEvent(event),
+        threadId,
+        cwd,
+        threadStatus: "running",
+      });
+    } else {
+      try {
+        await client.request("thread/resume", { threadId });
+      } catch (error) {
+        throw new Error(
+          [
+            `Could not resume Codex thread ${threadId} through app-server.`,
+            "Use a thread created by the native app-server bridge, or rerun with --relay exec for the isolated CLI fallback.",
+            error instanceof Error ? error.message : String(error),
+          ].join("\n"),
+        );
+      }
     }
 
     const turn = await client.request("turn/start", {
-      threadId: event.threadId,
+      threadId,
       input: [
         {
           type: "text",
@@ -546,24 +646,51 @@ async function runCodexAppServer(event) {
 
     const completed = await client.onceNotification(
       "turn/completed",
-      (params) => params?.threadId === event.threadId && params?.turn?.id === turnId,
+      (params) => params?.threadId === threadId && params?.turn?.id === turnId,
       codexTimeoutMs,
     );
     let response = finalTextFromTurn(completed?.turn);
 
     if (!response) {
       const refreshed = await client.request("thread/read", {
-        threadId: event.threadId,
+        threadId,
         includeTurns: true,
       });
       response = finalTextFromThreadRead(refreshed, turnId);
+      threadMeta = threadMetadataFromThread(refreshed?.thread, {
+        ...threadMeta,
+        threadId,
+        threadStatus: "idle",
+      });
+    } else {
+      try {
+        const refreshed = await client.request("thread/read", {
+          threadId,
+          includeTurns: false,
+        });
+        threadMeta = threadMetadataFromThread(refreshed?.thread, {
+          ...threadMeta,
+          threadId,
+          threadStatus: "idle",
+        });
+      } catch {
+        threadMeta = {
+          ...threadMeta,
+          threadId,
+          threadStatus: "idle",
+          lastActivityAt: new Date().toISOString(),
+        };
+      }
     }
 
     if (!response) {
       throw new Error("Codex app-server completed without a final response body.");
     }
 
-    return response;
+    return {
+      response,
+      threadMeta,
+    };
   } finally {
     client.close();
   }
@@ -670,16 +797,26 @@ async function runMutation(name, mutationArgs = []) {
   });
 }
 
-async function markSent(event, response) {
-  await runMutation("markBridgeSent", [event.id, response]);
+async function claimEvent(event) {
+  const result = await runMutation("claimBridgeEvent", [event.id]);
+
+  try {
+    return JSON.parse(String(result));
+  } catch {
+    return { ok: false, error: "Could not claim bridge event." };
+  }
+}
+
+async function markSent(event, response, threadMeta) {
+  await runMutation("markBridgeSent", [event.id, response, metadataJson(threadMeta)]);
 }
 
 async function markFailed(event, error) {
   await runMutation("markBridgeFailed", [event.id, String(error).slice(0, 1600)]);
 }
 
-async function maybeCreateNextHandoff(event, response) {
-  const next = extractNextHandoff(response);
+async function maybeCreateNextHandoff(event, relayResult) {
+  const next = extractNextHandoff(relayResult.response);
 
   if (!next) {
     return null;
@@ -687,9 +824,10 @@ async function maybeCreateNextHandoff(event, response) {
 
   return runMutation("createHandoffFromBridge", [
     event.connectionId || "",
-    event.threadId || "",
+    event.threadId || relayResult.threadMeta?.threadId || "",
     next.cardsJson,
     next.reason,
+    metadataJson(relayResult.threadMeta || threadMetadataFromEvent(event)),
   ]);
 }
 
@@ -812,12 +950,21 @@ async function createSetupHandoff() {
     throw new Error(`Could not create a JustSwipe connection for pairing code ${code}.`);
   }
 
+  const threadMeta = threadMetadataFromEvent({
+    threadId,
+    threadTitle: integration?.threadTitle,
+    cwd: integration?.cwd || resolve(threadCwd),
+    projectName: integration?.projectName,
+    threadStatus: "awaiting_justswipe",
+  });
+
   await runMutation("clearConnectionState", []);
   const handoffId = await runMutation("createHandoffFromBridge", [
     connectionId,
     threadId,
     JSON.stringify([setupHandoffCard(code, link)]),
     "Connect this repo to hosted JustSwipe.",
+    metadataJson(threadMeta),
   ]);
 
   console.log(`Setup handoff queued: ${handoffId}`);
@@ -845,12 +992,21 @@ async function createTodoHandoff() {
     }
   }
 
+  const threadMeta = threadMetadataFromEvent({
+    threadId,
+    threadTitle: integration?.threadTitle,
+    cwd: integration?.cwd || resolve(threadCwd),
+    projectName: integration?.projectName,
+    threadStatus: "awaiting_justswipe",
+  });
+
   await runMutation("clearConnectionState", []);
   const handoffId = await runMutation("createHandoffFromBridge", [
     connectionId,
     threadId,
     JSON.stringify([todoHandoffCard()]),
     "Todo Codex thread needs the next concrete todo slice.",
+    metadataJson(threadMeta),
   ]);
 
   console.log(`Todo handoff queued: ${handoffId}`);
@@ -871,6 +1027,13 @@ async function startNativeThread() {
   const client = await createAppServerClient();
   let threadId = "";
   let final = "";
+  let threadMeta = threadMetadataFromEvent({
+    threadId: "",
+    cwd,
+    projectName: projectNameFromCwd(cwd),
+    threadTitle: "",
+    threadStatus: "running",
+  });
 
   try {
     const started = await client.request("thread/start", {
@@ -879,6 +1042,12 @@ async function startNativeThread() {
       threadSource: "user",
     });
     threadId = started?.thread?.id || "";
+    threadMeta = threadMetadataFromThread(started?.thread, {
+      ...threadMeta,
+      threadId,
+      cwd,
+      threadStatus: "running",
+    });
 
     if (!threadId) {
       throw new Error("Codex app-server did not return a thread id.");
@@ -907,16 +1076,28 @@ async function startNativeThread() {
         codexTimeoutMs,
       );
       final = finalTextFromTurn(completed?.turn);
+      threadMeta = {
+        ...threadMeta,
+        threadStatus: "idle",
+        lastActivityAt: new Date().toISOString(),
+      };
     }
   } finally {
     client.close();
   }
+
+  threadMeta = {
+    ...threadMeta,
+    threadStatus: "idle",
+    lastActivityAt: new Date().toISOString(),
+  };
 
   const db = await dumpDb();
   const integration = integrationForGuest(db);
   await runMutation("saveIntegration", [
     threadId,
     integration?.customPrompt || "Treat JustSwipe packets as user steering, then continue or ask another JustSwipe card.",
+    metadataJson(threadMeta),
   ]);
 
   console.log(`Native Codex thread created and saved: ${threadId}`);
@@ -998,6 +1179,9 @@ async function processQueued({ all, quiet }) {
           action: event.action,
           connectionId: event.connectionId,
           threadId: event.threadId,
+          threadTitle: event.threadTitle,
+          projectName: event.projectName,
+          cwd: event.cwd,
           relayMode,
           queuedCount: queuedEvents(db).length,
           promptPreview: event.prompt.slice(0, 260),
@@ -1011,22 +1195,40 @@ async function processQueued({ all, quiet }) {
 
   let handled = 0;
   while (event) {
+    const claim = await claimEvent(event);
+
+    if (!claim.ok) {
+      if (!quiet) {
+        console.log(`Skipped JustSwipe event ${event.handoffId || event.id}: ${claim.error}`);
+      }
+
+      if (!all) {
+        return handled;
+      }
+
+      db = await dumpDb();
+      event = nextQueuedEvent(db);
+      continue;
+    }
+
     console.log(`Relaying JustSwipe response ${event.handoffId || event.id}: ${event.title}`);
     try {
-      const response = await runCodex(event);
-      const nextHandoffId = await maybeCreateNextHandoff(event, response);
+      const relayResult = await runCodex(event);
+      const nextHandoffId = await maybeCreateNextHandoff(event, relayResult);
+      const responseText = nextHandoffId
+        ? `${relayResult.response}\n\nCreated next JustSwipe handoff: ${nextHandoffId}`
+        : relayResult.response;
       await markSent(
         event,
-        nextHandoffId
-          ? `${response}\n\nCreated next JustSwipe handoff: ${nextHandoffId}`
-          : response,
+        responseText,
+        relayResult.threadMeta || threadMetadataFromEvent(event, { threadStatus: "idle" }),
       );
       handled += 1;
       console.log(`Codex handled JustSwipe response: ${event.handoffId || event.id}`);
       if (nextHandoffId) {
         console.log(`Next JustSwipe handoff queued: ${nextHandoffId}`);
       }
-      console.log(response);
+      console.log(relayResult.response);
     } catch (error) {
       await markFailed(event, error instanceof Error ? error.message : String(error));
       handled += 1;

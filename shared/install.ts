@@ -18,7 +18,7 @@ The target repo only receives steering instructions:
 2. Create or update skills/justswipe/SKILL.md.
 3. Configure Codex to emit and consume JustSwipe handoff packets.
 
-The local bridge is separate tooling. It talks to the hosted app and relays responses back into Codex.
+The local bridge is separate tooling. It talks to the hosted app and relays responses back into Codex. If the hosted Lakebed deploy reaches its mutation quota, the same bridge can temporarily point at the local JustSwipe dev server instead.
 
 ## Install The Repo Contract First
 
@@ -28,7 +28,7 @@ This setup phase is mandatory. Do not decide JustSwipe is unnecessary because th
 2. Preserve existing instructions. If AGENTS.md exists, append a JustSwipe section. Do not replace existing content.
 3. If AGENTS.md is missing, create it.
 4. Create or update skills/justswipe/SKILL.md.
-5. Do not continue the user's project work until the hosted pairing step is complete or clearly blocked.
+5. Do not continue the user's project work until the hosted pairing step is complete, the local-dev quota fallback is paired, or setup is clearly blocked.
 
 Add these JustSwipe rules to AGENTS.md and the skill:
 
@@ -52,6 +52,7 @@ Default setup behavior:
 - Open the hosted pair link automatically when the environment allows it.
 - Print the same pair code/link so the user can pair a phone browser or second desktop browser.
 - Ask one short question only if needed: "Pair desktop, phone, or both?"
+- If hosted Lakebed reports \`mutations quota exceeded\`, stop retrying hosted mutations and switch $app to local development until hosted quota resets.
 - Do not build a local JustSwipe UI if pairing is blocked. Report the blocker and the next command.
 
 First locate bridge tooling:
@@ -90,6 +91,32 @@ npm run bridge:watch -- --app-url $app
 If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
 
 The expected result is simple: the hosted app opens, the user can pair this browser, the same link can be opened on a phone, and both devices see the same JustSwipe cards for this repo connection.
+
+## Hosted Mutation Quota Fallback
+
+Lakebed exposes deploy limits with \`npx lakebed inspect <deploy-url-or-id> --json\`. For this hosted deploy, the important operational limits are \`mutationsPerDay: 1000\` and \`requestsPerDay: 10000\`.
+
+If the hosted app reports \`mutations quota exceeded\`, do not keep retrying hosted setup, pairing, browser-session cleanup, or handoff mutations. Switch active work to the local JustSwipe dev server:
+
+powershell:
+# Terminal 1: keep the local JustSwipe app running
+$bridge = "<absolute path to JustSwipe bridge repo>"
+
+Set-Location $bridge
+npm install
+npm run dev
+
+powershell:
+# Terminal 2: point the bridge at local dev
+$bridge = "<absolute path to JustSwipe bridge repo>"
+$repo = "<absolute path to target repo>"
+
+Set-Location $bridge
+$app = "http://localhost:3001"
+npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
+npm run bridge:watch -- --app-url $app
+
+Report this blocker exactly: \`hosted mutation quota exhausted; switch bridge app URL to local dev\`. If Lakebed's 429 body includes \`resetAt\` or \`retryAfterSeconds\`, include that timing in the report, then continue active work locally. Hosted JustSwipe can resume after the Lakebed quota resets. This is not permission to build or install a replacement JustSwipe UI inside the target repo.
 
 After setup is proven, continue the user's original project request. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 
@@ -139,7 +166,7 @@ A successful install means:
 
 - AGENTS.md is preserved or created.
 - skills/justswipe/SKILL.md exists.
-- Hosted JustSwipe pair code/link was created.
+- Hosted JustSwipe pair code/link was created, or local-dev pair code/link was created because hosted mutation quota was exhausted.
 - The pair link was opened automatically when possible.
 - The user was given the pair code/link for phone or second-browser pairing.
 - A setup handoff was queued, or the exact blocker and next command were reported.

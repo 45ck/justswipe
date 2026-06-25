@@ -11,6 +11,8 @@ Hosted JustSwipe starts disconnected. The laptop bridge creates a pair code or `
 
 Do not build JustSwipe or a replacement browser UI inside the target repo. The hosted app already exists. The target repo only gets instructions and the local bridge connection.
 
+If the hosted Lakebed app reports `mutations quota exceeded`, stop retrying hosted mutations and switch active work to local development. Run `npm run dev` in the JustSwipe repo, set the bridge app URL to `http://localhost:3001`, then rerun setup/pair/watch against that local app URL until hosted quota resets. Report the exact blocker as `hosted mutation quota exhausted; switch bridge app URL to local dev`, including `resetAt` or `retryAfterSeconds` when Lakebed returns them. This does not allow a replacement JustSwipe UI inside the target repo.
+
 ## Install In A Repo
 
 Merge JustSwipe into the target repo without replacing existing repo guidance:
@@ -158,3 +160,20 @@ npm run handoff:todo
 ```
 
 Use `npm run bridge:dry-run` to inspect queued packets before relaying them.
+
+Hosted quota fallback:
+
+```powershell
+# Terminal 1: keep the local JustSwipe app running
+Set-Location E:\justswipe
+npm run dev
+```
+
+```powershell
+# Terminal 2: point the bridge at local dev
+Set-Location E:\justswipe
+$app = "http://localhost:3001"
+$repo = "<absolute path to target repo>"
+npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
+npm run bridge:watch -- --app-url $app
+```

@@ -54,12 +54,40 @@ export type HandoffStatus =
   | "failed"
   | "expired";
 
+export type CodexThreadStatus =
+  | "idle"
+  | "running"
+  | "awaiting_justswipe"
+  | "queued"
+  | "failed"
+  | "unknown";
+
+export type CodexThread = {
+  id: string;
+  ownerId: string;
+  connectionId: string;
+  threadId: string;
+  threadTitle: string;
+  threadStatus: CodexThreadStatus;
+  cwd: string;
+  projectName: string;
+  lastActivityAt: string;
+  pendingCards: string;
+  pendingIdeas: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Handoff = {
   id: string;
   ownerId: string;
   handoffId: string;
   connectionId: string;
   threadId: string;
+  threadTitle: string;
+  threadStatus: CodexThreadStatus;
+  cwd: string;
+  projectName: string;
   status: HandoffStatus;
   cardsJson: string;
   activeCardIndex: string;
@@ -86,6 +114,10 @@ export type BridgeEvent = {
   handoffId: string;
   connectionId: string;
   threadId: string;
+  threadTitle: string;
+  threadStatus: CodexThreadStatus;
+  cwd: string;
+  projectName: string;
   handoffRowId: string;
   title: string;
   action: string;
@@ -103,7 +135,18 @@ export type Integration = {
   connectionId: string;
   pairedUntil: string;
   codexThreadId: string;
+  threadTitle: string;
+  threadStatus: CodexThreadStatus;
+  cwd: string;
+  projectName: string;
+  lastActivityAt: string;
   customPrompt: string;
+  deviceId: string;
+  deviceLabel: string;
+  deviceBrowser: string;
+  devicePlatform: string;
+  lastSeenAt: string;
+  pairedAt: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -114,12 +157,38 @@ export type PairingCode = {
   code: string;
   connectionId: string;
   threadId: string;
+  threadTitle: string;
+  cwd: string;
+  projectName: string;
   customPrompt: string;
   status: string;
   expiresAt: string;
   pairedAt: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type PairedDevice = {
+  id: string;
+  sessionId: string;
+  deviceId: string;
+  label: string;
+  isCurrent: boolean;
+  isDuplicate: boolean;
+  lastSeenAt: string;
+  pairedAt: string;
+  pairedUntil: string;
+  threadId: string;
+  updatedAt: string;
+  browser: string;
+  platform: string;
+};
+
+export type DeviceSessionPayload = {
+  deviceId: string;
+  label: string;
+  browser: string;
+  platform: string;
 };
 
 export const defaultCodexThreadId = "019ef89d-058c-7df3-aad4-d9a4fa9e750e";

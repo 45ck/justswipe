@@ -6,7 +6,12 @@ import {
   useQuery,
 } from "lakebed/client";
 import type { ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import {
+  brandName,
+  brandSymbolDataUri,
+  brandThemeColor,
+} from "../shared/branding";
 import {
   actionLabel,
   actionVerb,
@@ -15,14 +20,59 @@ import {
   parseCards,
   parseResponses,
   type BridgeEvent,
+  type CodexThread,
+  type CodexThreadStatus,
+  type DeviceSessionPayload,
   type Handoff,
   type Integration,
+  type PairedDevice,
   type PairingCode,
   type SwipeAction,
   type SwipeCard,
 } from "../shared/decision";
 
 type FormValues = Record<string, string | boolean | string[]>;
+
+function upsertHeadLink(rel: string, attributes: Record<string, string>) {
+  let element = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+
+  if (!element) {
+    element = document.createElement("link");
+    element.setAttribute("rel", rel);
+    document.head.appendChild(element);
+  }
+
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, value);
+  }
+}
+
+function upsertNamedMeta(name: string, content: string) {
+  let element = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
+
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute("name", name);
+    document.head.appendChild(element);
+  }
+
+  element.setAttribute("content", content);
+}
+
+function useDocumentBranding() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    document.title = brandName;
+    upsertHeadLink("icon", { href: brandSymbolDataUri, type: "image/svg+xml" });
+    upsertHeadLink("shortcut icon", { href: brandSymbolDataUri, type: "image/svg+xml" });
+    upsertHeadLink("apple-touch-icon", { href: brandSymbolDataUri });
+    upsertHeadLink("mask-icon", { href: brandSymbolDataUri, color: brandThemeColor });
+    upsertNamedMeta("application-name", brandName);
+    upsertNamedMeta("apple-mobile-web-app-title", brandName);
+    upsertNamedMeta("theme-color", brandThemeColor);
+  }, []);
+}
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -50,6 +100,78 @@ function tryVibrate(pattern: VibratePattern) {
   } catch {
     // Haptics are best effort and should never create console noise.
   }
+}
+
+const deviceIdStorageKey = "justswipe.deviceId";
+
+function createDeviceId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `dev-${crypto.randomUUID()}`;
+  }
+
+  return `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getStableDeviceId(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const existing = window.localStorage.getItem(deviceIdStorageKey);
+
+    if (existing) {
+      return existing;
+    }
+
+    const next = createDeviceId();
+    window.localStorage.setItem(deviceIdStorageKey, next);
+    return next;
+  } catch {
+    return createDeviceId();
+  }
+}
+
+function detectBrowser(userAgent: string): string {
+  if (/Edg\//.test(userAgent)) return "Edge";
+  if (/OPR\//.test(userAgent)) return "Opera";
+  if (/Firefox\//.test(userAgent)) return "Firefox";
+  if (/Chrome\//.test(userAgent) || /CriOS\//.test(userAgent)) return "Chrome";
+  if (/Safari\//.test(userAgent)) return "Safari";
+
+  return "Browser";
+}
+
+function readDeviceSessionPayload(): DeviceSessionPayload {
+  if (typeof navigator === "undefined") {
+    return {
+      deviceId: "",
+      label: "Unknown browser",
+      browser: "",
+      platform: "",
+    };
+  }
+
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const browser = detectBrowser(nav.userAgent || "");
+  const platform = nav.userAgentData?.platform || nav.platform || "Unknown device";
+
+  return {
+    deviceId: getStableDeviceId(),
+    label: `${browser} on ${platform}`,
+    browser,
+    platform,
+  };
+}
+
+function compactDeviceMeta(device: PairedDevice): string {
+  const parts = [device.browser, device.platform].filter(Boolean);
+
+  if (parts.length === 0) {
+    return device.deviceId ? "Browser session" : "Legacy session";
+  }
+
+  return parts.join(" on ");
 }
 
 function Icon(props: { name: string; class?: string }) {
@@ -138,11 +260,48 @@ function Icon(props: { name: string; class?: string }) {
     );
   }
 
+  if (props.name === "folder") {
+    return (
+      <svg {...common}>
+        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
+      </svg>
+    );
+  }
+
+  if (props.name === "play") {
+    return (
+      <svg {...common}>
+        <path d="M8 5v14l11-7Z" />
+      </svg>
+    );
+  }
+
+  if (props.name === "clock") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    );
+  }
+
   if (props.name === "power") {
     return (
       <svg {...common}>
         <path d="M12 2v10" />
         <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
+      </svg>
+    );
+  }
+
+  if (props.name === "trash") {
+    return (
+      <svg {...common}>
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M19 6 18 20H6L5 6" />
+        <path d="M10 11v5" />
+        <path d="M14 11v5" />
       </svg>
     );
   }
@@ -165,6 +324,99 @@ function Icon(props: { name: string; class?: string }) {
   );
 }
 
+function BrandSymbol(props: { class?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      class={props.class || "h-6 w-6"}
+      viewBox="0 0 512 512"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="jsw-brand-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#C8FF3D" />
+          <stop offset="48%" stopColor="#45E7A3" />
+          <stop offset="100%" stopColor="#00D9FF" />
+        </linearGradient>
+      </defs>
+      <path
+        clipRule="evenodd"
+        d="M180 70A48 48 0 0 1 228 118v96.575a50 50 0 0 0 0 82.85V394a48 48 0 0 1-96 0V118a48 48 0 0 1 48-48Z"
+        fill="#F7F9FB"
+        fillRule="evenodd"
+      />
+      <path
+        clipRule="evenodd"
+        d="M332 70a48 48 0 0 1 48 48v276a48 48 0 0 1-96 0v-96.575a50 50 0 0 0 0-82.85V118a48 48 0 0 1 48-48Z"
+        fill="url(#jsw-brand-gradient)"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function BrandLogo(props: { class?: string }) {
+  return (
+    <svg
+      aria-label={brandName}
+      class={props.class || "h-10 w-40"}
+      role="img"
+      viewBox="0 0 560 130"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <title>{brandName}</title>
+      <defs>
+        <linearGradient id="jsw-logo-symbol-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#C8FF3D" />
+          <stop offset="48%" stopColor="#45E7A3" />
+          <stop offset="100%" stopColor="#00D9FF" />
+        </linearGradient>
+        <linearGradient id="jsw-logo-word-gradient" x1="265" y1="0" x2="545" y2="0">
+          <stop offset="0%" stopColor="#C8FF3D" />
+          <stop offset="46%" stopColor="#45E7A3" />
+          <stop offset="100%" stopColor="#00D9FF" />
+        </linearGradient>
+      </defs>
+      <g transform="translate(4 8) scale(0.22)">
+        <path
+          clipRule="evenodd"
+          d="M180 70A48 48 0 0 1 228 118v96.575a50 50 0 0 0 0 82.85V394a48 48 0 0 1-96 0V118a48 48 0 0 1 48-48Z"
+          fill="#F7F9FB"
+          fillRule="evenodd"
+        />
+        <path
+          clipRule="evenodd"
+          d="M332 70a48 48 0 0 1 48 48v276a48 48 0 0 1-96 0v-96.575a50 50 0 0 0 0-82.85V118a48 48 0 0 1 48-48Z"
+          fill="url(#jsw-logo-symbol-gradient)"
+          fillRule="evenodd"
+        />
+      </g>
+      <text
+        fill="#F7F9FB"
+        fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
+        fontSize="68"
+        fontWeight="800"
+        letterSpacing="0"
+        x="132"
+        y="85"
+      >
+        Just
+      </text>
+      <text
+        fill="url(#jsw-logo-word-gradient)"
+        fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
+        fontSize="68"
+        fontWeight="800"
+        letterSpacing="0"
+        x="268"
+        y="85"
+      >
+        Swipe
+      </text>
+    </svg>
+  );
+}
+
 function actionTone(action: SwipeAction): string {
   if (action === "yes") return "border-lime-300/40 bg-lime-300/12 text-lime-100";
   if (action === "no") return "border-orange-400/40 bg-orange-400/12 text-orange-100";
@@ -180,19 +432,55 @@ function actionSolid(action: SwipeAction): string {
 }
 
 function bridgeStatusLabel(status: string): string {
-  if (status === "queued") return "Sending to Codex";
+  if (status === "queued") return "Waiting for Codex";
+  if (status === "running") return "Codex working";
   if (status === "sent") return "Codex resumed";
   if (status === "failed") return "Bridge failed";
   return status || "Waiting";
 }
 
 function handoffStatusLabel(status: string): string {
-  if (status === "awaiting_justswipe") return "Awaiting you";
+  if (status === "awaiting_justswipe") return "Awaiting JustSwipe";
   if (status === "in_progress") return "Clearing bundle";
-  if (status === "responding_to_codex") return "Sending to Codex";
+  if (status === "responding_to_codex") return "Waiting for Codex";
   if (status === "codex_resumed") return "Thread resumed";
   if (status === "failed") return "Bridge failed";
   return status;
+}
+
+function threadStatusLabel(status: string): string {
+  if (status === "idle") return "Idle";
+  if (status === "running") return "Running";
+  if (status === "awaiting_justswipe") return "Awaiting JustSwipe";
+  if (status === "queued") return "Queued";
+  if (status === "failed") return "Failed";
+  return "Unknown";
+}
+
+function threadStatusTone(status: string): string {
+  if (status === "idle") return "border-teal-300/30 bg-teal-300/10 text-teal-100";
+  if (status === "running") return "border-cyan-300/35 bg-cyan-300/10 text-cyan-100";
+  if (status === "awaiting_justswipe") return "border-lime-300/35 bg-lime-300/10 text-lime-100";
+  if (status === "queued") return "border-yellow-300/35 bg-yellow-300/10 text-yellow-100";
+  if (status === "failed") return "border-orange-400/35 bg-orange-400/10 text-orange-100";
+  return "border-white/10 bg-white/[0.04] text-zinc-300";
+}
+
+function threadDotTone(status: string): string {
+  if (status === "idle") return "bg-teal-300";
+  if (status === "running") return "bg-cyan-300 animate-pulse";
+  if (status === "awaiting_justswipe") return "bg-lime-300 animate-pulse";
+  if (status === "queued") return "bg-yellow-300 animate-pulse";
+  if (status === "failed") return "bg-orange-400";
+  return "bg-zinc-500";
+}
+
+function threadStatusIcon(status: string): string {
+  if (status === "running") return "play";
+  if (status === "queued") return "clock";
+  if (status === "awaiting_justswipe") return "inbox";
+  if (status === "failed") return "no";
+  return "yes";
 }
 
 function currentHandoff(handoffs: Handoff[]): Handoff | undefined {
@@ -277,31 +565,373 @@ function safeResult(value: string): { ok: boolean; error?: string; completed?: b
   }
 }
 
+function mutationErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  if (message.includes("mutations quota exceeded")) {
+    return "Hosted mutation quota is exhausted. Try again after the Lakebed quota resets.";
+  }
+
+  return message || "Could not update JustSwipe.";
+}
+
+function isFutureIso(value: string): boolean {
+  return Boolean(value) && value > new Date().toISOString();
+}
+
+function isConnectedIntegration(integration?: Integration): boolean {
+  return Boolean(integration?.connectionId && isFutureIso(integration.pairedUntil));
+}
+
+function shortId(value: string): string {
+  if (!value) return "Not paired";
+  if (value.length <= 14) return value;
+
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function formatTime(value: string): string {
+  if (!value) return "No expiry";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(11, 16) || value;
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatAgo(value: string): string {
+  if (!value) return "now";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(11, 16) || "now";
+  }
+
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+
+  if (seconds < 60) return "now";
+
+  const minutes = Math.floor(seconds / 60);
+
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) return `${hours}h`;
+
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function plural(count: number, singular: string, pluralValue = `${singular}s`): string {
+  return count === 1 ? singular : pluralValue;
+}
+
+function pairLinkForCode(code: string): string {
+  if (!code || typeof window === "undefined") {
+    return "";
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("lakebed_guest");
+  url.searchParams.set("justswipe_pair", code);
+  return url.toString();
+}
+
+function bridgeTone(status: string): string {
+  if (status === "failed") return "border-orange-400/35 bg-orange-400/10 text-orange-100";
+  if (status === "queued" || status === "running" || status === "responding_to_codex") {
+    return "border-cyan-300/35 bg-cyan-300/10 text-cyan-100";
+  }
+  if (status === "awaiting_justswipe" || status === "in_progress") {
+    return "border-lime-300/35 bg-lime-300/10 text-lime-100";
+  }
+  if (status === "connected") return "border-teal-300/35 bg-teal-300/10 text-teal-100";
+
+  return "border-white/10 bg-white/[0.04] text-zinc-200";
+}
+
+function iconTone(status: string, connected: boolean): string {
+  if (!connected || status === "failed") {
+    return "border-orange-400/40 bg-orange-400/12 text-orange-100 hover:bg-orange-400/20";
+  }
+
+  if (status === "queued" || status === "running") {
+    return "border-cyan-300/40 bg-cyan-300/12 text-cyan-100 hover:bg-cyan-300/20";
+  }
+
+  if (status === "awaiting_justswipe") {
+    return "border-lime-300/40 bg-lime-300/12 text-lime-100 hover:bg-lime-300/20";
+  }
+
+  return "border-teal-300/40 bg-teal-300/12 text-teal-100 hover:bg-teal-300/20";
+}
+
+function statusDotTone(status: string, connected: boolean): string {
+  if (!connected || status === "failed") return "bg-orange-400";
+  if (status === "queued" || status === "running") return "bg-cyan-300 animate-pulse";
+  if (status === "awaiting_justswipe") return "bg-lime-300 animate-pulse";
+  return "bg-teal-300";
+}
+
+function runtimeState(props: {
+  connected: boolean;
+  handoff?: Handoff;
+  latestEvent?: BridgeEvent;
+}) {
+  if (!props.connected) {
+    return {
+      label: "Not paired",
+      detail: "Pair this browser with the local bridge",
+      status: "",
+    };
+  }
+
+  if (props.handoff?.status === "failed" || props.latestEvent?.status === "failed") {
+    return {
+      label: "Bridge failed",
+      detail: "Response is saved for retry",
+      status: "failed",
+    };
+  }
+
+  if (
+    props.handoff?.status === "responding_to_codex" ||
+    props.latestEvent?.status === "queued" ||
+    props.latestEvent?.status === "running"
+  ) {
+    return {
+      label: props.latestEvent?.status === "running" ? "Codex working" : "Waiting for Codex",
+      detail: "Local bridge is relaying work",
+      status: "queued",
+    };
+  }
+
+  if (
+    props.handoff?.status === "awaiting_justswipe" ||
+    props.handoff?.status === "in_progress"
+  ) {
+    return {
+      label: "Awaiting JustSwipe",
+      detail: "One card is ready for this connection",
+      status: "awaiting_justswipe",
+    };
+  }
+
+  return {
+    label: "Connected",
+    detail: "Cards will appear for this bridge",
+    status: "connected",
+  };
+}
+
+function BrowserSessionList(props: {
+  devices: PairedDevice[];
+  compact?: boolean;
+  onRevoke: (sessionId: string) => void;
+  onCleanDuplicates: () => void;
+  onConfirmingChange?: (confirming: boolean) => void;
+}) {
+  const hasDuplicates = props.devices.some((device) => device.isDuplicate);
+  const [confirmingSessionId, setConfirmingSessionId] = useState("");
+
+  useEffect(() => {
+    if (
+      confirmingSessionId &&
+      !props.devices.some((device) => device.sessionId === confirmingSessionId)
+    ) {
+      setConfirmingSessionId("");
+      props.onConfirmingChange?.(false);
+    }
+  }, [confirmingSessionId, props.devices, props.onConfirmingChange]);
+
+  if (props.devices.length === 0) {
+    return (
+      <p class="rounded border border-white/10 bg-black/15 px-3 py-2 text-sm text-zinc-400">
+        No active paired browsers.
+      </p>
+    );
+  }
+
+  return (
+    <div class="grid gap-2">
+      {props.devices.map((device) => {
+        const confirming = confirmingSessionId === device.sessionId;
+
+        return (
+          <div
+            key={device.sessionId}
+            class={`group flex items-center justify-between gap-2 rounded border border-white/10 bg-black/15 ${
+              props.compact ? "px-2 py-2" : "px-3 py-2.5"
+            }`}
+          >
+            <div class="min-w-0">
+              <div class="flex min-w-0 items-center gap-2">
+                <p class="truncate text-sm font-medium text-white">{device.label}</p>
+                {device.isCurrent ? (
+                  <span class="shrink-0 rounded border border-teal-300/30 bg-teal-300/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-teal-100">
+                    Current
+                  </span>
+                ) : null}
+                {device.isDuplicate ? (
+                  <span class="shrink-0 rounded border border-orange-300/30 bg-orange-300/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-100">
+                    Duplicate
+                  </span>
+                ) : null}
+              </div>
+              <p class="mt-0.5 truncate text-xs text-zinc-500">
+                {compactDeviceMeta(device)} · last seen {formatTime(device.lastSeenAt)}
+              </p>
+              {!props.compact ? (
+                <p class="mt-0.5 truncate text-xs text-zinc-600">
+                  Thread {shortId(device.threadId)} · paired {formatTime(device.pairedAt)}
+                </p>
+              ) : null}
+            </div>
+            {device.isCurrent ? (
+              <span class="shrink-0 text-xs text-zinc-500">
+                {formatTime(device.pairedUntil)}
+              </span>
+            ) : confirming ? (
+              <div class="flex shrink-0 items-center gap-1">
+                <button
+                  class="h-8 rounded border border-white/10 px-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmingSessionId("");
+                    props.onConfirmingChange?.(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  class="h-8 rounded border border-orange-400/30 bg-orange-400/15 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-400/25"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmingSessionId("");
+                    props.onConfirmingChange?.(false);
+                    props.onRevoke(device.sessionId);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                class="grid h-8 w-8 shrink-0 place-items-center rounded border border-orange-400/25 bg-orange-400/10 text-orange-100 opacity-100 transition hover:bg-orange-400/20 focus:opacity-100 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100"
+                aria-label={`Remove ${device.label}`}
+                title={`Remove ${device.label}`}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onConfirmingChange?.(true);
+                  setConfirmingSessionId(device.sessionId);
+                }}
+              >
+                <Icon name="trash" class="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {hasDuplicates ? (
+        <button
+          class="h-8 rounded border border-orange-300/30 bg-orange-300/10 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-300/20"
+          type="button"
+          onClick={props.onCleanDuplicates}
+        >
+          Clean duplicates
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function Header(props: {
   integration?: Integration;
+  pairedDevices: PairedDevice[];
+  pairCodes: PairingCode[];
+  codeDraft: string;
+  setCodeDraft: (value: string) => void;
+  pairMessage: string;
+  connectionMenuOpen: boolean;
+  state: ReturnType<typeof runtimeState>;
   onReset: () => void;
   onEnableAlerts: () => void;
+  onToggleConnection: () => void;
   onOpenConnection: () => void;
+  onCloseConnection: () => void;
+  onCreatePairCode: () => void;
+  onPair: () => void;
+  onOpenAdvanced: () => void;
+  onDisconnect: () => void;
   onOpenThreadLog: () => void;
+  onRevokePairedDevice: (sessionId: string) => void;
+  onCleanDuplicateDevices: () => void;
   alertsEnabled: boolean;
   connected: boolean;
 }) {
   const auth = useAuth();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<number | null>(null);
+  const removeConfirming = useRef(false);
+  const latestCode = props.pairCodes[0];
+  const latestPairLink = latestCode ? pairLinkForCode(latestCode.code) : "";
+  const deviceCount = props.pairedDevices.length;
+
+  useEffect(() => {
+    if (!props.connectionMenuOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        props.onCloseConnection();
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [props.connectionMenuOpen, props.onCloseConnection]);
+
+  useEffect(() => {
+    if (!props.connectionMenuOpen) {
+      removeConfirming.current = false;
+    }
+  }, [props.connectionMenuOpen]);
+
+  function clearHoverTimer() {
+    if (hoverTimer.current !== null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  }
+
+  function openAfterHover() {
+    clearHoverTimer();
+    hoverTimer.current = window.setTimeout(props.onOpenConnection, 260);
+  }
+
+  function closeAfterHover() {
+    clearHoverTimer();
+    if (removeConfirming.current) {
+      return;
+    }
+
+    hoverTimer.current = window.setTimeout(props.onCloseConnection, 280);
+  }
 
   return (
     <header class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 border-b border-white/10 pb-4">
-      <div class="flex min-w-0 items-center gap-3">
-        <div class="grid h-10 w-10 shrink-0 place-items-center rounded border border-cyan-300/40 bg-cyan-300/12 text-sm font-black text-cyan-100">
-          JS
-        </div>
-        <div class="min-w-0">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-200">
-            JustSwipe
-          </p>
-          <h1 class="truncate text-lg font-semibold text-white">
-            Swipe to resume Codex
-          </h1>
-        </div>
+      <div class="flex min-w-0 items-center">
+        <BrandLogo class="h-10 w-[min(34vw,180px)] min-w-[104px] max-w-[180px] sm:h-11 sm:w-[210px] sm:max-w-[210px]" />
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -316,18 +946,185 @@ function Header(props: {
         >
           <Icon name="bell" class="h-4 w-4" />
         </button>
-        <button
-          class={`grid h-10 w-10 place-items-center rounded border text-sm transition ${
-            props.connected
-              ? "border-cyan-300/40 bg-cyan-300/12 text-cyan-100"
-              : "border-orange-400/40 bg-orange-400/12 text-orange-100"
-          }`}
-          type="button"
-          title={props.connected ? "Connection" : "Connect JustSwipe"}
-          onClick={props.onOpenConnection}
+        <div
+          ref={menuRef}
+          class="relative"
+          onMouseEnter={openAfterHover}
+          onMouseLeave={closeAfterHover}
         >
-          <Icon name="link" class="h-4 w-4" />
-        </button>
+          <button
+            class={`relative grid h-10 w-10 place-items-center rounded border text-sm transition ${iconTone(props.state.status, props.connected)}`}
+            aria-expanded={props.connectionMenuOpen}
+            aria-haspopup="menu"
+            aria-label={props.connected ? props.state.label : "Connect JustSwipe"}
+            type="button"
+            title={props.connected ? props.state.label : "Connect JustSwipe"}
+            onClick={() => {
+              clearHoverTimer();
+              props.onToggleConnection();
+            }}
+          >
+            <Icon name="link" class="h-4 w-4" />
+            <span
+              class={`absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#05080c] ${statusDotTone(props.state.status, props.connected)}`}
+            />
+          </button>
+          {props.connectionMenuOpen ? (
+            <section
+              class="fixed left-3 right-3 top-20 z-40 max-h-[78vh] overflow-auto rounded border border-white/10 bg-[#080d12]/98 p-3 text-left shadow-2xl shadow-black/70 backdrop-blur sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[min(88vw,380px)]"
+              role="menu"
+            >
+              <div class={`rounded border p-3 ${bridgeTone(props.state.status)}`}>
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                      Connection
+                    </p>
+                    <div class="mt-1 flex items-center gap-2">
+                      <span class={`h-2.5 w-2.5 rounded-full ${statusDotTone(props.state.status, props.connected)}`} />
+                      <p class="truncate text-sm font-semibold text-white">{props.state.label}</p>
+                    </div>
+                    <p class="mt-1 truncate text-xs opacity-75">{props.state.detail}</p>
+                  </div>
+                  <span class="rounded border border-white/10 bg-black/15 px-2 py-1 text-xs text-zinc-100">
+                    {deviceCount} {plural(deviceCount, "browser", "browsers")}
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div class="min-w-0 rounded border border-white/10 bg-black/15 px-2 py-2">
+                  <p class="text-zinc-500">ID</p>
+                  <p class="mt-1 truncate font-medium text-zinc-100">
+                    {shortId(props.integration?.connectionId || "")}
+                  </p>
+                </div>
+                <div class="min-w-0 rounded border border-white/10 bg-black/15 px-2 py-2">
+                  <p class="text-zinc-500">Thread</p>
+                  <p class="mt-1 truncate font-medium text-zinc-100">
+                    {shortId(props.integration?.codexThreadId || "")}
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-3 rounded border border-white/10 bg-black/10 p-2">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                    Browsers
+                  </p>
+                  <span class="text-xs text-zinc-500">
+                    {deviceCount} active
+                  </span>
+                </div>
+                <BrowserSessionList
+                  compact
+                  devices={props.pairedDevices}
+                  onCleanDuplicates={() => {
+                    clearHoverTimer();
+                    props.onCleanDuplicateDevices();
+                  }}
+                  onConfirmingChange={(confirming) => {
+                    removeConfirming.current = confirming;
+                    if (confirming) {
+                      clearHoverTimer();
+                    }
+                  }}
+                  onRevoke={(sessionId) => {
+                    clearHoverTimer();
+                    props.onRevokePairedDevice(sessionId);
+                  }}
+                />
+              </div>
+
+              {latestCode ? (
+                <div class="mt-3 rounded border border-lime-300/25 bg-lime-300/8 p-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-lime-100">
+                      Pair code
+                    </p>
+                    <p class="text-xs text-zinc-500">{formatTime(latestCode.expiresAt)}</p>
+                  </div>
+                  <p class="mt-1 text-lg font-semibold tracking-[0.12em] text-white">{latestCode.code}</p>
+                  {latestPairLink ? (
+                    <input
+                      class="mt-2 h-8 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-300 outline-none"
+                      readOnly
+                      value={latestPairLink}
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  class="h-9 rounded bg-cyan-300 px-2 text-xs font-semibold text-zinc-950 transition hover:bg-cyan-200"
+                  type="button"
+                  onClick={() => {
+                    clearHoverTimer();
+                    props.onCreatePairCode();
+                  }}
+                >
+                  Add browser
+                </button>
+                <button
+                  class="h-9 rounded border border-white/10 px-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                  type="button"
+                  onClick={() => {
+                    clearHoverTimer();
+                    props.onOpenThreadLog();
+                  }}
+                >
+                  Thread log
+                </button>
+              </div>
+              <div class="mt-2 flex gap-2">
+                <input
+                  class="h-9 min-w-0 flex-1 rounded border border-white/10 bg-[#05080c] px-2 text-xs uppercase text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
+                  placeholder="ABC-123"
+                  value={props.codeDraft}
+                  onInput={(event) => props.setCodeDraft(event.currentTarget.value)}
+                />
+                <button
+                  class="rounded border border-white/10 px-3 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                  type="button"
+                  onClick={() => {
+                    clearHoverTimer();
+                    props.onPair();
+                  }}
+                >
+                  Pair
+                </button>
+              </div>
+              {props.pairMessage ? (
+                <p class="mt-2 truncate text-xs text-zinc-400">{props.pairMessage}</p>
+              ) : null}
+              <div class="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+                <button
+                  class="h-9 rounded border border-cyan-300/30 bg-cyan-300/10 px-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
+                  type="button"
+                  onClick={() => {
+                    clearHoverTimer();
+                    props.onOpenAdvanced();
+                  }}
+                >
+                  Advanced
+                </button>
+                <button
+                  class="h-9 rounded border border-orange-400/30 bg-orange-400/10 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-400/20 disabled:opacity-40"
+                  disabled={!props.integration?.connectionId}
+                  type="button"
+                  onClick={() => {
+                    clearHoverTimer();
+                    props.onDisconnect();
+                  }}
+                >
+                  Disconnect
+                </button>
+              </div>
+            </section>
+          ) : null}
+        </div>
         <button
           class="grid h-10 w-10 place-items-center rounded border border-white/10 bg-white/5 text-sm text-zinc-300 transition hover:bg-white/10"
           type="button"
@@ -382,6 +1179,7 @@ function DeckBar(props: {
           {props.handoff ? `Card ${active} of ${total}` : "No cards waiting"}
         </p>
         <p class="mt-0.5 truncate text-xs text-zinc-500">
+          {props.handoff?.threadTitle ? `${props.handoff.projectName || "Project"} · ${props.handoff.threadTitle} · ` : ""}
           {label}
           {props.responses ? ` · ${props.responses} sent` : ""}
         </p>
@@ -494,6 +1292,7 @@ function DecisionContext(props: { card: SwipeCard }) {
 
 function SwipeCardView(props: {
   card: SwipeCard;
+  handoff: Handoff;
   index: number;
   total: number;
   dragX: number;
@@ -546,8 +1345,9 @@ function SwipeCardView(props: {
         onPointerCancel={props.onPointerUp}
       >
         <div class="pointer-events-none absolute inset-x-5 top-5 flex items-center justify-between">
-          <span class="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-400">
-            Codex paused
+          <span class="min-w-0 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-400">
+            <span class="hidden sm:inline">{props.handoff.projectName || "Project"} · </span>
+            {props.handoff.threadTitle || "Codex thread"}
           </span>
           <span class={`rounded border px-2 py-1 text-xs ${actionTone(props.card.recommendedAction)}`}>
             Best: {actionLabel(props.card.recommendedAction)}
@@ -571,7 +1371,7 @@ function SwipeCardView(props: {
 
         <div class="pt-16">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">
-            Codex handoff
+            {props.handoff.projectName || "Project"} handoff
           </p>
           <h2 class="mt-4 text-3xl font-semibold leading-tight text-white sm:text-4xl">
             {props.card.title}
@@ -608,6 +1408,7 @@ function ActionDock(props: {
   disabled: boolean;
   onAction: (action: SwipeAction) => void;
 }) {
+  const lastActivationAt = useRef(0);
   const actions: SwipeAction[] = ["no", "yes", "more", "later"];
   const shortcuts: Record<SwipeAction, string> = {
     yes: "Y / ArrowRight",
@@ -616,8 +1417,21 @@ function ActionDock(props: {
     later: "L / ArrowDown",
   };
 
+  function activate(action: SwipeAction, event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (props.disabled) return;
+
+    const now = Date.now();
+    if (now - lastActivationAt.current < 350) return;
+
+    lastActivationAt.current = now;
+    props.onAction(action);
+  }
+
   return (
-    <div class="mx-auto mt-4 grid w-full max-w-2xl grid-cols-4 gap-2">
+    <div class="fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-2xl grid-cols-4 gap-2 border-t border-white/10 bg-[#05080c]/95 p-2 shadow-2xl shadow-black/60 backdrop-blur sm:bottom-4 sm:rounded sm:border">
       {actions.map((action) => (
         <button
           class={`grid h-14 place-items-center rounded border text-xs font-semibold transition active:scale-[0.98] disabled:opacity-40 ${
@@ -625,7 +1439,9 @@ function ActionDock(props: {
           }`}
           disabled={props.disabled}
           type="button"
-          onClick={() => props.onAction(action)}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => activate(action, event)}
+          onClick={(event) => activate(action, event)}
           title={`${actionLabel(action)} / ${actionVerb(action)} (${shortcuts[action]})`}
         >
           <Icon name={action} class="h-5 w-5" />
@@ -663,7 +1479,10 @@ function PayloadSheet(props: {
         }
       }}
     >
-      <div class="jsw-sheet-rise max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded">
+      <div
+        class="jsw-sheet-rise max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div class="mx-auto mb-3 h-1 w-12 rounded bg-white/20 sm:hidden" />
         <div class="flex items-start justify-between gap-3">
           <div>
@@ -790,12 +1609,171 @@ function PayloadSheet(props: {
   );
 }
 
+type ThreadTableRow = {
+  key: string;
+  threadId: string;
+  title: string;
+  status: CodexThreadStatus;
+  projectName: string;
+  cwd: string;
+  lastActivityAt: string;
+  pendingCards: number;
+  pendingIdeas: number;
+  synthetic: boolean;
+};
+
+function numberValue(value: string): number {
+  const parsed = Number.parseInt(value || "0", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function threadRows(threads: CodexThread[], events: BridgeEvent[]): ThreadTableRow[] {
+  const activeEvents = events.filter((event) =>
+    ["queued", "running"].includes(event.status),
+  );
+  const latestEventByThread = new Map<string, BridgeEvent>();
+
+  for (const event of activeEvents) {
+    if (event.threadId && !latestEventByThread.has(event.threadId)) {
+      latestEventByThread.set(event.threadId, event);
+    }
+  }
+
+  const rows: ThreadTableRow[] = threads.map((thread) => {
+    const event = latestEventByThread.get(thread.threadId);
+    const status = (event?.threadStatus || event?.status || thread.threadStatus || "unknown") as CodexThreadStatus;
+    const pendingIdeas = activeEvents.filter(
+      (item) => item.threadId === thread.threadId && item.action.includes("idea"),
+    ).length;
+
+    return {
+      key: thread.id || thread.threadId,
+      threadId: thread.threadId,
+      title: thread.threadTitle || shortId(thread.threadId),
+      status,
+      projectName: thread.projectName || event?.projectName || "Project",
+      cwd: thread.cwd || event?.cwd || "",
+      lastActivityAt: event?.updatedAt || event?.createdAt || thread.lastActivityAt || thread.updatedAt,
+      pendingCards: numberValue(thread.pendingCards),
+      pendingIdeas: Math.max(numberValue(thread.pendingIdeas), pendingIdeas),
+      synthetic: false,
+    };
+  });
+
+  for (const event of activeEvents) {
+    if (event.threadId || !event.action.includes("new_thread")) {
+      continue;
+    }
+
+    rows.unshift({
+      key: event.id,
+      threadId: "",
+      title: event.title || "New thread idea",
+      status: (event.threadStatus || event.status || "queued") as CodexThreadStatus,
+      projectName: event.projectName || "Project",
+      cwd: event.cwd || "",
+      lastActivityAt: event.updatedAt || event.createdAt,
+      pendingCards: 0,
+      pendingIdeas: 1,
+      synthetic: true,
+    });
+  }
+
+  return rows.slice(0, 8);
+}
+
+function ThreadTable(props: {
+  threads: CodexThread[];
+  events: BridgeEvent[];
+  selectedThreadId: string;
+  onSelectThread: (threadId: string) => void;
+}) {
+  const rows = threadRows(props.threads, props.events);
+
+  if (rows.length === 0) {
+    return (
+      <div class="mt-4 rounded border border-white/10 bg-black/15 p-3 text-left">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          Threads
+        </p>
+        <p class="mt-2 text-sm text-zinc-400">
+          No project threads yet. Send an idea to start the first one.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div class="mt-4 rounded border border-white/10 bg-black/15 p-3 text-left">
+      <div class="mb-2 flex items-center justify-between gap-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          Threads
+        </p>
+        <span class="text-xs text-zinc-500">{rows.length} visible</span>
+      </div>
+      <div class="grid gap-2">
+        {rows.map((row) => {
+          const selected = props.selectedThreadId === row.threadId && Boolean(row.threadId);
+          const detail = [
+            row.projectName,
+            row.pendingCards ? `${row.pendingCards} cards` : "",
+            row.pendingIdeas ? `${row.pendingIdeas} ideas` : "",
+            row.lastActivityAt ? formatAgo(row.lastActivityAt) : "",
+          ].filter(Boolean).join(" · ");
+
+          return (
+            <div
+              key={row.key}
+              class={`grid gap-2 rounded border p-3 sm:grid-cols-[1fr_auto] sm:items-center ${
+                selected
+                  ? "border-cyan-300/40 bg-cyan-300/10"
+                  : "border-white/10 bg-white/[0.03]"
+              }`}
+            >
+              <div class="min-w-0">
+                <div class="flex min-w-0 items-center gap-2">
+                  <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${threadDotTone(row.status)}`} />
+                  <p class="truncate text-sm font-medium text-white">{row.title}</p>
+                </div>
+                <p class="mt-1 truncate text-xs text-zinc-500">{detail}</p>
+              </div>
+              <div class="flex items-center justify-between gap-2 sm:justify-end">
+                <span class={`inline-flex h-8 items-center gap-1.5 rounded border px-2 text-xs ${threadStatusTone(row.status)}`}>
+                  <Icon name={threadStatusIcon(row.status)} class="h-3.5 w-3.5" />
+                  {threadStatusLabel(row.status)}
+                </span>
+                {row.threadId ? (
+                  <button
+                    class="h-8 rounded border border-white/10 px-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                    type="button"
+                    onClick={() => props.onSelectThread(row.threadId)}
+                  >
+                    {selected ? "Selected" : "Use"}
+                  </button>
+                ) : (
+                  <span class="h-8 rounded border border-white/10 px-2 py-2 text-xs text-zinc-500">
+                    pending
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function EmptyInbox(props: {
   connected: boolean;
   planningPrompt: string;
   planningBusy: boolean;
   latestEvent?: BridgeEvent;
+  bridgeEvents: BridgeEvent[];
+  threads: CodexThread[];
+  selectedThreadId: string;
   setPlanningPrompt: (value: string) => void;
+  setSelectedThreadId: (value: string) => void;
   onStartPlanning: () => void;
   onOpenConnection: () => void;
 }) {
@@ -831,15 +1809,15 @@ function EmptyInbox(props: {
         </div>
         <h2 class="mt-5 text-2xl font-semibold text-white">You're out of cards</h2>
         <p class="mx-auto mt-3 max-w-sm text-sm leading-6 text-zinc-400">
-          Codex has nothing waiting right now. Start a planning discussion or wait for the next handoff.
+          Drop an idea into this project. JustSwipe starts a new Codex thread by default, or you can route it to an existing one.
         </p>
         <div class="mt-5 rounded border border-white/10 bg-[#080d12] p-3 text-left">
           <label class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
-            Start a planning discussion
+            Send an idea to Codex
           </label>
           <textarea
             class="mt-3 min-h-24 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-            placeholder="Ask Codex to plan the next slice. It can answer or create new swipe cards."
+            placeholder="Spit out an idea. Codex can run with it or come back with swipe cards."
             value={props.planningPrompt}
             onInput={(event) => props.setPlanningPrompt(event.currentTarget.value)}
             onKeyDown={(event) => {
@@ -849,6 +1827,24 @@ function EmptyInbox(props: {
               }
             }}
           />
+          <label class="mt-3 grid gap-2">
+            <span class="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+              Target
+            </span>
+            <select
+              class="h-10 w-full rounded border border-white/10 bg-[#05080c] px-3 text-sm text-white outline-none focus:border-cyan-300/70"
+              value={props.selectedThreadId}
+              onInput={(event) => props.setSelectedThreadId(event.currentTarget.value)}
+              onChange={(event) => props.setSelectedThreadId(event.currentTarget.value)}
+            >
+              <option value="">New Codex thread</option>
+              {props.threads.map((thread) => (
+                <option value={thread.threadId}>
+                  {thread.threadTitle || shortId(thread.threadId)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded bg-cyan-300 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-40"
             disabled={props.planningBusy || !props.planningPrompt.trim()}
@@ -856,9 +1852,19 @@ function EmptyInbox(props: {
             onClick={props.onStartPlanning}
           >
             <Icon name="send" class="h-4 w-4" />
-            {props.planningBusy ? "Sending..." : "Send to Codex"}
+            {props.planningBusy
+              ? "Sending..."
+              : props.selectedThreadId
+                ? "Send to selected thread"
+                : "Start new thread"}
           </button>
         </div>
+        <ThreadTable
+          events={props.bridgeEvents}
+          selectedThreadId={props.selectedThreadId}
+          threads={props.threads}
+          onSelectThread={props.setSelectedThreadId}
+        />
         {props.latestEvent ? (
           <p class="mt-3 text-xs text-zinc-500">
             Last thread state: {bridgeStatusLabel(props.latestEvent.status)}
@@ -893,6 +1899,9 @@ function SentState(props: {
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
             Thread state
           </p>
+          <p class="mt-2 truncate text-sm font-medium text-white">
+            {props.latestEvent?.projectName || props.handoff.projectName || "Project"} · {props.latestEvent?.threadTitle || props.handoff.threadTitle || "Codex thread"}
+          </p>
           <p class="mt-2 text-sm text-zinc-200">
             {bridgeStatusLabel(status)}
           </p>
@@ -921,7 +1930,10 @@ function Modal(props: {
         }
       }}
     >
-      <div class="jsw-sheet-rise max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded">
+      <div
+        class="jsw-sheet-rise max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div class="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
           <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
             {props.title}
@@ -944,7 +1956,10 @@ function Modal(props: {
 
 function PairingPanel(props: {
   integration?: Integration;
+  connected: boolean;
   pairCodes: PairingCode[];
+  pairedDevices: PairedDevice[];
+  latestEvent?: BridgeEvent;
   codeDraft: string;
   setCodeDraft: (value: string) => void;
   pairMessage: string;
@@ -956,24 +1971,57 @@ function PairingPanel(props: {
   onPair: () => void;
   onSave: () => void;
   onDisconnect: () => void;
+  onRevokePairedDevice: (sessionId: string) => void;
+  onCleanDuplicateDevices: () => void;
 }) {
   const latestCode = props.pairCodes[0];
+  const latestPairLink = latestCode ? pairLinkForCode(latestCode.code) : "";
+  const state = runtimeState({
+    connected: props.connected,
+    latestEvent: props.latestEvent,
+  });
 
   return (
+    <div class="grid gap-3">
+      <div class={`rounded border p-3 ${bridgeTone(state.status)}`}>
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">
+              Current browser
+            </p>
+            <p class="mt-1 text-sm font-semibold text-white">{state.label}</p>
+            <p class="mt-1 truncate text-xs opacity-75">
+              {shortId(props.integration?.connectionId || "")}
+            </p>
+          </div>
+          <span class="rounded border border-white/10 bg-black/15 px-2 py-1 text-xs text-zinc-100">
+            {props.connected ? `until ${formatTime(props.integration?.pairedUntil || "")}` : "not paired"}
+          </span>
+        </div>
+        {props.connected ? (
+          <div class="mt-3 grid gap-2">
+            <BrowserSessionList
+              devices={props.pairedDevices}
+              onCleanDuplicates={props.onCleanDuplicateDevices}
+              onRevoke={props.onRevokePairedDevice}
+            />
+          </div>
+        ) : null}
+      </div>
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="rounded border border-white/10 bg-[#080d12] p-3">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
-            Phone pairing
+            Add browser
           </p>
           <p class="mt-2 text-xs leading-5 text-zinc-500">
-            Code lasts 2 minutes. Paired devices use this connection for today.
+            Code lasts 2 minutes. Every browser joins this connection for today.
           </p>
           <button
             class="mt-3 h-10 w-full rounded bg-cyan-300 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-200"
             type="button"
             onClick={props.onCreatePairCode}
           >
-            Create code
+            Create add-device code
           </button>
           {latestCode ? (
             <div class="mt-3 rounded border border-lime-300/25 bg-lime-300/8 p-3">
@@ -984,8 +2032,16 @@ function PairingPanel(props: {
                 {latestCode.code}
               </p>
               <p class="mt-1 text-xs text-zinc-500">
-                {latestCode.status} until {latestCode.expiresAt.slice(11, 16)}
+                Usable until {formatTime(latestCode.expiresAt)}
               </p>
+              {latestPairLink ? (
+                <input
+                  class="mt-3 h-9 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-200 outline-none"
+                  readOnly
+                  value={latestPairLink}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              ) : null}
             </div>
           ) : null}
           <div class="mt-3 flex gap-2">
@@ -1052,6 +2108,7 @@ function PairingPanel(props: {
           ) : null}
         </div>
       </div>
+    </div>
   );
 }
 
@@ -1065,7 +2122,9 @@ function ThreadLog(props: { events: BridgeEvent[] }) {
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate text-sm font-medium text-white">{latest.title}</p>
-              <p class="mt-1 text-xs text-zinc-500">{latest.handoffId}</p>
+              <p class="mt-1 truncate text-xs text-zinc-500">
+                {latest.projectName || "Project"} · {latest.threadTitle || shortId(latest.threadId)} · {latest.handoffId}
+              </p>
             </div>
             <span class="rounded border border-white/10 px-2 py-1 text-xs text-zinc-300">
               {bridgeStatusLabel(latest.status)}
@@ -1087,19 +2146,25 @@ function ThreadLog(props: { events: BridgeEvent[] }) {
 }
 
 export function App() {
+  useDocumentBranding();
+
   const handoffs = (useQuery("activeHandoffs") || []) as Handoff[];
   const bridgeEvents = (useQuery("bridgeEvents") || []) as BridgeEvent[];
   const integration = useQuery("integration") as Integration | undefined;
   const pairCodes = (useQuery("pairingCodes") || []) as PairingCode[];
+  const pairedDevices = (useQuery("pairedDevices") || []) as PairedDevice[];
+  const codexThreads = (useQuery("codexThreads") || []) as CodexThread[];
   const resetDemo = useMutation<[], void>("resetDemo");
-  const createPairingCode = useMutation<[], string>("createPairingCode");
-  const pairWithCode = useMutation<[code: string], string>("pairWithCode");
+  const createPairingCode = useMutation<[deviceJson?: string], string>("createPairingCode");
+  const pairWithCode = useMutation<[code: string, deviceJson?: string], string>("pairWithCode");
+  const revokePairedDevice = useMutation<[sessionId: string], string>("revokePairedDevice");
+  const cleanDuplicateDevices = useMutation<[], string>("cleanDuplicateDevices");
   const saveIntegration = useMutation<
     [threadId: string, customPrompt: string],
     void
   >("saveIntegration");
   const disconnectIntegration = useMutation<[], void>("disconnectIntegration");
-  const startPlanningDiscussion = useMutation<[prompt: string], string>(
+  const startPlanningDiscussion = useMutation<[prompt: string, targetThreadId: string, route: string], string>(
     "startPlanningDiscussion",
   );
   const submitCardResponse = useMutation<
@@ -1122,9 +2187,12 @@ export function App() {
   const [threadDraft, setThreadDraft] = useState(defaultCodexThreadId);
   const [promptDraft, setPromptDraft] = useState(defaultCustomPrompt);
   const [planningPrompt, setPlanningPrompt] = useState("");
+  const [selectedThreadId, setSelectedThreadId] = useState("");
   const [planningBusy, setPlanningBusy] = useState(false);
   const [modal, setModal] = useState<"connection" | "thread" | null>(null);
+  const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
+  const [deviceSession] = useState<DeviceSessionPayload>(() => readDeviceSessionPayload());
   const [autoPairCode, setAutoPairCode] = useState("");
   const [alertsEnabled, setAlertsEnabled] = useState(
     typeof Notification !== "undefined" && Notification.permission === "granted",
@@ -1143,8 +2211,14 @@ export function App() {
       ? parseResponses(backgroundHandoff.responsesJson)
       : [];
   const latestEvent = bridgeEvents[0];
-  const connected = Boolean(integration?.connectionId) && !isDisconnected;
+  const connected = isConnectedIntegration(integration) && !isDisconnected;
+  const connectionState = runtimeState({
+    connected,
+    handoff: activeHandoff || backgroundHandoff,
+    latestEvent,
+  });
   const busy = Boolean(motion || pendingAction || submitting || activeHandoff?.status === "responding_to_codex");
+  const deviceSessionJson = JSON.stringify(deviceSession);
 
   useEffect(() => {
     if (typeof window === "undefined" || autoPairCode) {
@@ -1163,20 +2237,26 @@ export function App() {
     setCodeDraft(cleanCode);
 
     void (async () => {
-      const message = await pairWithCode(cleanCode);
-      setPairMessage(message);
-      setToast(message.includes("Connected") ? "JustSwipe connected" : message);
+      try {
+        const message = await pairWithCode(cleanCode, deviceSessionJson);
+        setPairMessage(message);
+        setToast(message.includes("Connected") ? "JustSwipe connected" : message);
 
-      if (message.includes("Connected")) {
-        setIsDisconnected(false);
-        url.searchParams.delete("justswipe_pair");
-        url.searchParams.delete("pair");
-        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        if (message.includes("Connected")) {
+          setIsDisconnected(false);
+          url.searchParams.delete("justswipe_pair");
+          url.searchParams.delete("pair");
+          window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        }
+      } catch (error) {
+        const message = mutationErrorMessage(error);
+        setPairMessage(message);
+        setToast(message);
       }
 
       setTimeout(() => setToast(""), 1800);
     })();
-  }, [autoPairCode, pairWithCode]);
+  }, [autoPairCode, deviceSessionJson, pairWithCode]);
 
   useEffect(() => {
     if (integration?.codexThreadId) {
@@ -1187,6 +2267,12 @@ export function App() {
       setPromptDraft(integration.customPrompt);
     }
   }, [integration?.codexThreadId, integration?.customPrompt]);
+
+  useEffect(() => {
+    if (selectedThreadId && !codexThreads.some((thread) => thread.threadId === selectedThreadId)) {
+      setSelectedThreadId("");
+    }
+  }, [codexThreads, selectedThreadId]);
 
   useEffect(() => {
     if (!activeHandoff || activeHandoff.handoffId === lastNotified) {
@@ -1200,7 +2286,7 @@ export function App() {
     if (alertsEnabled && typeof Notification !== "undefined") {
       const card = parseCards(activeHandoff.cardsJson)[0];
       new Notification("JustSwipe needs a response", {
-        body: card?.title || activeHandoff.reason,
+        body: `${activeHandoff.projectName || "Project"} · ${activeHandoff.threadTitle || "Codex thread"}: ${card?.title || activeHandoff.reason}`,
       });
     }
   }, [activeHandoff?.handoffId, alertsEnabled, lastNotified]);
@@ -1231,13 +2317,12 @@ export function App() {
   async function chooseAction(action: SwipeAction) {
     if (!activeCard || !activeHandoff || busy) return;
 
-    setMotion(action);
-    await playFeedback(action);
-    await new Promise((resolve) => setTimeout(resolve, 260));
-
     setPendingAction(action);
     setFormValues({});
     setFormError("");
+    setMotion(action);
+    await playFeedback(action);
+    await new Promise((resolve) => setTimeout(resolve, 220));
     setMotion(null);
     resetDrag();
   }
@@ -1248,14 +2333,23 @@ export function App() {
     setSubmitting(true);
     setFormError("");
 
-    const result = safeResult(
-      await submitCardResponse(
-        activeHandoff.id,
-        activeCard.cardId,
-        action,
-        JSON.stringify(payload),
-      ),
-    );
+    let result: { ok: boolean; error?: string; completed?: boolean };
+
+    try {
+      result = safeResult(
+        await submitCardResponse(
+          activeHandoff.id,
+          activeCard.cardId,
+          action,
+          JSON.stringify(payload),
+        ),
+      );
+    } catch (error) {
+      result = {
+        ok: false,
+        error: mutationErrorMessage(error),
+      };
+    }
 
     setSubmitting(false);
 
@@ -1312,16 +2406,58 @@ export function App() {
   }
 
   async function createCode() {
-    const code = await createPairingCode();
-    setPairMessage(`Code created: ${code}`);
+    try {
+      const code = await createPairingCode(deviceSessionJson);
+      setPairMessage(`Code created: ${code}`);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
   }
 
   async function pairDevice() {
-    const message = await pairWithCode(codeDraft);
-    setPairMessage(message);
-    if (message.includes("Connected")) {
-      setIsDisconnected(false);
-      setModal(null);
+    try {
+      const message = await pairWithCode(codeDraft, deviceSessionJson);
+      setPairMessage(message);
+      if (message.includes("Connected")) {
+        setIsDisconnected(false);
+        setConnectionMenuOpen(false);
+      }
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
+  }
+
+  async function revokeDevice(sessionId: string) {
+    try {
+      const message = await revokePairedDevice(sessionId);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1400);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
+  }
+
+  async function cleanDuplicates() {
+    try {
+      const message = await cleanDuplicateDevices();
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1400);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
     }
   }
 
@@ -1329,21 +2465,37 @@ export function App() {
     const savedThreadId = threadDraft.trim() || defaultCodexThreadId;
     const savedPrompt = promptDraft.trim() || defaultCustomPrompt;
 
-    await saveIntegration(savedThreadId, savedPrompt);
-    setThreadDraft(savedThreadId);
-    setPromptDraft(savedPrompt);
-    setIsDisconnected(false);
-    setModal(null);
-    setToast("Bridge prompt saved");
-    setTimeout(() => setToast(""), 1400);
+    try {
+      await saveIntegration(savedThreadId, savedPrompt);
+      setThreadDraft(savedThreadId);
+      setPromptDraft(savedPrompt);
+      setIsDisconnected(false);
+      setModal(null);
+      setConnectionMenuOpen(false);
+      setToast("Bridge prompt saved");
+      setTimeout(() => setToast(""), 1400);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
   }
 
   async function disconnect() {
-    await disconnectIntegration();
-    setIsDisconnected(true);
-    setModal(null);
-    setToast("JustSwipe disconnected");
-    setTimeout(() => setToast(""), 1400);
+    try {
+      await disconnectIntegration();
+      setIsDisconnected(true);
+      setModal(null);
+      setConnectionMenuOpen(false);
+      setToast("JustSwipe disconnected");
+      setTimeout(() => setToast(""), 1400);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
   }
 
   async function startPlanning() {
@@ -1354,7 +2506,23 @@ export function App() {
     }
 
     setPlanningBusy(true);
-    const result = safeResult(await startPlanningDiscussion(prompt));
+    let result: { ok: boolean; error?: string };
+
+    try {
+      result = safeResult(
+        await startPlanningDiscussion(
+          prompt,
+          selectedThreadId,
+          selectedThreadId ? "existing_thread" : "new_thread",
+        ),
+      );
+    } catch (error) {
+      result = {
+        ok: false,
+        error: mutationErrorMessage(error),
+      };
+    }
+
     setPlanningBusy(false);
 
     if (!result.ok) {
@@ -1364,7 +2532,7 @@ export function App() {
     }
 
     setPlanningPrompt("");
-    setToast("Planning prompt sent to Codex");
+    setToast(selectedThreadId ? "Idea queued for thread" : "New thread idea sent");
     setTimeout(() => setToast(""), 1600);
   }
 
@@ -1379,7 +2547,14 @@ export function App() {
   }
 
   async function reset() {
-    await resetDemo();
+    try {
+      await resetDemo();
+    } catch (error) {
+      setToast(mutationErrorMessage(error));
+      setTimeout(() => setToast(""), 1800);
+      return;
+    }
+
     setPendingAction(null);
     setMotion(null);
     resetDrag();
@@ -1391,6 +2566,12 @@ export function App() {
       const isTyping = isTypingTarget(event.target);
 
       if (key === "escape") {
+        if (connectionMenuOpen) {
+          event.preventDefault();
+          setConnectionMenuOpen(false);
+          return;
+        }
+
         if (modal) {
           event.preventDefault();
           setModal(null);
@@ -1444,7 +2625,7 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeCard, activeHandoff, busy, formValues, modal, pendingAction, submitting]);
+  }, [activeCard, activeHandoff, busy, connectionMenuOpen, formValues, modal, pendingAction, submitting]);
 
   return (
     <main class="min-h-screen overflow-x-hidden bg-[#05080c] text-zinc-100">
@@ -1469,15 +2650,36 @@ export function App() {
           .jsw-card-enter, .jsw-sheet-rise, .jsw-sent-pulse { animation: none; }
         }
       `}</style>
-      <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
+      <div class="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pb-28 pt-4 sm:px-6">
         <Header
           alertsEnabled={alertsEnabled}
+          codeDraft={codeDraft}
           connected={connected}
+          connectionMenuOpen={connectionMenuOpen}
           integration={integration}
+          pairCodes={pairCodes}
+          pairedDevices={pairedDevices}
+          pairMessage={pairMessage}
+          setCodeDraft={setCodeDraft}
+          state={connectionState}
           onEnableAlerts={enableAlerts}
-          onOpenConnection={() => setModal("connection")}
-          onOpenThreadLog={() => setModal("thread")}
+          onCleanDuplicateDevices={() => void cleanDuplicates()}
+          onCloseConnection={() => setConnectionMenuOpen(false)}
+          onCreatePairCode={() => void createCode()}
+          onDisconnect={() => void disconnect()}
+          onOpenAdvanced={() => {
+            setConnectionMenuOpen(false);
+            setModal("connection");
+          }}
+          onOpenConnection={() => setConnectionMenuOpen(true)}
+          onOpenThreadLog={() => {
+            setConnectionMenuOpen(false);
+            setModal("thread");
+          }}
+          onPair={() => void pairDevice()}
+          onRevokePairedDevice={(sessionId) => void revokeDevice(sessionId)}
           onReset={reset}
+          onToggleConnection={() => setConnectionMenuOpen((open) => !open)}
         />
 
         {connected ? (
@@ -1495,6 +2697,7 @@ export function App() {
               card={activeCard}
               dragX={dragX}
               dragY={dragY}
+              handoff={activeHandoff}
               index={activeIndex}
               motion={motion}
               total={activeCards.length}
@@ -1508,12 +2711,16 @@ export function App() {
           <SentState handoff={backgroundHandoff} latestEvent={latestEvent} />
         ) : (
           <EmptyInbox
+            bridgeEvents={bridgeEvents}
             connected={connected}
+            selectedThreadId={selectedThreadId}
+            threads={codexThreads}
             latestEvent={latestEvent}
             planningBusy={planningBusy}
             planningPrompt={planningPrompt}
             setPlanningPrompt={setPlanningPrompt}
-            onOpenConnection={() => setModal("connection")}
+            setSelectedThreadId={setSelectedThreadId}
+            onOpenConnection={() => setConnectionMenuOpen(true)}
             onStartPlanning={() => void startPlanning()}
           />
         )}
@@ -1523,17 +2730,22 @@ export function App() {
         <Modal title={connected ? "Connection" : "Connect JustSwipe"} onClose={() => setModal(null)}>
           <PairingPanel
             codeDraft={codeDraft}
+            connected={connected}
             integration={integration}
+            latestEvent={latestEvent}
             pairCodes={pairCodes}
+            pairedDevices={pairedDevices}
             pairMessage={pairMessage}
             promptDraft={promptDraft}
             setCodeDraft={setCodeDraft}
             setPromptDraft={setPromptDraft}
             setThreadDraft={setThreadDraft}
             threadDraft={threadDraft}
+            onCleanDuplicateDevices={() => void cleanDuplicates()}
             onCreatePairCode={() => void createCode()}
             onDisconnect={() => void disconnect()}
             onPair={() => void pairDevice()}
+            onRevokePairedDevice={(sessionId) => void revokeDevice(sessionId)}
             onSave={() => void saveBridge()}
           />
         </Modal>

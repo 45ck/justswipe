@@ -41,11 +41,13 @@ https://clear-harbor-b4fc257b5a.lakebed.app/install.md
 
 Use the hosted JustSwipe app as the only JustSwipe UI. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
 
+If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations. Switch the bridge app URL to local development (`npm run dev` in the JustSwipe bridge repo, then `$app = "http://localhost:3001"`) until hosted quota resets. Do not build a replacement JustSwipe UI in the target repo.
+
 Phase 1 is mandatory setup. Do not decide JustSwipe is unnecessary. Before doing my project work, install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
 
 Default to the frictionless path: open the hosted pair link automatically with the justswipe_pair parameter, print the same code/link for my phone, and ask me only if you need to know whether I want desktop, phone, or both.
 
-Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, setup handoff queued, and bridge watch command running or exact blocker reported.
+Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, or local-dev pair link/code created if hosted quota is exhausted, setup handoff queued, and bridge watch command running or exact blocker reported.
 
 After setup is proven, continue my project request normally. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 ```
@@ -71,6 +73,28 @@ npm run bridge:watch -- --app-url $app
 ```
 
 `bridge:setup` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, and queues the setup card. `bridge:watch` relays swipe responses back into Codex. Pair codes last 2 minutes. A paired browser lasts for the day.
+
+**Hosted Quota Fallback**
+
+The hosted Lakebed deployment currently exposes its limits through `npx lakebed inspect <deploy-url-or-id> --json`; for this deploy, the important operational limits are `mutationsPerDay: 1000` and `requestsPerDay: 10000`. When the hosted app reaches the mutation quota, stop pushing more hosted pair/session/handoff mutations and switch active work to local development:
+
+```powershell
+# Terminal 1: keep the local JustSwipe app running
+Set-Location E:\justswipe
+npm run dev
+```
+
+```powershell
+# Terminal 2: point the bridge at local dev
+Set-Location E:\justswipe
+$app = "http://localhost:3001"
+$repo = "C:\path\to\your-repo"
+
+npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
+npm run bridge:watch -- --app-url $app
+```
+
+Report the exact blocker as: `hosted mutation quota exhausted; switch bridge app URL to local dev`. If Lakebed's 429 body includes `resetAt` or `retryAfterSeconds`, include that timing in the report, then continue active work locally. Hosted can resume after the Lakebed quota resets.
 
 **Public Install Docs**
 
