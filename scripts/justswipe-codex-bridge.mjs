@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +24,7 @@ const demoHandoff = args.has("--demo-handoff");
 const startThread = args.has("--start-thread");
 const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
+const e2eLocal = args.has("--e2e-local");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
@@ -1450,10 +1451,10 @@ async function clearConnectionState() {
   console.log("JustSwipe connection state cleared.");
 }
 
-async function startNativeThread() {
-  const cwd = resolve(threadCwd);
-  const rawPrompt = await readThreadPrompt();
-  const prompt = setup ? setupThreadPrompt(rawPrompt) : rawPrompt;
+async function startNativeThread(options = {}) {
+  const cwd = resolve(options.cwd ?? threadCwd);
+  const rawPrompt = options.prompt ?? await readThreadPrompt();
+  const prompt = (options.setup ?? setup) ? setupThreadPrompt(rawPrompt) : rawPrompt;
 
   await mkdir(cwd, { recursive: true });
 
@@ -1538,6 +1539,223 @@ async function startNativeThread() {
   if (final) {
     console.log(final);
   }
+
+  return {
+    threadId,
+    cwd,
+    final,
+    threadMeta,
+  };
+}
+
+function activeHandoffRows(db) {
+  const connectionId = bridgeConnectionId(db);
+  const ownerId = ownerIdForGuest();
+
+  return (db.tables?.handoffs ?? [])
+    .filter((row) =>
+      ["awaiting_justswipe", "in_progress", "responding_to_codex", "failed"].includes(row.status),
+    )
+    .filter((row) => (connectionId ? row.connectionId === connectionId : row.ownerId === ownerId))
+    .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
+}
+
+function parseCardsJson(cardsJson) {
+  try {
+    const cards = JSON.parse(cardsJson);
+    return Array.isArray(cards) ? cards : [];
+  } catch {
+    return [];
+  }
+}
+
+async function submitFirstYesReply(handoff, preferredReply = "") {
+  const cards = parseCardsJson(handoff.cardsJson);
+  const activeIndex = Number.parseInt(handoff.activeCardIndex || "0", 10) || 0;
+  const card = cards[activeIndex];
+
+  if (!card?.cardId) {
+    throw new Error(`E2E failed: handoff ${handoff.handoffId || handoff.id} has no active card.`);
+  }
+
+  const reply =
+    preferredReply ||
+    card.quickRepliesByAction?.yes?.[0] ||
+    card.quickRepliesByAction?.more?.[0] ||
+    "Continue";
+  const result = JSON.parse(
+    await runMutation("submitCardResponse", [
+      handoff.id,
+      card.cardId,
+      "yes",
+      JSON.stringify({ quick_reply: reply }),
+    ]),
+  );
+
+  if (!result.ok) {
+    throw new Error(`E2E failed: could not submit ${card.cardId}: ${result.error || "unknown error"}`);
+  }
+
+  return {
+    cardId: card.cardId,
+    title: card.title || card.cardId,
+    reply,
+  };
+}
+
+async function prepareE2eTarget() {
+  const explicitCwd = process.argv.includes("--cwd");
+  const target = resolve(explicitCwd ? threadCwd : join(root, ".lakebed", "e2e-target"));
+  const defaultRoot = resolve(root, ".lakebed");
+
+  if (!explicitCwd) {
+    if (!target.startsWith(defaultRoot)) {
+      throw new Error(`Refusing to reset E2E target outside .lakebed: ${target}`);
+    }
+
+    await rm(target, { recursive: true, force: true });
+  }
+
+  await mkdir(target, { recursive: true });
+  await writeFile(
+    join(target, "AGENTS.md"),
+    [
+      "# Disposable E2E Repo Instructions",
+      "",
+      "Preserve this line when installing project steering.",
+      "",
+    ].join("\n"),
+  );
+  await writeFile(
+    join(target, "README.md"),
+    [
+      "# JustSwipe Local E2E Fixture",
+      "",
+      "Disposable repo for proving the JustSwipe install and relay flow.",
+      "",
+    ].join("\n"),
+  );
+
+  return target;
+}
+
+async function runLocalE2e() {
+  if (!isLocalAppUrl()) {
+    throw new Error("E2E local proof requires --app-url http://localhost:3001 or another local app URL.");
+  }
+
+  const target = await prepareE2eTarget();
+  await clearConnectionState();
+
+  const e2ePrompt = [
+    "Install JustSwipe steering in this disposable repo and preserve existing instructions.",
+    "Do not build a JustSwipe UI, dashboard, bridge UI, auth shell, or replacement app in this repo.",
+    "After the setup card is answered, emit a JustSwipe card asking whether to build a non-UI doctor fixture.",
+    "If the user chooses the doctor fixture, add scripts/justswipe-doctor.ps1, update README.md with the command, run it normally and with -Json, then stop.",
+  ].join(" ");
+  const started = await startNativeThread({
+    cwd: target,
+    prompt: e2ePrompt,
+    setup: true,
+  });
+
+  await createSetupHandoff();
+
+  let db = await dumpDb();
+  let handoff = activeHandoffRows(db)[0];
+
+  if (!handoff) {
+    throw new Error("E2E failed: setup handoff was not queued.");
+  }
+
+  const setupAnswer = await submitFirstYesReply(handoff, "Use desktop browser");
+
+  if (queuedEvents(await dumpDb()).length !== 1) {
+    throw new Error("E2E failed: setup response did not queue exactly one bridge event.");
+  }
+
+  const firstRelayCount = await processQueued({ all: false, quiet: false });
+
+  if (firstRelayCount !== 1) {
+    throw new Error("E2E failed: setup response was not relayed.");
+  }
+
+  db = await dumpDb();
+  handoff = activeHandoffRows(db).find((row) => row.status === "awaiting_justswipe");
+
+  if (!handoff) {
+    throw new Error("E2E failed: Codex did not queue a follow-up JustSwipe handoff.");
+  }
+
+  const workAnswer = await submitFirstYesReply(handoff, "Build doctor fixture");
+  const secondRelayCount = await processQueued({ all: false, quiet: false });
+
+  if (secondRelayCount !== 1) {
+    throw new Error("E2E failed: work-slice response was not relayed.");
+  }
+
+  const doctorPath = join(target, "scripts", "justswipe-doctor.ps1");
+
+  if (!(await pathExists(doctorPath))) {
+    throw new Error(`E2E failed: target repo did not produce ${doctorPath}.`);
+  }
+
+  const normalDoctor = await run("powershell.exe", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    doctorPath,
+  ]);
+
+  if (normalDoctor.code !== 0) {
+    throw new Error(`E2E failed: target doctor failed.\n${normalDoctor.stderr || normalDoctor.stdout}`);
+  }
+
+  const jsonDoctor = await run("powershell.exe", [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    doctorPath,
+    "-Json",
+  ]);
+
+  if (jsonDoctor.code !== 0 || !jsonDoctor.stdout.includes('"status"')) {
+    throw new Error(`E2E failed: target doctor JSON failed.\n${jsonDoctor.stderr || jsonDoctor.stdout}`);
+  }
+
+  db = await dumpDb();
+  const queued = queuedEvents(db);
+  const active = activeHandoffRows(db);
+
+  if (queued.length !== 0 || active.length !== 0) {
+    throw new Error(
+      `E2E failed: expected clean bridge state, got queued=${queued.length}, active=${active.length}.`,
+    );
+  }
+
+  const report = {
+    status: "pass",
+    appUrl: appBaseUrl(),
+    target,
+    threadId: started.threadId,
+    setupAnswer,
+    workAnswer,
+    doctorPath,
+  };
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log("JustSwipe local E2E passed.");
+  console.log(`target: ${report.target}`);
+  console.log(`threadId: ${report.threadId}`);
+  console.log(`setupAnswer: ${report.setupAnswer.reply}`);
+  console.log(`workAnswer: ${report.workAnswer.reply}`);
+  console.log(`doctor: ${report.doctorPath}`);
 }
 
 async function main() {
@@ -1553,6 +1771,11 @@ async function main() {
 
   if (clearState) {
     await clearConnectionState();
+    return;
+  }
+
+  if (e2eLocal) {
+    await runLocalE2e();
     return;
   }
 

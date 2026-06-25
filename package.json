@@ -18,6 +18,7 @@
     "bridge:smoke": "node scripts/justswipe-codex-bridge.mjs --smoke",
     "bridge:status": "node scripts/justswipe-codex-bridge.mjs --status",
     "bridge:doctor": "node scripts/justswipe-codex-bridge.mjs --doctor",
+    "bridge:e2e-local": "node scripts/justswipe-codex-bridge.mjs --e2e-local",
     "bridge:pair": "node scripts/justswipe-codex-bridge.mjs --pair",
     "bridge:setup": "node scripts/justswipe-codex-bridge.mjs --setup",
     "bridge:clear": "node scripts/justswipe-codex-bridge.mjs --clear",
