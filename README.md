@@ -114,10 +114,13 @@ Use the GitHub/raw doc for installation. The hosted mirrors are convenient when 
 
 ```powershell
 npm run build
+npm run bridge:doctor -- --app-url http://localhost:3001
+npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
 npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 npm --silent run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
 npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 ```
 
 Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
+Use `npm run bridge:doctor -- --app-url http://localhost:3001` to verify the raw install doc, local install mirror, pairing state, queue state, and next bridge action without touching hosted quota.
 `npm run bridge:smoke` uses an isolated `guest:smoke` session unless you pass `--guest`.

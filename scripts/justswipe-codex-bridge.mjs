@@ -14,7 +14,8 @@ const deployIdArg = valueAfter("--deploy-id") ?? process.env.JUSTSWIPE_DEPLOY_ID
 const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSPECT_TOKEN ?? "";
 const jsonOutput = args.has("--json");
 const dryRun = args.has("--dry-run");
-const statusReport = args.has("--status") || args.has("--doctor");
+const doctorReport = args.has("--doctor");
+const statusReport = args.has("--status") || doctorReport;
 const runAll = args.has("--all");
 const watch = args.has("--watch");
 const pair = args.has("--pair");
@@ -34,6 +35,7 @@ const threadPromptArg = valueAfter("--prompt");
 const threadPromptFile = valueAfter("--prompt-file");
 const defaultThreadPrompt =
   "You are the Codex worker behind JustSwipe. Wait for a JustSwipe decision before editing files. Reply in under 120 words with the decision you need, then end with AWAITING_JUSTSWIPE_RESPONSE.";
+const canonicalInstallDocUrl = "https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md";
 
 function valueAfter(flag) {
   const index = process.argv.indexOf(flag);
@@ -232,6 +234,58 @@ function formatCounts(counts) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, count]) => `${key}:${count}`)
     .join(", ");
+}
+
+async function fetchTextCheck(url, expected = []) {
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    const expectedValues = Array.isArray(expected) ? expected : [expected];
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      checks: Object.fromEntries(
+        expectedValues.map((value) => [value, text.includes(value)]),
+      ),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      error: error instanceof Error ? error.message : String(error || "Fetch failed."),
+      checks: {},
+    };
+  }
+}
+
+async function installDocDoctor() {
+  const raw = await fetchTextCheck(canonicalInstallDocUrl, [
+    "https://clear-harbor-b4fc257b5a.lakebed.app",
+    "Do not build JustSwipe",
+    "hosted mutation quota exhausted; switch bridge app URL to local dev",
+  ]);
+  const appMirrorUrl = `${appBaseUrl()}/install.md`;
+  const mirror = isLocalAppUrl()
+    ? await fetchTextCheck(appMirrorUrl, [
+        canonicalInstallDocUrl,
+        "convenience mirrors only",
+        "~~~powershell",
+      ])
+    : {
+        ok: null,
+        status: null,
+        skipped: true,
+        reason: "hosted app install mirror read skipped to avoid consuming Lakebed hosted quota",
+        checks: {},
+      };
+
+  return {
+    canonicalInstallDocUrl,
+    raw,
+    appInstallMirrorUrl: appMirrorUrl,
+    appMirror: mirror,
+  };
 }
 
 function projectNameFromCwd(cwd) {
@@ -683,7 +737,56 @@ async function dumpDb() {
 }
 
 async function printStatusReport() {
-  const db = await dumpDb();
+  let db;
+
+  try {
+    db = await dumpDb();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "");
+
+    if (!doctorReport || isLocalAppUrl() || !/mutations quota exceeded/i.test(message)) {
+      throw error;
+    }
+
+    const fallback = formatLakebedError(message);
+    const report = {
+      appUrl: appBaseUrl(),
+      mode: "hosted",
+      guest: ownerIdForGuest(),
+      connected: false,
+      connectionId: "",
+      pairedUntil: "",
+      pairedDevices: 0,
+      activePairCodes: 0,
+      activeHandoffs: 0,
+      activeHandoffStatuses: {},
+      queuedBridgeEvents: 0,
+      threads: 0,
+      threadStatuses: {},
+      nextAction: "run local app and rerun with --app-url http://localhost:3001",
+      hostedFallback: fallback,
+      dbUnavailable: fallback,
+      installDocs: await installDocDoctor(),
+    };
+
+    if (jsonOutput) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+
+    console.log("JustSwipe bridge doctor");
+    console.log(`appUrl: ${report.appUrl}`);
+    console.log(`mode: ${report.mode}`);
+    console.log(`dbUnavailable: ${report.dbUnavailable}`);
+    console.log(`next: ${report.nextAction}`);
+    console.log(`installDoc: ${report.installDocs.canonicalInstallDocUrl}`);
+    console.log(
+      `installDocReachable: ${report.installDocs.raw.ok ? "yes" : "no"} (${report.installDocs.raw.status})`,
+    );
+    console.log(`appInstallMirror: skipped (${report.installDocs.appMirror.reason})`);
+    return;
+  }
+
   const integration = integrationForGuest(db);
   const connectionId = bridgeConnectionId(db);
   const queued = queuedEvents(db);
@@ -731,6 +834,10 @@ async function printStatusReport() {
         : "if Lakebed reports mutations quota exceeded, use --app-url http://localhost:3001 until reset",
   };
 
+  if (doctorReport) {
+    report.installDocs = await installDocDoctor();
+  }
+
   if (jsonOutput) {
     console.log(JSON.stringify(report, null, 2));
     return;
@@ -752,6 +859,21 @@ async function printStatusReport() {
 
   if (report.hostedFallback) {
     console.log(`hostedFallback: ${report.hostedFallback}`);
+  }
+
+  if (doctorReport && report.installDocs) {
+    console.log(`installDoc: ${report.installDocs.canonicalInstallDocUrl}`);
+    console.log(
+      `installDocReachable: ${report.installDocs.raw.ok ? "yes" : "no"} (${report.installDocs.raw.status})`,
+    );
+
+    if (report.installDocs.appMirror.skipped) {
+      console.log(`appInstallMirror: skipped (${report.installDocs.appMirror.reason})`);
+    } else {
+      console.log(
+        `appInstallMirror: ${report.installDocs.appMirror.ok ? "ok" : "failed"} (${report.installDocs.appMirror.status})`,
+      );
+    }
   }
 }
 

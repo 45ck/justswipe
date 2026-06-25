@@ -179,6 +179,7 @@ A successful install means:
 - The pair link was opened automatically when possible.
 - The user was given the pair code/link for phone or second-browser pairing.
 - \`npm --silent run bridge:status -- --app-url <app-url> --json\` reports the connection and queue state.
+- \`npm run bridge:doctor -- --app-url <app-url>\` reports the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
 - A setup handoff was queued, or the exact blocker and next command were reported.
 
 If any part is blocked, do not build a local replacement. Report the blocker and the exact next command.

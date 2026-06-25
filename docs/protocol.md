@@ -123,6 +123,7 @@ Even with accounts, the bridge still needs to register a trusted local connectio
 ## Future Work
 
 - `justswipe doctor`: verify hosted app, bridge, repo install, pair status, and one round trip.
+- `npm run bridge:doctor -- --app-url <app-url>` now verifies the raw install doc, app mirror state, pairing state, queue state, and next action without mutating hosted state.
 - Add Device modal in the app with QR and expiry countdown.
 - Device list and revoke controls.
 - Cleaner bridge status: connected repo, thread id, paired devices, queued cards, last response.
