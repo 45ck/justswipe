@@ -84,6 +84,14 @@ Install means:
 
 If Codex cannot identify the current thread id, it should use the automatic bridge-created thread path. If a thread id is known, it can use the existing-thread path with `--thread-id`.
 
+Default pairing posture:
+
+- Use the cloud app first for every user.
+- Auto-open the desktop pair link when possible.
+- Print the same pair link and code for phone setup.
+- Let the user pair desktop, phone, or both against the same day-long connection.
+- Treat failed pairing as a setup blocker, not a reason to build another UI.
+
 ## Future Account Model
 
 Google sign-in or another identity layer is useful later for convenience, not for MVP routing.

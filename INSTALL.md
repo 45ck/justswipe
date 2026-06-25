@@ -44,6 +44,14 @@ Add these JustSwipe rules to AGENTS.md and the skill:
 
 After installing the repo contract, set up the cloud app connection.
 
+Default setup behavior:
+
+- Use the hosted cloud app for every user.
+- Open the hosted pair link automatically when the environment allows it.
+- Print the same pair code/link so the user can pair a phone browser or second desktop browser.
+- Ask one short question only if needed: "Pair desktop, phone, or both?"
+- Do not build a local JustSwipe UI if pairing is blocked. Report the blocker and the next command.
+
 First locate bridge tooling:
 
 - If JUSTSWIPE_BRIDGE_DIR is set, use that directory.
@@ -80,6 +88,8 @@ npm run bridge:watch -- --app-url $app
 ```
 
 If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
+
+The expected result is simple: the hosted app opens, the user can pair this browser, the same link can be opened on a phone, and both devices see the same JustSwipe cards for this repo connection.
 
 ## Handoff Format
 

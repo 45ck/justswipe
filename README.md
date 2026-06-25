@@ -37,11 +37,13 @@ Read and follow this cloud-first JustSwipe install doc:
 
 https://clear-harbor-b4fc257b5a.lakebed.app/install.md
 
-Use the hosted JustSwipe app. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement.
+Use the hosted JustSwipe app as the only JustSwipe UI. Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
 
-Install only the repo steering contract, preserve existing repo instructions, set up pairing to hosted JustSwipe, and open the pair link automatically if you can. Print the pair code/link too so I can pair my phone or another browser.
+Install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
 
-Before continuing my project work, prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created, and setup handoff queued or exact blocker reported.
+Default to the frictionless path: open the hosted pair link automatically with the justswipe_pair parameter, print the same code/link for my phone, and ask me only if you need to know whether I want desktop, phone, or both.
+
+Before continuing my project work, prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, setup handoff queued, and bridge watch command running or exact blocker reported.
 ```
 
 **Why This Exists**
