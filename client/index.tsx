@@ -933,9 +933,9 @@ function Header(props: {
       <div class="flex min-w-0 items-center">
         <BrandLogo class="h-10 w-[min(34vw,180px)] min-w-[104px] max-w-[180px] sm:h-11 sm:w-[210px] sm:max-w-[210px]" />
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex shrink-0 items-center gap-2">
         <button
-          class={`grid h-10 w-10 place-items-center rounded border text-sm transition ${
+          class={`grid h-10 w-10 shrink-0 place-items-center rounded border text-sm transition ${
             props.alertsEnabled
               ? "border-lime-300/40 bg-lime-300/12 text-lime-100"
               : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
@@ -953,7 +953,7 @@ function Header(props: {
           onMouseLeave={closeAfterHover}
         >
           <button
-            class={`relative grid h-10 w-10 place-items-center rounded border text-sm transition ${iconTone(props.state.status, props.connected)}`}
+            class={`relative grid h-10 w-10 shrink-0 place-items-center rounded border text-sm transition ${iconTone(props.state.status, props.connected)}`}
             aria-expanded={props.connectionMenuOpen}
             aria-haspopup="menu"
             aria-label={props.connected ? props.state.label : "Connect JustSwipe"}
@@ -970,10 +970,19 @@ function Header(props: {
             />
           </button>
           {props.connectionMenuOpen ? (
-            <section
-              class="fixed left-3 right-3 top-20 z-40 max-h-[78vh] overflow-auto rounded border border-white/10 bg-[#080d12]/98 p-3 text-left shadow-2xl shadow-black/70 backdrop-blur sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[min(88vw,380px)]"
-              role="menu"
-            >
+            <>
+              <div
+                class="fixed inset-0 z-30 sm:hidden"
+                onClick={(event) => {
+                  event.preventDefault();
+                  clearHoverTimer();
+                  props.onCloseConnection();
+                }}
+              />
+              <section
+                class="fixed left-3 right-3 top-20 z-40 max-h-[78vh] overflow-auto rounded border border-white/10 bg-[#080d12]/98 p-3 text-left shadow-2xl shadow-black/70 backdrop-blur sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[min(88vw,380px)]"
+                role="menu"
+              >
               <div class={`rounded border p-3 ${bridgeTone(props.state.status)}`}>
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
@@ -1122,11 +1131,12 @@ function Header(props: {
                   Disconnect
                 </button>
               </div>
-            </section>
+              </section>
+            </>
           ) : null}
         </div>
         <button
-          class="grid h-10 w-10 place-items-center rounded border border-white/10 bg-white/5 text-sm text-zinc-300 transition hover:bg-white/10"
+          class="grid h-10 w-10 shrink-0 place-items-center rounded border border-white/10 bg-white/5 text-sm text-zinc-300 transition hover:bg-white/10"
           type="button"
           title="Thread log"
           onClick={props.onOpenThreadLog}
@@ -1134,7 +1144,7 @@ function Header(props: {
           <Icon name="log" class="h-4 w-4" />
         </button>
         <button
-          class="grid h-10 w-10 place-items-center rounded border border-white/10 bg-white/5 text-sm text-zinc-300 transition hover:bg-white/10"
+          class="hidden h-10 w-10 shrink-0 place-items-center rounded border border-white/10 bg-white/5 text-sm text-zinc-300 transition hover:bg-white/10 sm:grid"
           type="button"
           title="Reset demo"
           onClick={props.onReset}
@@ -1142,7 +1152,9 @@ function Header(props: {
           <Icon name="inbox" class="h-4 w-4" />
         </button>
         {!auth.isLoading && auth.isGuest ? (
-          <SignInWithGoogle />
+          <div class="hidden sm:block">
+            <SignInWithGoogle />
+          </div>
         ) : !auth.isLoading ? (
           <button
             class="hidden rounded border border-white/10 px-3 py-2 text-sm text-zinc-200 transition hover:bg-white/10 sm:block"
@@ -1509,7 +1521,7 @@ function PayloadSheet(props: {
   return (
     <section
       class="fixed inset-0 z-40 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
-      onPointerDown={(event) => {
+      onClick={(event) => {
         if (event.target === event.currentTarget && !props.submitting) {
           props.onClose();
         }
@@ -1517,7 +1529,7 @@ function PayloadSheet(props: {
     >
       <div
         class="jsw-sheet-rise max-h-[92vh] w-full max-w-xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:max-h-[86vh] sm:rounded"
-        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <div class="mx-auto mb-3 h-1 w-12 rounded bg-white/20 sm:hidden" />
         <div class="flex items-start justify-between gap-3">
@@ -1960,7 +1972,7 @@ function Modal(props: {
   return (
     <section
       class="fixed inset-0 z-50 grid place-items-end bg-black/65 p-0 sm:place-items-center sm:p-4"
-      onPointerDown={(event) => {
+      onClick={(event) => {
         if (event.target === event.currentTarget) {
           props.onClose();
         }
@@ -1968,7 +1980,7 @@ function Modal(props: {
     >
       <div
         class="jsw-sheet-rise max-h-[88vh] w-full max-w-2xl overflow-auto rounded-t border border-white/10 bg-[#080d12] p-4 shadow-2xl shadow-black/70 sm:rounded"
-        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <div class="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
           <h2 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
