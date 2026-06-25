@@ -58,19 +58,19 @@ JustSwipe is a direct response to that. It gamifies the human-input loop without
 
 Research background: [RATIONALE.md](RATIONALE.md)
 
-**Run The Bridge**
+**What Codex Should Run**
+
+Most users should paste the prompt above and let Codex run this. The bridge lives outside your target repo; your repo only gets `AGENTS.md` and `skills/justswipe/SKILL.md`.
 
 ```powershell
 $app = "https://clear-harbor-b4fc257b5a.lakebed.app"
 $repo = "C:\path\to\your-repo"
 
-npm run bridge:start-thread -- --app-url $app --cwd $repo --prompt "Use hosted JustSwipe for steering. Stop and wait after any JustSwipe handoff."
-npm run bridge:pair -- --app-url $app --open
-npm run handoff:setup -- --app-url $app
+npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 npm run bridge:watch -- --app-url $app
 ```
 
-Open the printed pair link on your phone or browser. Pair codes last 2 minutes. A paired browser lasts for the day.
+`bridge:setup` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, and queues the setup card. `bridge:watch` relays swipe responses back into Codex. Pair codes last 2 minutes. A paired browser lasts for the day.
 
 **Public Install Docs**
 
