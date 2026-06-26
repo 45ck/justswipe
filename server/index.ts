@@ -22,6 +22,7 @@ import {
   type HandoffResponse,
   type Integration,
   type PairedDevice,
+  type PairingCode,
   type SwipeAction,
   type SwipeCard,
 } from "../shared/decision";
@@ -732,13 +733,16 @@ export default capsule({
         .all();
     }),
 
-    pairingCodes: query((ctx) =>
-      ctx.db.pairingCodes
+    pairingCodes: query((ctx) => {
+      const current = nowIso();
+
+      return ctx.db.pairingCodes
         .where("ownerId", ctx.auth.userId)
         .orderBy("createdAt", "desc")
-        .limit(3)
-        .all(),
-    ),
+        .all()
+        .filter((row: PairingCode) => row.status === "active" && row.expiresAt > current)
+        .slice(0, 3);
+    }),
 
     pairedDevices: query((ctx) => {
       const connectionId = connectionFor(ctx);
