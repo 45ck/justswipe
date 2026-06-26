@@ -11,7 +11,7 @@ Use `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md` as the ca
 
 Hosted JustSwipe starts disconnected. The laptop bridge creates a pair code or `?justswipe_pair=ABC-123` share link, and the browser session must pair before it can see cards or send planning prompts. Do not assume a cloud browser belongs to the Codex bridge until that pairing is complete.
 
-Do not build JustSwipe or a replacement browser UI inside the target repo. The hosted app already exists. The target repo only gets instructions and the local bridge connection.
+Do not build JustSwipe or a replacement browser UI inside the target repo. Hosted JustSwipe, or the local dev app at `http://localhost:3001` when hosted quota blocks work, is the only JustSwipe UI. The target repo only consumes steering packets and gets instructions plus the local bridge connection.
 
 If the hosted Lakebed app reports `mutations quota exceeded`, stop retrying hosted mutations and switch active work to local development. Run `npm run dev` in the JustSwipe repo, set the bridge app URL to `http://localhost:3001`, then rerun setup/pair/watch against that local app URL until hosted quota resets. Report the exact blocker as `hosted mutation quota exhausted; switch bridge app URL to local dev`, including `resetAt` or `retryAfterSeconds` when Lakebed returns them. This does not allow a replacement JustSwipe UI inside the target repo.
 
@@ -55,21 +55,22 @@ AWAITING_JUSTSWIPE_RESPONSE <handoff-id>
 
 Prefer a JustSwipe card when the next user question would be broad, slow, visual, or likely to interrupt flow. Do not ask a long chat question if a short swipe plus optional context will work.
 
-Emit a packet between exact markers:
+Emit a packet between exact markers, then stop and wait for the response packet. The minimum documented shape is:
 
 ```txt
 JUSTSWIPE_HANDOFF_JSON
-{ "reason": "short reason", "cards": [] }
+{"reason":"Need one human decision before continuing.","cards":[{"cardId":"next-decision","title":"Pick the next step","summary":"One clear choice.","recommendedAction":"yes","visualContext":"Current state, tradeoff, risk, and next effect.","questionType":"yes_no","quickRepliesByAction":{"yes":["Do this","Keep it simple","Ship this slice"],"no":["Not this","Too broad","Try smaller"]},"requiredFieldsByAction":{"yes":["quick_reply"],"no":["quick_reply"]},"yesPayloadSchema":[],"noPayloadSchema":[],"morePayloadSchema":[],"laterPayloadSchema":[],"optionPayloadSchemas":{},"agentHtmlPreview":"<section><h2>Decision context</h2><p>Show the concrete thing the user is deciding on.</p></section>"}]}
 END_JUSTSWIPE_HANDOFF_JSON
+AWAITING_JUSTSWIPE_RESPONSE next-decision
 ```
 
-End the message with:
+For custom cards, use a stable handoff id that appears in the packet and end the message with:
 
 ```txt
 AWAITING_JUSTSWIPE_RESPONSE <handoff-id>
 ```
 
-Use a stable handoff id that appears in the packet or surrounding message.
+After emitting a JustSwipe handoff, do not keep working in the repo until a `JUSTSWIPE RESPONSE PACKET` arrives.
 
 ## Card Shape
 
@@ -137,7 +138,7 @@ Use this baseline:
 
 ## After A Response
 
-Read the JustSwipe response as steering. Continue the current task if the answer is enough. If the answer creates another real choice, emit another small handoff. Do not claim you can see JustSwipe, the browser, or the user's machine unless the current tools prove it.
+Read a `JUSTSWIPE RESPONSE PACKET` as user steering, not permission. Use the chosen action and payload to continue the current task if the answer is enough. If the answer creates another real choice, emit another small handoff. Do not claim you can see JustSwipe, the browser, or the user's machine unless the current tools prove it.
 
 If the bridge response packet says to use `skills/justswipe/SKILL.md` or `/justswipe`, follow this skill for response handling. The packet is the user signal. Do not ask the user to repeat the same answer in chat.
 
