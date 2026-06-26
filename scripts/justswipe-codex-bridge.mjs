@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
+import { openSync } from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const scriptPath = fileURLToPath(import.meta.url);
+const root = resolve(dirname(scriptPath), "..");
 const args = new Set(process.argv.slice(2));
 const port = valueAfter("--port") ?? "3001";
 const explicitGuest = valueAfter("--guest");
@@ -20,6 +22,7 @@ const doctorReport = args.has("--doctor");
 const statusReport = args.has("--status") || doctorReport;
 const runAll = args.has("--all");
 const watch = args.has("--watch");
+const daemon = args.has("--daemon") || args.has("--background") || args.has("--watch-daemon");
 const pair = args.has("--pair");
 const openPairLink = args.has("--open") || args.has("--open-browser");
 const demoHandoff = args.has("--demo-handoff");
@@ -198,6 +201,63 @@ function openUrl(url) {
     windowsHide: true,
   });
   child.unref();
+}
+
+function safeLogSlug(value) {
+  return String(value || "default")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "default";
+}
+
+async function startWatcherDaemon() {
+  await mkdir(join(root, ".lakebed"), { recursive: true });
+
+  const host = new URL(appBaseUrl()).hostname;
+  const mode = isLocalAppUrl() ? "local" : "hosted";
+  const slug = `${mode}-${safeLogSlug(host)}-${safeLogSlug(guest)}`;
+  const outLog = join(root, ".lakebed", `bridge-watch-${slug}.out.log`);
+  const errLog = join(root, ".lakebed", `bridge-watch-${slug}.err.log`);
+  const outFd = openSync(outLog, "a");
+  const errFd = openSync(errLog, "a");
+  const watcherArgs = [
+    scriptPath,
+    "--watch",
+    "--app-url",
+    appBaseUrl(),
+    "--guest",
+    guest,
+    "--port",
+    port,
+    "--relay",
+    relayMode,
+    "--interval-ms",
+    String(intervalMs),
+    "--heartbeat-ms",
+    String(heartbeatMs),
+    "--timeout-ms",
+    String(codexTimeoutMs),
+    "--cwd",
+    resolve(threadCwd),
+  ];
+
+  const child = spawn(process.execPath, watcherArgs, {
+    cwd: root,
+    detached: true,
+    stdio: ["ignore", outFd, errFd],
+    windowsHide: true,
+  });
+
+  child.unref();
+
+  console.log("Started JustSwipe bridge watcher in the background.");
+  console.log(`pid: ${child.pid}`);
+  console.log(`stdout: ${outLog}`);
+  console.log(`stderr: ${errLog}`);
+  console.log("The hosted app will show Bridge online when the first heartbeat lands.");
+
+  return child.pid;
 }
 
 function ownerIdForGuest() {
@@ -1849,7 +1909,12 @@ async function main() {
   if (setup) {
     await startNativeThread();
     await createSetupHandoff();
-    console.log("Start the watcher with: npm run bridge:watch -- --app-url " + appBaseUrl());
+    if (daemon) {
+      await startWatcherDaemon();
+    } else {
+      console.log("Start the watcher with: npm run bridge:watch -- --app-url " + appBaseUrl());
+      console.log("Or add --daemon to start the watcher in the background from setup.");
+    }
     return;
   }
 
@@ -1875,6 +1940,16 @@ async function main() {
 
   if (demoHandoff) {
     await createDemoHandoff();
+    return;
+  }
+
+  if (daemon && !watch) {
+    await startWatcherDaemon();
+    return;
+  }
+
+  if (watch && daemon) {
+    await startWatcherDaemon();
     return;
   }
 

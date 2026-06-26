@@ -77,8 +77,7 @@ $bridge = "<absolute path to JustSwipe bridge repo>"
 
 Set-Location $bridge
 npm install
-npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-npm run bridge:watch -- --app-url $app
+npm run bridge:up:hosted -- --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```
 
 Existing-thread path, only if the current Codex thread id is known:
@@ -92,19 +91,19 @@ Set-Location $bridge
 npm install
 npm run bridge:pair -- --app-url $app --open
 npm run handoff:setup -- --app-url $app --thread-id $thread
-npm run bridge:watch -- --app-url $app
+npm run bridge:watch -- --app-url $app --daemon
 ```
 
 If you can open a browser, use --open so the hosted app pairs automatically through the link parameter. Always print the pair code and pair link too, so the user can pair a phone browser or another desktop browser. Ask whether they want desktop, phone, or both only if it changes what you do next.
 
 The expected result is simple: the hosted app opens, the user can pair this browser, the same link can be opened on a phone, and both devices see the same JustSwipe cards for this repo connection.
 
-Keep the watcher running while the user expects Codex to receive JustSwipe responses. The hosted app stores cards and responses; the local bridge watcher relays those responses into Codex. If the user swipes and Codex does not respond, run:
+Keep the watcher running while the user expects Codex to receive JustSwipe responses. The hosted app stores cards and responses; the local bridge watcher relays those responses into Codex. Prefer the background watcher path so Codex can keep working after setup. If the user swipes and Codex does not respond, run:
 
 ```powershell
 npm run bridge:status:hosted
 npm run bridge:dry-run:hosted
-npm run bridge:watch:hosted
+npm run bridge:watch:hosted:daemon
 ```
 
 If `bridge:status:hosted` reports `queuedBridgeEvents > 0`, the hosted app has a response waiting and the watcher is not currently relaying it.
@@ -133,8 +132,7 @@ $repo = "<absolute path to target repo>"
 
 Set-Location $bridge
 $app = "http://localhost:3001"
-npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-npm run bridge:watch -- --app-url $app
+npm run bridge:up -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```
 
 Report this blocker exactly: `hosted mutation quota exhausted; switch bridge app URL to local dev`. If Lakebed's 429 body includes `resetAt` or `retryAfterSeconds`, include that timing in the report, then continue active work locally. Hosted JustSwipe can resume after the Lakebed quota resets. This is not permission to build or install a replacement JustSwipe UI inside the target repo.
@@ -191,7 +189,7 @@ A successful install means:
 - The pair link was opened automatically when possible.
 - The user was given the pair code/link for phone or second-browser pairing.
 - `npm --silent run bridge:status -- --app-url <app-url> --json` reports the connection and queue state.
-- `queuedBridgeEvents` is `0`, or `npm run bridge:watch -- --app-url <app-url>` is running to relay them.
+- `queuedBridgeEvents` is `0`, or `npm run bridge:watch -- --app-url <app-url> --daemon` is running to relay them.
 - The connection panel shows the expected project/repo path and a fresh bridge heartbeat when the watcher is running.
 - `npm run bridge:doctor -- --app-url <app-url>` reports the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
 - `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` proves the local setup, handoff, response, relay, follow-up card, and target-repo doctor loop when hosted quota blocks cloud testing.

@@ -16,7 +16,7 @@ Hosted JustSwipe is the primary user surface. The local laptop bridge must creat
 
 Do not build JustSwipe, recreate its UI, or add a replacement JustSwipe browser control page to target repos. Hosted JustSwipe, or the local dev app when hosted quota blocks work, is the only JustSwipe UI. Target repos receive the steering contract only and consume steering packets; the hosted/local app and local bridge provide the runtime loop.
 
-The bridge is the listener: JustSwipe stores swipe/form responses as queued bridge events, and `npm run bridge:watch -- --app-url <hosted-url>` relays those events back into the saved Codex thread.
+The bridge is the listener: JustSwipe stores swipe/form responses as queued bridge events, and `npm run bridge:watch -- --app-url <hosted-url> --daemon` starts a background watcher that relays those events back into the saved Codex thread.
 
 If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations. Switch active work to local development by running `npm run dev` in the JustSwipe repo, setting the bridge app URL to `http://localhost:3001`, and rerunning setup/pair/watch against that local app URL until hosted quota resets. Report the exact blocker as `hosted mutation quota exhausted; switch bridge app URL to local dev`, including `resetAt` or `retryAfterSeconds` when Lakebed returns them. This is not permission to build a replacement JustSwipe UI in the target repo.
 

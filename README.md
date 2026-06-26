@@ -51,9 +51,9 @@ Phase 1 is mandatory setup. Do not decide JustSwipe is unnecessary. Before doing
 
 Default to the frictionless path: open the hosted pair link automatically with the justswipe_pair parameter, print the same code/link for my phone, and ask me only if you need to know whether I want desktop, phone, or both.
 
-Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, or local-dev pair link/code created if hosted quota is exhausted, setup handoff queued, and bridge watch command running or exact blocker reported.
+Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, or local-dev pair link/code created if hosted quota is exhausted, setup handoff queued, and the bridge watcher running in the background or exact blocker reported.
 
-Keep the bridge watcher running while I use JustSwipe. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet.
+Keep the bridge watcher running while I use JustSwipe. Prefer `npm run bridge:up:hosted -- --cwd <repo> --open` for setup because it starts the watcher in the background. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted:daemon`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet.
 
 If the site shows the wrong project path or an old E2E/test project, use the connection panel's Forget project action, then re-pair from the real repo.
 
@@ -76,11 +76,10 @@ Most users should paste the prompt above and let Codex run this. The bridge live
 $app = "https://clear-harbor-b4fc257b5a.lakebed.app"
 $repo = "C:\path\to\your-repo"
 
-npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-npm run bridge:watch -- --app-url $app
+npm run bridge:up:hosted -- --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```
 
-`bridge:setup` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, and queues the setup card. `bridge:watch` is the live relay that sends swipe responses back into Codex. If the watcher is not running, JustSwipe can still collect a response, but Codex will not see it until `bridge:watch` or `bridge` runs. Pair codes last 2 minutes. A paired browser lasts for the day.
+`bridge:up:hosted` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, queues the setup card, and starts the watcher in the background. The watcher is the live relay that sends swipe responses back into Codex. If the watcher is not running, JustSwipe can still collect a response, but Codex will not see it until `bridge:watch:hosted:daemon`, `bridge:watch:hosted`, or `bridge` runs. Pair codes last 2 minutes. A paired browser lasts for the day.
 
 Hosted shortcuts from the bridge repo:
 
@@ -88,6 +87,8 @@ Hosted shortcuts from the bridge repo:
 npm run bridge:status:hosted
 npm run bridge:dry-run:hosted
 npm run bridge:watch:hosted
+npm run bridge:watch:hosted:daemon
+npm run bridge:up:hosted -- --cwd "C:\path\to\your-repo" --open
 npm run bridge:forget:hosted
 ```
 
@@ -107,8 +108,7 @@ Set-Location E:\justswipe
 $app = "http://localhost:3001"
 $repo = "C:\path\to\your-repo"
 
-npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-npm run bridge:watch -- --app-url $app
+npm run bridge:up -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```
 
 Report the exact blocker as: `hosted mutation quota exhausted; switch bridge app URL to local dev`. If Lakebed's 429 body includes `resetAt` or `retryAfterSeconds`, include that timing in the report, then continue active work locally. Hosted can resume after the Lakebed quota resets.

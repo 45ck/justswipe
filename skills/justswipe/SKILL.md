@@ -157,7 +157,7 @@ In the JustSwipe repo:
 
 ```powershell
 npm run dev
-npm run bridge:watch
+npm run bridge:watch:daemon
 npm run bridge:start-thread
 npm run handoff:todo
 ```
@@ -174,10 +174,9 @@ npm run dev
 ```
 
 ```powershell
-# Terminal 2: point the bridge at local dev
+# Terminal 2: point the bridge at local dev and start the watcher in the background
 Set-Location E:\justswipe
 $app = "http://localhost:3001"
 $repo = "<absolute path to target repo>"
-npm run bridge:setup -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-npm run bridge:watch -- --app-url $app
+npm run bridge:up -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```

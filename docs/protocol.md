@@ -43,7 +43,7 @@ handoff = card bundle for the connection
 response = one swipe/form answer for a card
 ```
 
-Hosted JustSwipe can store a swipe response without Codex seeing it. Codex receives the response only when the local bridge claims the queued bridge event and relays it into the thread. If `bridge:status:hosted` shows `queuedBridgeEvents > 0`, run `npm run bridge:watch:hosted` or `npm run bridge:dry-run:hosted` from the bridge repo before debugging Codex itself.
+Hosted JustSwipe can store a swipe response without Codex seeing it. Codex receives the response only when the local bridge claims the queued bridge event and relays it into the thread. If `bridge:status:hosted` shows `queuedBridgeEvents > 0`, run `npm run bridge:watch:hosted:daemon`, `npm run bridge:watch:hosted`, or `npm run bridge:dry-run:hosted` from the bridge repo before debugging Codex itself.
 
 The bridge watcher writes a low-frequency heartbeat while it is running. The UI should show stale or missing heartbeat as "Bridge not observed", and queued events as "Bridge watcher offline". If the paired project path is an E2E fixture or otherwise wrong, the user should forget that project connection and re-pair from the real repo instead of relaying stale packets.
 
@@ -104,7 +104,7 @@ Hosted quota fallback:
 1. Confirm the limit with `npx lakebed inspect <deploy-url-or-id> --json` when needed. The current hosted deploy reports `mutationsPerDay: 1000` and `requestsPerDay: 10000`.
 2. Run `npm run dev` in the JustSwipe bridge repo and keep that terminal running.
 3. In a second terminal, set the bridge app URL to `http://localhost:3001`.
-4. Run the same `bridge:setup`, `bridge:pair`, `handoff:setup`, and `bridge:watch` commands against that local app URL.
+4. Run the same `bridge:up`, `bridge:pair`, `handoff:setup`, and `bridge:watch -- --daemon` commands against that local app URL.
 5. Report the exact blocker as `hosted mutation quota exhausted; switch bridge app URL to local dev`, including `resetAt` or `retryAfterSeconds` if Lakebed includes them in the 429 body.
 
 This fallback changes only the JustSwipe app URL. It does not put a JustSwipe implementation into the target repo, and it does not change the bridge/watch contract.
