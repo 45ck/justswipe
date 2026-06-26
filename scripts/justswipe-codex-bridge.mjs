@@ -1333,12 +1333,104 @@ async function runSmoke() {
   }
 
   await markFailed(event, "Smoke test intentionally stopped before Codex relay.");
+
+  let db = await dumpDb();
+  const connectionId = bridgeConnectionId(db);
+  const smokeThreadMeta = threadMetadataFromEvent({
+    threadId: "smoke-multicard-thread",
+    threadTitle: "Smoke multi-card thread",
+    cwd: root,
+    projectName: "justswipe",
+    threadStatus: "awaiting_justswipe",
+  });
+  const multiHandoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    smokeThreadMeta.threadId,
+    JSON.stringify([
+      {
+        cardId: "smoke-card-one",
+        title: "Smoke card one",
+        summary: "First card in a two-card smoke bundle.",
+        recommendedAction: "yes",
+        visualContext: "Card one should advance the bundle, not queue a bridge event.",
+        questionType: "yes_no",
+        yesPayloadSchema: [],
+        noPayloadSchema: [],
+        morePayloadSchema: [],
+        laterPayloadSchema: [],
+        optionPayloadSchemas: {},
+        requiredFieldsByAction: {},
+        quickRepliesByAction: {
+          yes: ["First card done"],
+        },
+      },
+      {
+        cardId: "smoke-card-two",
+        title: "Smoke card two",
+        summary: "Second card completes the smoke bundle.",
+        recommendedAction: "yes",
+        visualContext: "Card two should queue exactly one bridge event with both responses.",
+        questionType: "yes_no",
+        yesPayloadSchema: [],
+        noPayloadSchema: [],
+        morePayloadSchema: [],
+        laterPayloadSchema: [],
+        optionPayloadSchemas: {},
+        requiredFieldsByAction: {},
+        quickRepliesByAction: {
+          yes: ["Second card done"],
+        },
+      },
+    ]),
+    "Smoke multi-card handoff.",
+    metadataJson(smokeThreadMeta),
+  ]);
+
+  db = await dumpDb();
+  let multiHandoff = activeHandoffRows(db).find((row) => row.handoffId === multiHandoffId);
+
+  if (!multiHandoff) {
+    throw new Error("Smoke failed: multi-card handoff was not active.");
+  }
+
+  const firstCard = await submitFirstYesReply(multiHandoff, "First card done");
+  db = await dumpDb();
+  multiHandoff = activeHandoffRows(db).find((row) => row.handoffId === multiHandoffId);
+
+  if (!multiHandoff || multiHandoff.status !== "in_progress" || multiHandoff.activeCardIndex !== "1") {
+    throw new Error("Smoke failed: first multi-card response did not advance to card two.");
+  }
+
+  if (queuedEvents(db).some((row) => row.handoffId === multiHandoffId)) {
+    throw new Error("Smoke failed: multi-card handoff queued before all cards were answered.");
+  }
+
+  const secondCard = await submitFirstYesReply(multiHandoff, "Second card done");
+  db = await dumpDb();
+  const multiEvent = queuedEvents(db).find((row) => row.handoffId === multiHandoffId);
+
+  if (!multiEvent) {
+    throw new Error("Smoke failed: completed multi-card handoff did not queue a bridge event.");
+  }
+
+  const multiResponses = JSON.parse(multiEvent.feedback || "[]");
+
+  if (
+    !Array.isArray(multiResponses) ||
+    multiResponses.length !== 2 ||
+    multiResponses[0]?.cardId !== firstCard.cardId ||
+    multiResponses[1]?.cardId !== secondCard.cardId
+  ) {
+    throw new Error("Smoke failed: completed multi-card event did not include both responses in order.");
+  }
+
   await clearConnectionState();
 
   console.log("JustSwipe bridge smoke passed.");
   console.log(`Pair code format: ${code}`);
   console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
   console.log("Duplicate claim blocked.");
+  console.log(`Multi-card bundle advanced and queued: ${multiHandoffId}`);
   console.log("Quota fallback guidance verified.");
 }
 
