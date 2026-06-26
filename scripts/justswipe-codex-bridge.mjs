@@ -791,13 +791,14 @@ async function createAppServerClient() {
   };
 }
 
-function queuedEvents(db) {
+function bridgeEventsByStatus(db, statuses) {
   const events = db.tables?.bridgeEvents ?? [];
   const connectionId = bridgeConnectionId(db);
   const ownerId = ownerIdForGuest();
+  const allowed = new Set(statuses);
 
   return events
-    .filter((event) => event.status === "queued")
+    .filter((event) => allowed.has(event.status))
     .filter((event) => {
       if (connectionId) {
         return event.connectionId === connectionId;
@@ -806,6 +807,10 @@ function queuedEvents(db) {
       return event.ownerId === ownerId;
     })
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+function queuedEvents(db) {
+  return bridgeEventsByStatus(db, ["queued"]);
 }
 
 function nextQueuedEvent(db) {
@@ -863,6 +868,8 @@ async function printStatusReport() {
       activeHandoffs: 0,
       activeHandoffStatuses: {},
       queuedBridgeEvents: 0,
+      runningBridgeEvents: 0,
+      failedBridgeEvents: 0,
       threads: 0,
       threadStatuses: {},
       nextAction: "run local app and rerun with --app-url http://localhost:3001",
@@ -892,6 +899,8 @@ async function printStatusReport() {
   const integration = integrationForGuest(db);
   const connectionId = bridgeConnectionId(db);
   const queued = queuedEvents(db);
+  const running = bridgeEventsByStatus(db, ["running"]);
+  const failed = bridgeEventsByStatus(db, ["failed"]);
   const handoffs = (db.tables?.handoffs ?? []).filter((row) =>
     connectionId ? row.connectionId === connectionId : row.ownerId === ownerIdForGuest(),
   );
@@ -908,9 +917,13 @@ async function printStatusReport() {
     row.ownerId === ownerIdForGuest() && row.status === "active" && isFuture(row.expiresAt),
   );
   const connected = Boolean(connectionId && integration?.pairedUntil && isFuture(integration.pairedUntil));
-  const nextAction = queued.length
-    ? `run: npm run bridge${runAll ? ":all" : ""} -- --app-url ${appBaseUrl()}`
-    : activeHandoffs.some((row) => ["awaiting_justswipe", "in_progress"].includes(row.status))
+  const nextAction = failed.length
+    ? `inspect: npm run bridge:dry-run -- --app-url ${appBaseUrl()}`
+    : running.length
+      ? "bridge is relaying; wait or inspect watcher logs"
+      : queued.length
+        ? `run: npm run bridge${runAll ? ":all" : ""} -- --app-url ${appBaseUrl()}`
+        : activeHandoffs.some((row) => ["awaiting_justswipe", "in_progress"].includes(row.status))
       ? `open: ${appBaseUrl()}`
       : connected
         ? "no cards waiting; send an idea from JustSwipe or keep watcher running"
@@ -927,6 +940,8 @@ async function printStatusReport() {
     activeHandoffs: activeHandoffs.length,
     activeHandoffStatuses: statusCounts(activeHandoffs),
     queuedBridgeEvents: queued.length,
+    runningBridgeEvents: running.length,
+    failedBridgeEvents: failed.length,
     threads: threads.length,
     threadStatuses: statusCounts(threads, "threadStatus"),
     nextAction,
@@ -956,6 +971,8 @@ async function printStatusReport() {
   console.log(`activePairCodes: ${report.activePairCodes}`);
   console.log(`activeHandoffs: ${report.activeHandoffs} (${formatCounts(report.activeHandoffStatuses)})`);
   console.log(`queuedBridgeEvents: ${report.queuedBridgeEvents}`);
+  console.log(`runningBridgeEvents: ${report.runningBridgeEvents}`);
+  console.log(`failedBridgeEvents: ${report.failedBridgeEvents}`);
   console.log(`threads: ${report.threads} (${formatCounts(report.threadStatuses)})`);
   console.log(`next: ${report.nextAction}`);
 
