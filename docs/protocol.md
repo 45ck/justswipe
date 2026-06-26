@@ -43,6 +43,8 @@ handoff = card bundle for the connection
 response = one swipe/form answer for a card
 ```
 
+Hosted JustSwipe can store a swipe response without Codex seeing it. Codex receives the response only when the local bridge claims the queued bridge event and relays it into the thread. If `bridge:status:hosted` shows `queuedBridgeEvents > 0`, run `npm run bridge:watch:hosted` or `npm run bridge:dry-run:hosted` from the bridge repo before debugging Codex itself.
+
 Multiple devices can pair to the same connection:
 
 ```txt

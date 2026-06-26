@@ -99,6 +99,16 @@ If you can open a browser, use --open so the hosted app pairs automatically thro
 
 The expected result is simple: the hosted app opens, the user can pair this browser, the same link can be opened on a phone, and both devices see the same JustSwipe cards for this repo connection.
 
+Keep the watcher running while the user expects Codex to receive JustSwipe responses. The hosted app stores cards and responses; the local bridge watcher relays those responses into Codex. If the user swipes and Codex does not respond, run:
+
+\`\`\`powershell
+npm run bridge:status:hosted
+npm run bridge:dry-run:hosted
+npm run bridge:watch:hosted
+\`\`\`
+
+If \`bridge:status:hosted\` reports \`queuedBridgeEvents > 0\`, the hosted app has a response waiting and the watcher is not currently relaying it.
+
 ## Hosted Mutation Quota Fallback
 
 Lakebed exposes deploy limits with \`npx lakebed inspect <deploy-url-or-id> --json\`. For this hosted deploy, the important operational limits are \`mutationsPerDay: 1000\` and \`requestsPerDay: 10000\`.
@@ -179,6 +189,7 @@ A successful install means:
 - The pair link was opened automatically when possible.
 - The user was given the pair code/link for phone or second-browser pairing.
 - \`npm --silent run bridge:status -- --app-url <app-url> --json\` reports the connection and queue state.
+- \`queuedBridgeEvents\` is \`0\`, or \`npm run bridge:watch -- --app-url <app-url>\` is running to relay them.
 - \`npm run bridge:doctor -- --app-url <app-url>\` reports the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
 - \`npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000\` proves the local setup, handoff, response, relay, follow-up card, and target-repo doctor loop when hosted quota blocks cloud testing.
 - After hosted quota resets, \`npm run deploy:hosted\` refreshes the hosted app, then \`npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000\` proves the same loop against the hosted app.
