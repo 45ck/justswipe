@@ -1255,6 +1255,14 @@ function Header(props: {
   const latestCode = props.pairCodes[0];
   const latestPairLink = latestCode ? pairLinkForCode(latestCode.code) : "";
   const deviceCount = props.pairedDevices.length;
+  const [pairCopyState, setPairCopyState] = useState<"" | "code" | "link" | "failed">("");
+
+  const copyPairValue = async (kind: "code" | "link", value: string) => {
+    clearHoverTimer();
+    const copied = await copyText(value);
+    setPairCopyState(copied ? kind : "failed");
+    window.setTimeout(() => setPairCopyState(""), 1600);
+  };
 
   useEffect(() => {
     if (!props.connectionMenuOpen) return;
@@ -1431,14 +1439,32 @@ function Header(props: {
                     </p>
                     <p class="text-xs text-zinc-500">{formatTime(latestCode.expiresAt)}</p>
                   </div>
-                  <p class="mt-1 text-lg font-semibold tracking-[0.12em] text-white">{latestCode.code}</p>
+                  <div class="mt-1 flex items-center justify-between gap-2">
+                    <p class="text-lg font-semibold tracking-[0.12em] text-white">{latestCode.code}</p>
+                    <button
+                      class="h-7 shrink-0 rounded border border-lime-300/30 bg-lime-300/10 px-2 text-[11px] font-semibold text-lime-50 transition hover:bg-lime-300/20"
+                      type="button"
+                      onClick={() => copyPairValue("code", latestCode.code)}
+                    >
+                      {pairCopyState === "code" ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                   {latestPairLink ? (
-                    <input
-                      class="mt-2 h-8 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-300 outline-none"
-                      readOnly
-                      value={latestPairLink}
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
+                    <div class="mt-2 grid gap-2">
+                      <input
+                        class="h-8 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-300 outline-none"
+                        readOnly
+                        value={latestPairLink}
+                        onFocus={(event) => event.currentTarget.select()}
+                      />
+                      <button
+                        class="h-8 rounded border border-white/10 bg-black/15 text-xs font-semibold text-zinc-100 transition hover:bg-white/10"
+                        type="button"
+                        onClick={() => copyPairValue("link", latestPairLink)}
+                      >
+                        {pairCopyState === "link" ? "Copied" : pairCopyState === "failed" ? "Copy failed" : "Copy pair link"}
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               ) : null}
