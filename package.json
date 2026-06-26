@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "npx --yes --cache .lakebed/npm-cache lakebed dev . --port 3001",
     "build": "npx --yes --cache .lakebed/npm-cache lakebed build . --target anonymous --out .lakebed/artifacts/app.json --json",
+    "deploy:hosted": "npx --yes --cache .lakebed/npm-cache lakebed deploy . --json",
     "bridge": "node scripts/justswipe-codex-bridge.mjs --once",
     "bridge:all": "node scripts/justswipe-codex-bridge.mjs --all",
     "bridge:watch": "node scripts/justswipe-codex-bridge.mjs --watch",

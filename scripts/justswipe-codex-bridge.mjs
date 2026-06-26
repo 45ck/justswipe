@@ -1606,15 +1606,17 @@ async function submitFirstYesReply(handoff, preferredReply = "") {
 
 async function prepareE2eTarget() {
   const explicitCwd = process.argv.includes("--cwd");
-  const target = resolve(explicitCwd ? threadCwd : join(root, ".lakebed", "e2e-target"));
   const defaultRoot = resolve(root, ".lakebed");
+  const target = resolve(
+    explicitCwd
+      ? threadCwd
+      : join(root, ".lakebed", "e2e-targets", `run-${Date.now()}-${process.pid}`),
+  );
 
   if (!explicitCwd) {
     if (!target.startsWith(defaultRoot)) {
       throw new Error(`Refusing to reset E2E target outside .lakebed: ${target}`);
     }
-
-    await rm(target, { recursive: true, force: true });
   }
 
   await mkdir(target, { recursive: true });
