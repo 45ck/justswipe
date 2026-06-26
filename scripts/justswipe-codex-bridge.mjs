@@ -386,7 +386,7 @@ async function deployInspectTarget() {
     return deployIdArg;
   }
 
-  if (appUrl) {
+  if (appUrl && isLocalAppUrl()) {
     return appBaseUrl();
   }
 
@@ -400,7 +400,7 @@ async function deployInspectTarget() {
     // Fall back to the app URL for unbound deployments.
   }
 
-  return appUrl;
+  return appUrl ? appBaseUrl() : "";
 }
 
 function run(command, commandArgs, options = {}) {
