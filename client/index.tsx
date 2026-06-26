@@ -2417,10 +2417,17 @@ function PairingPanel(props: {
 }) {
   const latestCode = props.pairCodes[0];
   const latestPairLink = latestCode ? pairLinkForCode(latestCode.code) : "";
+  const [pairCopyState, setPairCopyState] = useState<"" | "code" | "link" | "failed">("");
   const state = runtimeState({
     connected: props.connected,
     latestEvent: props.latestEvent,
   });
+
+  const copyPairValue = async (kind: "code" | "link", value: string) => {
+    const copied = await copyText(value);
+    setPairCopyState(copied ? kind : "failed");
+    window.setTimeout(() => setPairCopyState(""), 1600);
+  };
 
   return (
     <div class="grid gap-3">
@@ -2467,22 +2474,42 @@ function PairingPanel(props: {
           </button>
           {latestCode ? (
             <div class="mt-3 rounded border border-lime-300/25 bg-lime-300/8 p-3">
-              <p class="text-[11px] uppercase tracking-[0.18em] text-lime-100">
-                Latest code
-              </p>
-              <p class="mt-1 text-2xl font-semibold tracking-[0.12em] text-white">
-                {latestCode.code}
-              </p>
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-[11px] uppercase tracking-[0.18em] text-lime-100">
+                    Latest code
+                  </p>
+                  <p class="mt-1 text-2xl font-semibold tracking-[0.12em] text-white">
+                    {latestCode.code}
+                  </p>
+                </div>
+                <button
+                  class="h-8 shrink-0 rounded border border-lime-300/30 bg-lime-300/10 px-2 text-xs font-semibold text-lime-50 transition hover:bg-lime-300/20"
+                  type="button"
+                  onClick={() => copyPairValue("code", latestCode.code)}
+                >
+                  {pairCopyState === "code" ? "Copied" : "Copy code"}
+                </button>
+              </div>
               <p class="mt-1 text-xs text-zinc-500">
                 Usable until {formatTime(latestCode.expiresAt)}
               </p>
               {latestPairLink ? (
-                <input
-                  class="mt-3 h-9 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-200 outline-none"
-                  readOnly
-                  value={latestPairLink}
-                  onFocus={(event) => event.currentTarget.select()}
-                />
+                <div class="mt-3 grid gap-2">
+                  <input
+                    class="h-9 w-full rounded border border-white/10 bg-black/20 px-2 text-xs text-zinc-200 outline-none"
+                    readOnly
+                    value={latestPairLink}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <button
+                    class="h-9 rounded border border-white/10 bg-black/15 text-xs font-semibold text-zinc-100 transition hover:bg-white/10"
+                    type="button"
+                    onClick={() => copyPairValue("link", latestPairLink)}
+                  >
+                    {pairCopyState === "link" ? "Copied" : pairCopyState === "failed" ? "Copy failed" : "Copy pair link"}
+                  </button>
+                </div>
               ) : null}
             </div>
           ) : null}
