@@ -1424,6 +1424,98 @@ async function runSmoke() {
     throw new Error("Smoke failed: completed multi-card event did not include both responses in order.");
   }
 
+  const requiredThreadMeta = threadMetadataFromEvent({
+    threadId: "smoke-required-thread",
+    threadTitle: "Smoke required-field thread",
+    cwd: root,
+    projectName: "justswipe",
+    threadStatus: "awaiting_justswipe",
+  });
+  const requiredHandoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    requiredThreadMeta.threadId,
+    JSON.stringify([
+      {
+        cardId: "smoke-required-card",
+        title: "Smoke required field card",
+        summary: "A required schema field must block empty submissions.",
+        recommendedAction: "yes",
+        visualContext: "Submitting without the required field should fail before relay.",
+        questionType: "adaptive_form",
+        yesPayloadSchema: [
+          {
+            id: "decision_note",
+            label: "Decision note",
+            type: "textarea",
+            required: true,
+          },
+        ],
+        noPayloadSchema: [],
+        morePayloadSchema: [],
+        laterPayloadSchema: [],
+        optionPayloadSchemas: {},
+        requiredFieldsByAction: {
+          yes: ["decision_note"],
+        },
+        quickRepliesByAction: {},
+      },
+    ]),
+    "Smoke required-field handoff.",
+    metadataJson(requiredThreadMeta),
+  ]);
+
+  db = await dumpDb();
+  const requiredHandoff = activeHandoffRows(db).find((row) => row.handoffId === requiredHandoffId);
+
+  if (!requiredHandoff) {
+    throw new Error("Smoke failed: required-field handoff was not active.");
+  }
+
+  const emptyRequiredResult = JSON.parse(
+    await runMutation("submitCardResponse", [
+      requiredHandoff.id,
+      "smoke-required-card",
+      "yes",
+      JSON.stringify({ decision_note: "" }),
+    ]),
+  );
+
+  if (emptyRequiredResult.ok || !String(emptyRequiredResult.error || "").includes("decision_note")) {
+    throw new Error("Smoke failed: missing required field was not rejected.");
+  }
+
+  db = await dumpDb();
+
+  if (queuedEvents(db).some((row) => row.handoffId === requiredHandoffId)) {
+    throw new Error("Smoke failed: invalid required-field response queued a bridge event.");
+  }
+
+  const filledRequiredResult = JSON.parse(
+    await runMutation("submitCardResponse", [
+      requiredHandoff.id,
+      "smoke-required-card",
+      "yes",
+      JSON.stringify({ decision_note: "Required value present" }),
+    ]),
+  );
+
+  if (!filledRequiredResult.ok || !filledRequiredResult.completed) {
+    throw new Error("Smoke failed: valid required-field response did not complete.");
+  }
+
+  db = await dumpDb();
+  const requiredEvent = queuedEvents(db).find((row) => row.handoffId === requiredHandoffId);
+
+  if (!requiredEvent) {
+    throw new Error("Smoke failed: valid required-field response did not queue a bridge event.");
+  }
+
+  const requiredResponses = JSON.parse(requiredEvent.feedback || "[]");
+
+  if (requiredResponses[0]?.payload?.decision_note !== "Required value present") {
+    throw new Error("Smoke failed: required-field payload was not preserved.");
+  }
+
   await clearConnectionState();
 
   console.log("JustSwipe bridge smoke passed.");
@@ -1431,6 +1523,7 @@ async function runSmoke() {
   console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
   console.log("Duplicate claim blocked.");
   console.log(`Multi-card bundle advanced and queued: ${multiHandoffId}`);
+  console.log(`Required-field validation blocked empty payload: ${requiredHandoffId}`);
   console.log("Quota fallback guidance verified.");
 }
 
