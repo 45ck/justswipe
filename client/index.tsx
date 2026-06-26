@@ -103,6 +103,44 @@ function tryVibrate(pattern: VibratePattern) {
   }
 }
 
+function currentAppUrl(): string {
+  if (typeof window === "undefined") {
+    return "<app-url>";
+  }
+
+  return window.location.origin;
+}
+
+function bridgeWatcherCommand(): string {
+  return `npm run bridge:watch -- --app-url ${currentAppUrl()} --daemon`;
+}
+
+async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback below.
+  }
+
+  try {
+    const element = document.createElement("textarea");
+    element.value = value;
+    element.setAttribute("readonly", "true");
+    element.style.position = "fixed";
+    element.style.left = "-9999px";
+    document.body.appendChild(element);
+    element.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(element);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 const deviceIdStorageKey = "justswipe.deviceId";
 
 function createDeviceId(): string {
@@ -850,7 +888,7 @@ function bridgeHealthState(props: {
       status: "warning",
       label: "Bridge watcher offline",
       detail: `${queuedEvents} ${plural(queuedEvents, "response")} waiting in hosted JustSwipe.`,
-      action: "Run the bridge watcher for this app URL and leave that terminal open.",
+      action: "Start the background watcher for this app URL.",
       icon: "clock",
       queuedEvents,
       runningEvents,
@@ -884,7 +922,7 @@ function bridgeHealthState(props: {
       status: "running",
       label: "Bridge relaying",
       detail: "The local bridge is sending a response to Codex.",
-      action: "Leave the bridge terminal running.",
+      action: "The watcher is active. Keep it running while Codex works.",
       icon: "play",
       queuedEvents,
       runningEvents,
@@ -920,7 +958,7 @@ function bridgeHealthState(props: {
       detail: props.heartbeat?.lastSeenAt
         ? `Last bridge heartbeat was ${heartbeatAge} ago.`
         : "No bridge watcher heartbeat has reached this connection.",
-      action: "Run the bridge watcher for this app URL and leave that terminal open.",
+      action: "Start the background watcher for this app URL.",
       icon: "clock",
       queuedEvents,
       runningEvents,
@@ -955,6 +993,11 @@ function BridgeHealthPanel(props: {
   onOpenConnection?: () => void;
 }) {
   const showForget = Boolean(props.onForget && props.health.fixtureProject);
+  const showWatcherCommand =
+    props.health.label === "Bridge watcher offline" ||
+    props.health.label === "Bridge not observed";
+  const watcherCommand = bridgeWatcherCommand();
+  const [copyState, setCopyState] = useState<"" | "copied" | "failed">("");
 
   return (
     <div class={`rounded border p-3 text-left ${bridgeTone(props.health.status)}`}>
@@ -1003,6 +1046,29 @@ function BridgeHealthPanel(props: {
               </div>
             ) : null}
             <p class="text-xs leading-5 opacity-80">{props.health.action}</p>
+            {showWatcherCommand ? (
+              <div class="rounded border border-orange-300/20 bg-black/20 p-2">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-100/80">
+                    Start watcher
+                  </p>
+                  <button
+                    class="h-7 rounded border border-orange-300/30 bg-orange-300/10 px-2 text-[11px] font-semibold text-orange-50 transition hover:bg-orange-300/20"
+                    type="button"
+                    onClick={async () => {
+                      const copied = await copyText(watcherCommand);
+                      setCopyState(copied ? "copied" : "failed");
+                      window.setTimeout(() => setCopyState(""), 1600);
+                    }}
+                  >
+                    {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy command"}
+                  </button>
+                </div>
+                <code class="mt-2 block break-all rounded border border-white/10 bg-black/30 px-2 py-2 font-mono text-[11px] leading-5 text-zinc-200">
+                  {watcherCommand}
+                </code>
+              </div>
+            ) : null}
           </div>
           {showForget || props.onOpenConnection ? (
             <div class="mt-3 flex flex-wrap gap-2">
