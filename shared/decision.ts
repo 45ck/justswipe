@@ -184,6 +184,18 @@ export type PairedDevice = {
   platform: string;
 };
 
+export type BridgeHeartbeat = {
+  id: string;
+  ownerId: string;
+  connectionId: string;
+  label: string;
+  appUrl: string;
+  status: string;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DeviceSessionPayload = {
   deviceId: string;
   label: string;

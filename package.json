@@ -28,6 +28,7 @@
     "bridge:pair:hosted": "node scripts/justswipe-codex-bridge.mjs --pair --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:setup": "node scripts/justswipe-codex-bridge.mjs --setup",
     "bridge:clear": "node scripts/justswipe-codex-bridge.mjs --clear",
+    "bridge:forget:hosted": "node scripts/justswipe-codex-bridge.mjs --forget --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:start-thread": "node scripts/justswipe-codex-bridge.mjs --start-thread",
     "handoff:setup": "node scripts/justswipe-codex-bridge.mjs --setup-handoff",
     "handoff:todo": "node scripts/justswipe-codex-bridge.mjs --todo-handoff",

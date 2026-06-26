@@ -109,6 +109,8 @@ npm run bridge:watch:hosted
 
 If \`bridge:status:hosted\` reports \`queuedBridgeEvents > 0\`, the hosted app has a response waiting and the watcher is not currently relaying it.
 
+The site connection panel shows the paired project, repo path, queued responses, relay state, and watcher heartbeat. If it shows the wrong repo or an E2E/test path, use Forget project in the connection panel or run \`npm run bridge:forget:hosted\`, then re-pair from the target repo.
+
 ## Hosted Mutation Quota Fallback
 
 Lakebed exposes deploy limits with \`npx lakebed inspect <deploy-url-or-id> --json\`. For this hosted deploy, the important operational limits are \`mutationsPerDay: 1000\` and \`requestsPerDay: 10000\`.
@@ -190,6 +192,7 @@ A successful install means:
 - The user was given the pair code/link for phone or second-browser pairing.
 - \`npm --silent run bridge:status -- --app-url <app-url> --json\` reports the connection and queue state.
 - \`queuedBridgeEvents\` is \`0\`, or \`npm run bridge:watch -- --app-url <app-url>\` is running to relay them.
+- The connection panel shows the expected project/repo path and a fresh bridge heartbeat when the watcher is running.
 - \`npm run bridge:doctor -- --app-url <app-url>\` reports the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
 - \`npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000\` proves the local setup, handoff, response, relay, follow-up card, and target-repo doctor loop when hosted quota blocks cloud testing.
 - After hosted quota resets, \`npm run deploy:hosted\` refreshes the hosted app, then \`npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000\` proves the same loop against the hosted app.

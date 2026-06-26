@@ -17,6 +17,7 @@ import {
   type CodexThread,
   type CodexThreadStatus,
   type DeviceSessionPayload,
+  type BridgeHeartbeat,
   type Handoff,
   type HandoffResponse,
   type Integration,
@@ -665,6 +666,14 @@ export default capsule({
       pendingCards: string().default("0"),
       pendingIdeas: string().default("0"),
     }),
+    bridgeHeartbeats: table({
+      ownerId: string(),
+      connectionId: string(),
+      label: string().default("JustSwipe bridge"),
+      appUrl: string().default(""),
+      status: string().default("online"),
+      lastSeenAt: string().default(""),
+    }),
   },
   endpoints: {
     faviconSvg: endpoint({ method: "GET", path: "/favicon.svg" }, () =>
@@ -805,6 +814,20 @@ export default capsule({
             left.lastActivityAt || left.updatedAt || "",
           );
         });
+    }),
+
+    bridgeHeartbeat: query((ctx) => {
+      const connectionId = connectionFor(ctx);
+
+      if (!connectionId) {
+        return undefined;
+      }
+
+      return ctx.db.bridgeHeartbeats
+        .where("connectionId", connectionId)
+        .orderBy("lastSeenAt", "desc")
+        .limit(1)
+        .all()[0];
     }),
   },
   mutations: {
@@ -997,6 +1020,44 @@ export default capsule({
       return `Cleaned ${removed} duplicate ${removed === 1 ? "browser" : "browsers"}.`;
     }),
 
+    touchBridgeHeartbeat: mutation((ctx, label = "JustSwipe bridge", appUrl = "") => {
+      const integration = getIntegration(ctx);
+      const connectionId = integration?.connectionId || "";
+
+      if (!connectionId) {
+        return "";
+      }
+
+      const current = nowIso();
+      const cleanLabel = cleanText(label || "JustSwipe bridge", 80);
+      const cleanAppUrl = cleanText(appUrl || "", 240);
+      const existing = ctx.db.bridgeHeartbeats
+        .where("connectionId", connectionId)
+        .where("ownerId", ctx.auth.userId)
+        .limit(1)
+        .all()[0] as BridgeHeartbeat | undefined;
+
+      if (existing) {
+        ctx.db.bridgeHeartbeats.update(existing.id, {
+          label: cleanLabel,
+          appUrl: cleanAppUrl,
+          status: "online",
+          lastSeenAt: current,
+        });
+      } else {
+        ctx.db.bridgeHeartbeats.insert({
+          ownerId: ctx.auth.userId,
+          connectionId,
+          label: cleanLabel,
+          appUrl: cleanAppUrl,
+          status: "online",
+          lastSeenAt: current,
+        });
+      }
+
+      return current;
+    }),
+
     saveIntegration: mutation((ctx, threadId: string, customPrompt: string, metadataJson = "") => {
       const existing = ensureIntegration(ctx);
       const meta = parseThreadMetadata(metadataJson);
@@ -1042,6 +1103,46 @@ export default capsule({
         connectionId: "",
         pairedUntil: "",
       });
+    }),
+
+    forgetProjectConnection: mutation((ctx) => {
+      const existing = ensureIntegration(ctx);
+      const connectionId = existing.connectionId;
+
+      if (connectionId) {
+        for (const row of ctx.db.handoffs.where("connectionId", connectionId).all()) {
+          ctx.db.handoffs.delete(row.id);
+        }
+
+        for (const row of ctx.db.bridgeEvents.where("connectionId", connectionId).all()) {
+          ctx.db.bridgeEvents.delete(row.id);
+        }
+
+        for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
+          ctx.db.codexThreads.delete(row.id);
+        }
+
+        for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
+          ctx.db.bridgeHeartbeats.delete(row.id);
+        }
+      }
+
+      for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
+        ctx.db.pairingCodes.delete(row.id);
+      }
+
+      ctx.db.integrations.update(existing.id, {
+        connectionId: "",
+        pairedUntil: "",
+        codexThreadId: defaultCodexThreadId,
+        threadTitle: "",
+        threadStatus: "unknown",
+        cwd: "",
+        projectName: "",
+        lastActivityAt: "",
+      });
+
+      return "Project connection forgotten. Pair this browser again.";
     }),
 
     startPlanningDiscussion: mutation((ctx, rawPrompt: string, targetThreadId = "", route = "new_thread") => {
@@ -1160,6 +1261,10 @@ export default capsule({
 
       for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
         ctx.db.codexThreads.delete(row.id);
+      }
+
+      for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
+        ctx.db.bridgeHeartbeats.delete(row.id);
       }
 
       for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
@@ -1415,6 +1520,10 @@ export default capsule({
 
       for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
         ctx.db.codexThreads.delete(row.id);
+      }
+
+      for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
+        ctx.db.bridgeHeartbeats.delete(row.id);
       }
 
       for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {

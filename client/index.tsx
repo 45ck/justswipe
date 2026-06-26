@@ -19,6 +19,7 @@ import {
   defaultCustomPrompt,
   parseCards,
   parseResponses,
+  type BridgeHeartbeat,
   type BridgeEvent,
   type CodexThread,
   type CodexThreadStatus,
@@ -646,6 +647,7 @@ function pairLinkForCode(code: string): string {
 
 function bridgeTone(status: string): string {
   if (status === "failed") return "border-orange-400/35 bg-orange-400/10 text-orange-100";
+  if (status === "warning") return "border-orange-300/35 bg-orange-300/10 text-orange-100";
   if (status === "queued" || status === "running" || status === "responding_to_codex") {
     return "border-cyan-300/35 bg-cyan-300/10 text-cyan-100";
   }
@@ -658,7 +660,7 @@ function bridgeTone(status: string): string {
 }
 
 function iconTone(status: string, connected: boolean): string {
-  if (!connected || status === "failed") {
+  if (!connected || status === "failed" || status === "warning") {
     return "border-orange-400/40 bg-orange-400/12 text-orange-100 hover:bg-orange-400/20";
   }
 
@@ -674,7 +676,7 @@ function iconTone(status: string, connected: boolean): string {
 }
 
 function statusDotTone(status: string, connected: boolean): string {
-  if (!connected || status === "failed") return "bg-orange-400";
+  if (!connected || status === "failed" || status === "warning") return "bg-orange-400";
   if (status === "queued" || status === "running") return "bg-cyan-300 animate-pulse";
   if (status === "awaiting_justswipe") return "bg-lime-300 animate-pulse";
   return "bg-teal-300";
@@ -684,12 +686,30 @@ function runtimeState(props: {
   connected: boolean;
   handoff?: Handoff;
   latestEvent?: BridgeEvent;
+  queuedEvents?: number;
+  fixtureProject?: boolean;
 }) {
   if (!props.connected) {
     return {
       label: "Not paired",
       detail: "Pair this browser with the local bridge",
       status: "",
+    };
+  }
+
+  if (props.fixtureProject) {
+    return {
+      label: "Test project paired",
+      detail: "Forget this connection and pair a real repo",
+      status: "warning",
+    };
+  }
+
+  if (props.queuedEvents && props.queuedEvents > 0) {
+    return {
+      label: "Bridge watcher needed",
+      detail: `${props.queuedEvents} ${plural(props.queuedEvents, "packet")} waiting for Codex`,
+      status: "warning",
     };
   }
 
@@ -729,6 +749,287 @@ function runtimeState(props: {
     detail: "Cards will appear for this bridge",
     status: "connected",
   };
+}
+
+function latestProjectContext(props: {
+  integration?: Integration;
+  bridgeEvents: BridgeEvent[];
+  threads: CodexThread[];
+}) {
+  const latestEvent = props.bridgeEvents[0];
+  const latestThread = props.threads[0];
+  const cwd = props.integration?.cwd || latestEvent?.cwd || latestThread?.cwd || "";
+  const projectName =
+    props.integration?.projectName ||
+    latestEvent?.projectName ||
+    latestThread?.projectName ||
+    (cwd ? cwd.split(/[\\/]/).filter(Boolean).slice(-1)[0] || "Project" : "Project");
+  const threadTitle =
+    props.integration?.threadTitle ||
+    latestEvent?.threadTitle ||
+    latestThread?.threadTitle ||
+    "";
+
+  return {
+    cwd,
+    projectName,
+    threadTitle,
+  };
+}
+
+function isFixtureProjectPath(cwd: string): boolean {
+  return /[\\\/]\.lakebed[\\\/]e2e-targets?[\\\/]/i.test(cwd);
+}
+
+function isFreshBridgeHeartbeat(heartbeat?: BridgeHeartbeat): boolean {
+  if (!heartbeat?.lastSeenAt) {
+    return false;
+  }
+
+  const seenAt = new Date(heartbeat.lastSeenAt).getTime();
+
+  return Number.isFinite(seenAt) && Date.now() - seenAt < 3 * 60_000;
+}
+
+function bridgeHealthState(props: {
+  connected: boolean;
+  integration?: Integration;
+  handoff?: Handoff;
+  heartbeat?: BridgeHeartbeat;
+  bridgeEvents: BridgeEvent[];
+  threads: CodexThread[];
+}) {
+  const queuedEvents = props.bridgeEvents.filter((event) => event.status === "queued").length;
+  const runningEvents = props.bridgeEvents.filter((event) => event.status === "running").length;
+  const failedEvents = props.bridgeEvents.filter((event) => event.status === "failed").length;
+  const context = latestProjectContext({
+    integration: props.integration,
+    bridgeEvents: props.bridgeEvents,
+    threads: props.threads,
+  });
+  const fixtureProject = isFixtureProjectPath(context.cwd);
+  const heartbeatFresh = isFreshBridgeHeartbeat(props.heartbeat);
+  const heartbeatAge = props.heartbeat?.lastSeenAt ? formatAgo(props.heartbeat.lastSeenAt) : "";
+
+  if (!props.connected) {
+    return {
+      status: "",
+      label: "Not connected",
+      detail: "Pair this browser with the laptop bridge.",
+      action: "Open connection and paste a 2-minute pair code.",
+      icon: "link",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (fixtureProject) {
+    return {
+      status: "warning",
+      label: "Paired to a test project",
+      detail: "This browser is connected to an E2E fixture, not a normal repo.",
+      action: "Forget this project, then re-pair from the real repo.",
+      icon: "folder",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (queuedEvents > 0) {
+    return {
+      status: "warning",
+      label: "Bridge watcher offline",
+      detail: `${queuedEvents} ${plural(queuedEvents, "response")} waiting in hosted JustSwipe.`,
+      action: "Run the bridge watcher for this app URL and leave that terminal open.",
+      icon: "clock",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (failedEvents > 0 || props.handoff?.status === "failed") {
+    return {
+      status: "failed",
+      label: "Bridge needs attention",
+      detail: "A relay failed. The response is saved for retry.",
+      action: "Open the thread log or run npm run bridge:dry-run:hosted.",
+      icon: "log",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (runningEvents > 0 || props.handoff?.status === "responding_to_codex") {
+    return {
+      status: "running",
+      label: "Bridge relaying",
+      detail: "The local bridge is sending a response to Codex.",
+      action: "Leave the bridge terminal running.",
+      icon: "play",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (props.handoff?.status === "awaiting_justswipe" || props.handoff?.status === "in_progress") {
+    return {
+      status: "awaiting_justswipe",
+      label: "Codex is waiting",
+      detail: "A card is ready for this connection.",
+      action: "Swipe the card or add context.",
+      icon: "inbox",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (!heartbeatFresh) {
+    return {
+      status: "warning",
+      label: "Bridge not observed",
+      detail: props.heartbeat?.lastSeenAt
+        ? `Last bridge heartbeat was ${heartbeatAge} ago.`
+        : "No bridge watcher heartbeat has reached this connection.",
+      action: "Run the bridge watcher for this app URL and leave that terminal open.",
+      icon: "clock",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  return {
+    status: "connected",
+    label: "Bridge online",
+    detail: `Watcher heartbeat seen ${heartbeatAge || "now"} ago.`,
+    action: "Ideas will queue here and relay when the watcher is active.",
+    icon: "link",
+    queuedEvents,
+    runningEvents,
+    failedEvents,
+    fixtureProject,
+    heartbeatFresh,
+    heartbeatAge,
+    ...context,
+  };
+}
+
+function BridgeHealthPanel(props: {
+  health: ReturnType<typeof bridgeHealthState>;
+  compact?: boolean;
+  onForget?: () => void;
+  onOpenConnection?: () => void;
+}) {
+  const showForget = Boolean(props.onForget && props.health.fixtureProject);
+
+  return (
+    <div class={`rounded border p-3 text-left ${bridgeTone(props.health.status)}`}>
+      <div class="flex items-start gap-3">
+        <div class="grid h-9 w-9 shrink-0 place-items-center rounded border border-white/10 bg-black/15">
+          <Icon name={props.health.icon} class="h-4 w-4" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-white">{props.health.label}</p>
+              <p class="mt-1 text-xs leading-5 opacity-80">{props.health.detail}</p>
+            </div>
+            <span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${statusDotTone(props.health.status, props.health.status !== "")}`} />
+          </div>
+          <div class="mt-3 grid gap-2 text-xs">
+            <div class="min-w-0 rounded border border-white/10 bg-black/15 px-2 py-2">
+              <p class="text-zinc-500">Project</p>
+              <p class="mt-1 truncate font-medium text-zinc-100">{props.health.projectName || "Unknown project"}</p>
+              {props.health.cwd ? (
+                <p class="mt-1 truncate text-zinc-500">{props.health.cwd}</p>
+              ) : null}
+            </div>
+            {!props.compact ? (
+              <div class="grid grid-cols-3 gap-2">
+                <div class="rounded border border-white/10 bg-black/15 px-2 py-2">
+                  <p class="text-zinc-500">Waiting</p>
+                  <p class="mt-1 font-semibold text-white">{props.health.queuedEvents}</p>
+                </div>
+                <div class="rounded border border-white/10 bg-black/15 px-2 py-2">
+                  <p class="text-zinc-500">Relaying</p>
+                  <p class="mt-1 font-semibold text-white">{props.health.runningEvents}</p>
+                </div>
+                <div class="rounded border border-white/10 bg-black/15 px-2 py-2">
+                  <p class="text-zinc-500">Failed</p>
+                  <p class="mt-1 font-semibold text-white">{props.health.failedEvents}</p>
+                </div>
+              </div>
+            ) : null}
+            {props.health.heartbeatAge ? (
+              <div class="rounded border border-white/10 bg-black/15 px-2 py-2">
+                <p class="text-zinc-500">Bridge heartbeat</p>
+                <p class="mt-1 font-medium text-zinc-100">
+                  {props.health.heartbeatFresh ? "Online" : "Stale"} · {props.health.heartbeatAge}
+                </p>
+              </div>
+            ) : null}
+            <p class="text-xs leading-5 opacity-80">{props.health.action}</p>
+          </div>
+          {showForget || props.onOpenConnection ? (
+            <div class="mt-3 flex flex-wrap gap-2">
+              {showForget ? (
+                <button
+                  class="h-8 rounded border border-orange-300/35 bg-orange-300/10 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-300/20"
+                  type="button"
+                  onClick={props.onForget}
+                >
+                  Forget project
+                </button>
+              ) : null}
+              {props.onOpenConnection ? (
+                <button
+                  class="h-8 rounded border border-white/10 bg-black/15 px-2 text-xs font-semibold text-zinc-100 transition hover:bg-white/10"
+                  type="button"
+                  onClick={props.onOpenConnection}
+                >
+                  Connection
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function BrowserSessionList(props: {
@@ -864,6 +1165,7 @@ function Header(props: {
   pairMessage: string;
   connectionMenuOpen: boolean;
   state: ReturnType<typeof runtimeState>;
+  health: ReturnType<typeof bridgeHealthState>;
   onReset: () => void;
   onEnableAlerts: () => void;
   onToggleConnection: () => void;
@@ -874,6 +1176,7 @@ function Header(props: {
   onOpenAdvanced: () => void;
   onDisconnect: () => void;
   onOpenThreadLog: () => void;
+  onForgetProject: () => void;
   onRevokePairedDevice: (sessionId: string) => void;
   onCleanDuplicateDevices: () => void;
   alertsEnabled: boolean;
@@ -999,6 +1302,15 @@ function Header(props: {
                     {deviceCount} {plural(deviceCount, "browser", "browsers")}
                   </span>
                 </div>
+              </div>
+
+              <div class="mt-3">
+                <BridgeHealthPanel
+                  compact
+                  health={props.health}
+                  onForget={props.onForgetProject}
+                  onOpenConnection={props.onOpenAdvanced}
+                />
               </div>
 
               <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -1814,6 +2126,7 @@ function EmptyInbox(props: {
   connected: boolean;
   planningPrompt: string;
   planningBusy: boolean;
+  health: ReturnType<typeof bridgeHealthState>;
   latestEvent?: BridgeEvent;
   bridgeEvents: BridgeEvent[];
   threads: CodexThread[];
@@ -1822,6 +2135,7 @@ function EmptyInbox(props: {
   setSelectedThreadId: (value: string) => void;
   onStartPlanning: () => void;
   onOpenConnection: () => void;
+  onForgetProject: () => void;
 }) {
   if (!props.connected) {
     return (
@@ -1857,6 +2171,19 @@ function EmptyInbox(props: {
         <p class="mx-auto mt-3 max-w-sm text-sm leading-6 text-zinc-400">
           Drop an idea into this project. JustSwipe starts a new Codex thread by default, or you can route it to an existing one.
         </p>
+        {props.health.status === "warning" || props.health.status === "failed" ? (
+          <div class="mt-5">
+            <BridgeHealthPanel
+              health={props.health}
+              onForget={props.onForgetProject}
+              onOpenConnection={props.onOpenConnection}
+            />
+          </div>
+        ) : (
+          <div class="mt-5">
+            <BridgeHealthPanel compact health={props.health} onOpenConnection={props.onOpenConnection} />
+          </div>
+        )}
         <div class="mt-5 rounded border border-white/10 bg-[#080d12] p-3 text-left">
           <label class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
             Send an idea to Codex
@@ -2005,6 +2332,7 @@ function PairingPanel(props: {
   connected: boolean;
   pairCodes: PairingCode[];
   pairedDevices: PairedDevice[];
+  health: ReturnType<typeof bridgeHealthState>;
   latestEvent?: BridgeEvent;
   codeDraft: string;
   setCodeDraft: (value: string) => void;
@@ -2017,6 +2345,7 @@ function PairingPanel(props: {
   onPair: () => void;
   onSave: () => void;
   onDisconnect: () => void;
+  onForgetProject: () => void;
   onRevokePairedDevice: (sessionId: string) => void;
   onCleanDuplicateDevices: () => void;
 }) {
@@ -2029,6 +2358,7 @@ function PairingPanel(props: {
 
   return (
     <div class="grid gap-3">
+      <BridgeHealthPanel health={props.health} onForget={props.onForgetProject} />
       <div class={`rounded border p-3 ${bridgeTone(state.status)}`}>
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
@@ -2152,6 +2482,16 @@ function PairingPanel(props: {
               Disconnect
             </button>
           ) : null}
+          {props.integration?.connectionId ? (
+            <button
+              class="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-orange-300/30 bg-orange-300/10 text-sm font-semibold text-orange-100 transition hover:bg-orange-300/20"
+              type="button"
+              onClick={props.onForgetProject}
+            >
+              <Icon name="trash" class="h-4 w-4" />
+              Forget project and re-pair
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -2197,6 +2537,7 @@ export function App() {
   const handoffs = (useQuery("activeHandoffs") || []) as Handoff[];
   const bridgeEvents = (useQuery("bridgeEvents") || []) as BridgeEvent[];
   const integration = useQuery("integration") as Integration | undefined;
+  const bridgeHeartbeat = useQuery("bridgeHeartbeat") as BridgeHeartbeat | undefined;
   const pairCodes = (useQuery("pairingCodes") || []) as PairingCode[];
   const pairedDevices = (useQuery("pairedDevices") || []) as PairedDevice[];
   const codexThreads = (useQuery("codexThreads") || []) as CodexThread[];
@@ -2210,6 +2551,7 @@ export function App() {
     void
   >("saveIntegration");
   const disconnectIntegration = useMutation<[], void>("disconnectIntegration");
+  const forgetProjectConnection = useMutation<[], string>("forgetProjectConnection");
   const startPlanningDiscussion = useMutation<[prompt: string, targetThreadId: string, route: string], string>(
     "startPlanningDiscussion",
   );
@@ -2258,10 +2600,20 @@ export function App() {
       : [];
   const latestEvent = bridgeEvents[0];
   const connected = isConnectedIntegration(integration) && !isDisconnected;
+  const bridgeHealth = bridgeHealthState({
+    connected,
+    integration,
+    handoff: activeHandoff || backgroundHandoff,
+    heartbeat: bridgeHeartbeat,
+    bridgeEvents,
+    threads: codexThreads,
+  });
   const connectionState = runtimeState({
     connected,
     handoff: activeHandoff || backgroundHandoff,
     latestEvent,
+    queuedEvents: bridgeHealth.queuedEvents,
+    fixtureProject: bridgeHealth.fixtureProject,
   });
   const busy = Boolean(motion || pendingAction || submitting || activeHandoff?.status === "responding_to_codex");
   const deviceSessionJson = JSON.stringify(deviceSession);
@@ -2555,6 +2907,24 @@ export function App() {
     }
   }
 
+  async function forgetProject() {
+    try {
+      const message = await forgetProjectConnection();
+      setIsDisconnected(true);
+      setConnectionMenuOpen(false);
+      setModal(null);
+      setSelectedThreadId("");
+      setPlanningPrompt("");
+      setToast(message || "Project connection forgotten");
+      setTimeout(() => setToast(""), 1800);
+    } catch (error) {
+      const message = mutationErrorMessage(error);
+      setPairMessage(message);
+      setToast(message);
+      setTimeout(() => setToast(""), 1800);
+    }
+  }
+
   async function startPlanning() {
     const prompt = planningPrompt.trim();
 
@@ -2713,6 +3083,7 @@ export function App() {
           codeDraft={codeDraft}
           connected={connected}
           connectionMenuOpen={connectionMenuOpen}
+          health={bridgeHealth}
           integration={integration}
           pairCodes={pairCodes}
           pairedDevices={pairedDevices}
@@ -2733,6 +3104,7 @@ export function App() {
             setConnectionMenuOpen(false);
             setModal("thread");
           }}
+          onForgetProject={() => void forgetProject()}
           onPair={() => void pairDevice()}
           onRevokePairedDevice={(sessionId) => void revokeDevice(sessionId)}
           onReset={reset}
@@ -2770,6 +3142,7 @@ export function App() {
           <EmptyInbox
             bridgeEvents={bridgeEvents}
             connected={connected}
+            health={bridgeHealth}
             selectedThreadId={selectedThreadId}
             threads={codexThreads}
             latestEvent={latestEvent}
@@ -2778,6 +3151,7 @@ export function App() {
             setPlanningPrompt={setPlanningPrompt}
             setSelectedThreadId={setSelectedThreadId}
             onOpenConnection={() => setConnectionMenuOpen(true)}
+            onForgetProject={() => void forgetProject()}
             onStartPlanning={() => void startPlanning()}
           />
         )}
@@ -2789,6 +3163,7 @@ export function App() {
             codeDraft={codeDraft}
             connected={connected}
             integration={integration}
+            health={bridgeHealth}
             latestEvent={latestEvent}
             pairCodes={pairCodes}
             pairedDevices={pairedDevices}
@@ -2801,6 +3176,7 @@ export function App() {
             onCleanDuplicateDevices={() => void cleanDuplicates()}
             onCreatePairCode={() => void createCode()}
             onDisconnect={() => void disconnect()}
+            onForgetProject={() => void forgetProject()}
             onPair={() => void pairDevice()}
             onRevokePairedDevice={(sessionId) => void revokeDevice(sessionId)}
             onSave={() => void saveBridge()}

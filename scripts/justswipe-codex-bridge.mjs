@@ -28,9 +28,11 @@ const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
+const forgetConnection = args.has("--forget");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
+const heartbeatMs = Number.parseInt(valueAfter("--heartbeat-ms") ?? "90000", 10);
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
 const threadPromptArg = valueAfter("--prompt");
@@ -1452,6 +1454,30 @@ async function clearConnectionState() {
   console.log("JustSwipe connection state cleared.");
 }
 
+async function forgetProjectConnection() {
+  const message = await runMutation("forgetProjectConnection", []);
+  console.log(message || "JustSwipe project connection forgotten.");
+}
+
+let lastHeartbeatAt = 0;
+
+async function touchBridgeHeartbeat({ force = false } = {}) {
+  const current = Date.now();
+
+  if (!force && current - lastHeartbeatAt < heartbeatMs) {
+    return;
+  }
+
+  const touched = await runMutation("touchBridgeHeartbeat", [
+    "Local bridge watcher",
+    appBaseUrl(),
+  ]);
+
+  if (touched) {
+    lastHeartbeatAt = current;
+  }
+}
+
 async function startNativeThread(options = {}) {
   const cwd = resolve(options.cwd ?? threadCwd);
   const rawPrompt = options.prompt ?? await readThreadPrompt();
@@ -1805,6 +1831,11 @@ async function main() {
     return;
   }
 
+  if (forgetConnection) {
+    await forgetProjectConnection();
+    return;
+  }
+
   if (e2eLocal) {
     await runLocalE2e();
     return;
@@ -1849,7 +1880,9 @@ async function main() {
 
   if (watch) {
     console.log(`Watching JustSwipe responses on port ${port} with ${relayMode} relay.`);
+    await touchBridgeHeartbeat({ force: true });
     while (true) {
+      await touchBridgeHeartbeat();
       const handled = await processQueued({ all: false, quiet: true });
       if (!handled) {
         await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -1857,6 +1890,9 @@ async function main() {
     }
   }
 
+  if (!dryRun) {
+    await touchBridgeHeartbeat({ force: true });
+  }
   const handled = await processQueued({ all: runAll, quiet: false });
   if (!handled) {
     console.log("No JustSwipe responses waiting for Codex.");

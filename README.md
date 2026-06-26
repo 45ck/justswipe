@@ -55,6 +55,8 @@ Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted
 
 Keep the bridge watcher running while I use JustSwipe. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet.
 
+If the site shows the wrong project path or an old E2E/test project, use the connection panel's Forget project action, then re-pair from the real repo.
+
 After setup is proven, continue my project request normally. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 ```
 
@@ -86,6 +88,7 @@ Hosted shortcuts from the bridge repo:
 npm run bridge:status:hosted
 npm run bridge:dry-run:hosted
 npm run bridge:watch:hosted
+npm run bridge:forget:hosted
 ```
 
 **Hosted Quota Fallback**
@@ -132,6 +135,7 @@ npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.a
 npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 npm run bridge:status:hosted
 npm run bridge:dry-run:hosted
+npm run bridge:forget:hosted
 npm --silent run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
 npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 ```
