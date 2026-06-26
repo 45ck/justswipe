@@ -1293,6 +1293,30 @@ async function runSmoke() {
     throw new Error(`Smoke failed: invalid pair code "${code}".`);
   }
 
+  const visibleCodes = JSON.parse(await runMutation("smokeVisiblePairingCodes", []));
+
+  if (!Array.isArray(visibleCodes) || !visibleCodes.some((row) => row.code === code)) {
+    throw new Error("Smoke failed: active pair code was not visible to the UI query.");
+  }
+
+  const supersedingCode = await runMutation("createPairingCode", [
+    JSON.stringify({
+      deviceId: "justswipe-smoke-bridge-next",
+      label: "JustSwipe smoke bridge next",
+      browser: "Bridge",
+      platform: process.platform,
+    }),
+  ]);
+  const visibleAfterSupersede = JSON.parse(await runMutation("smokeVisiblePairingCodes", []));
+
+  if (
+    !Array.isArray(visibleAfterSupersede) ||
+    visibleAfterSupersede.some((row) => row.code === code) ||
+    !visibleAfterSupersede.some((row) => row.code === supersedingCode)
+  ) {
+    throw new Error("Smoke failed: pairingCodes query did not hide superseded pair codes.");
+  }
+
   const started = JSON.parse(
     await runMutation("startPlanningDiscussion", [
       "Smoke test idea. Do not call Codex from this smoke command.",
@@ -1520,6 +1544,7 @@ async function runSmoke() {
 
   console.log("JustSwipe bridge smoke passed.");
   console.log(`Pair code format: ${code}`);
+  console.log(`Pair code query hides superseded code: ${supersedingCode}`);
   console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
   console.log("Duplicate claim blocked.");
   console.log(`Multi-card bundle advanced and queued: ${multiHandoffId}`);

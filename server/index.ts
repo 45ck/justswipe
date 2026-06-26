@@ -430,6 +430,17 @@ function canAccessBridgeEvent(ctx: any, event: any): boolean {
   return Boolean(event.connectionId && event.connectionId === connectionFor(ctx));
 }
 
+function activePairingCodesForOwner(ctx: any): PairingCode[] {
+  const current = nowIso();
+
+  return ctx.db.pairingCodes
+    .where("ownerId", ctx.auth.userId)
+    .orderBy("createdAt", "desc")
+    .all()
+    .filter((row: PairingCode) => row.status === "active" && row.expiresAt > current)
+    .slice(0, 3);
+}
+
 function normalizeCardsJson(cardsJson: string): SwipeCard[] {
   try {
     const parsed = JSON.parse(cardsJson);
@@ -733,16 +744,7 @@ export default capsule({
         .all();
     }),
 
-    pairingCodes: query((ctx) => {
-      const current = nowIso();
-
-      return ctx.db.pairingCodes
-        .where("ownerId", ctx.auth.userId)
-        .orderBy("createdAt", "desc")
-        .all()
-        .filter((row: PairingCode) => row.status === "active" && row.expiresAt > current)
-        .slice(0, 3);
-    }),
+    pairingCodes: query((ctx) => activePairingCodesForOwner(ctx)),
 
     pairedDevices: query((ctx) => {
       const connectionId = connectionFor(ctx);
@@ -1148,6 +1150,10 @@ export default capsule({
 
       return "Project connection forgotten. Pair this browser again.";
     }),
+
+    smokeVisiblePairingCodes: mutation((ctx) =>
+      JSON.stringify(activePairingCodesForOwner(ctx)),
+    ),
 
     startPlanningDiscussion: mutation((ctx, rawPrompt: string, targetThreadId = "", route = "new_thread") => {
       const integration = ensureIntegration(ctx);
