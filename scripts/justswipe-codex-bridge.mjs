@@ -623,9 +623,79 @@ function finalTextFromThreadRead(result, turnId) {
     : Array.isArray(result?.turns)
       ? result.turns
       : [];
-  const matchingTurn = turns.find((turn) => turn.id === turnId) || turns[0];
+  const matchingTurn = turnId
+    ? turns.find((turn) => turn.id === turnId)
+    : turns[0];
+
+  if (!matchingTurn) {
+    return "";
+  }
 
   return finalTextFromTurn(matchingTurn);
+}
+
+async function readTurnResult(client, threadId, turnId, threadMeta) {
+  const refreshed = await client.request("thread/read", {
+    threadId,
+    includeTurns: true,
+  });
+  const response = finalTextFromThreadRead(refreshed, turnId);
+
+  return {
+    response,
+    threadMeta: threadMetadataFromThread(refreshed?.thread, {
+      ...threadMeta,
+      threadId,
+      threadStatus: response ? "idle" : threadMeta.threadStatus || "running",
+    }),
+  };
+}
+
+async function waitForTurnResult(client, threadId, turnId, threadMeta) {
+  const deadline = Date.now() + codexTimeoutMs;
+  const completedPromise = client
+    .onceNotification(
+      "turn/completed",
+      (params) => params?.threadId === threadId && params?.turn?.id === turnId,
+      codexTimeoutMs,
+    )
+    .then((params) => ({ kind: "completed", params }))
+    .catch((error) => ({ kind: "error", error }));
+
+  while (Date.now() < deadline) {
+    const waitMs = Math.min(2_000, Math.max(1, deadline - Date.now()));
+    const result = await Promise.race([
+      completedPromise,
+      new Promise((resolve) => setTimeout(() => resolve({ kind: "poll" }), waitMs)),
+    ]);
+
+    if (result.kind === "error") {
+      throw result.error;
+    }
+
+    if (result.kind === "completed") {
+      const response = finalTextFromTurn(result.params?.turn);
+
+      if (response) {
+        return {
+          response,
+          threadMeta: threadMetadataFromThread(result.params?.thread, {
+            ...threadMeta,
+            threadId,
+            threadStatus: "idle",
+          }),
+        };
+      }
+    }
+
+    const polled = await readTurnResult(client, threadId, turnId, threadMeta);
+
+    if (polled.response) {
+      return polled;
+    }
+  }
+
+  throw new Error("Timed out waiting for Codex turn result.");
 }
 
 async function createAppServerClient() {
@@ -746,6 +816,7 @@ async function createAppServerClient() {
         remove();
         reject(new Error(`Timed out waiting for ${method}.`));
       }, timeoutMs);
+      timer.unref?.();
       const listener = (params) => {
         if (predicate && !predicate(params)) {
           return;
@@ -1112,44 +1183,9 @@ async function runCodexAppServer(event) {
       throw new Error("Codex app-server did not return a turn id.");
     }
 
-    const completed = await client.onceNotification(
-      "turn/completed",
-      (params) => params?.threadId === threadId && params?.turn?.id === turnId,
-      codexTimeoutMs,
-    );
-    let response = finalTextFromTurn(completed?.turn);
-
-    if (!response) {
-      const refreshed = await client.request("thread/read", {
-        threadId,
-        includeTurns: true,
-      });
-      response = finalTextFromThreadRead(refreshed, turnId);
-      threadMeta = threadMetadataFromThread(refreshed?.thread, {
-        ...threadMeta,
-        threadId,
-        threadStatus: "idle",
-      });
-    } else {
-      try {
-        const refreshed = await client.request("thread/read", {
-          threadId,
-          includeTurns: false,
-        });
-        threadMeta = threadMetadataFromThread(refreshed?.thread, {
-          ...threadMeta,
-          threadId,
-          threadStatus: "idle",
-        });
-      } catch {
-        threadMeta = {
-          ...threadMeta,
-          threadId,
-          threadStatus: "idle",
-          lastActivityAt: new Date().toISOString(),
-        };
-      }
-    }
+    const turnResult = await waitForTurnResult(client, threadId, turnId, threadMeta);
+    const response = turnResult.response;
+    threadMeta = turnResult.threadMeta;
 
     if (!response) {
       throw new Error("Codex app-server completed without a final response body.");
