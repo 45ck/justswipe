@@ -45,7 +45,7 @@ response = one swipe/form answer for a card
 
 Hosted JustSwipe can store a swipe response without Codex seeing it. Codex receives the response only when the local bridge claims the queued bridge event and relays it into the thread. If `bridge:status:hosted` shows `queuedBridgeEvents > 0`, run `npm run bridge:watch:hosted:daemon`, `npm run bridge:watch:hosted`, or `npm run bridge:dry-run:hosted` from the bridge repo before debugging Codex itself.
 
-The bridge watcher writes a low-frequency heartbeat while it is running. The UI should show stale or missing heartbeat as "Bridge not observed", and queued events as "Bridge watcher offline". If the paired project path is an E2E fixture or otherwise wrong, the user should forget that project connection and re-pair from the real repo instead of relaying stale packets.
+The bridge watcher writes a low-frequency heartbeat while it is running. The UI should show stale or missing heartbeat as "Bridge not observed". If a response is queued while the heartbeat is fresh, it should read as "Queued for relay"; if a response is queued while the heartbeat is stale or missing, it should read as "Bridge watcher offline". If the paired project path is an E2E fixture or otherwise wrong, the user should forget that project connection and re-pair from the real repo instead of relaying stale packets.
 
 Multiple devices can pair to the same connection:
 

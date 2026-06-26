@@ -883,6 +883,23 @@ function bridgeHealthState(props: {
     };
   }
 
+  if (queuedEvents > 0 && heartbeatFresh) {
+    return {
+      status: "queued",
+      label: "Queued for relay",
+      detail: `${queuedEvents} ${plural(queuedEvents, "response")} waiting for the local bridge.`,
+      action: "The watcher was seen recently. This should clear on the next relay pass.",
+      icon: "clock",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
   if (queuedEvents > 0) {
     return {
       status: "warning",
