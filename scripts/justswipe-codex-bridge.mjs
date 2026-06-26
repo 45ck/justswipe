@@ -211,6 +211,21 @@ function safeLogSlug(value) {
     .slice(0, 48) || "default";
 }
 
+function isProcessAlive(pid) {
+  const parsed = Number.parseInt(String(pid || ""), 10);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return false;
+  }
+
+  try {
+    process.kill(parsed, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+}
+
 async function startWatcherDaemon() {
   await mkdir(join(root, ".lakebed"), { recursive: true });
 
@@ -219,6 +234,27 @@ async function startWatcherDaemon() {
   const slug = `${mode}-${safeLogSlug(host)}-${safeLogSlug(guest)}`;
   const outLog = join(root, ".lakebed", `bridge-watch-${slug}.out.log`);
   const errLog = join(root, ".lakebed", `bridge-watch-${slug}.err.log`);
+  const pidFile = join(root, ".lakebed", `bridge-watch-${slug}.pid`);
+  let existingPid = "";
+
+  try {
+    existingPid = (await readFile(pidFile, "utf8")).trim();
+  } catch {
+    existingPid = "";
+  }
+
+  if (isProcessAlive(existingPid)) {
+    console.log("JustSwipe bridge watcher is already running.");
+    console.log(`pid: ${existingPid}`);
+    console.log(`stdout: ${outLog}`);
+    console.log(`stderr: ${errLog}`);
+    return Number.parseInt(existingPid, 10);
+  }
+
+  if (existingPid) {
+    await rm(pidFile, { force: true });
+  }
+
   const outFd = openSync(outLog, "a");
   const errFd = openSync(errLog, "a");
   const watcherArgs = [
@@ -250,9 +286,11 @@ async function startWatcherDaemon() {
   });
 
   child.unref();
+  await writeFile(pidFile, String(child.pid || ""));
 
   console.log("Started JustSwipe bridge watcher in the background.");
   console.log(`pid: ${child.pid}`);
+  console.log(`pidFile: ${pidFile}`);
   console.log(`stdout: ${outLog}`);
   console.log(`stderr: ${errLog}`);
   console.log("The hosted app will show Bridge online when the first heartbeat lands.");
