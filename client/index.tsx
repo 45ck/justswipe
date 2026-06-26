@@ -1058,7 +1058,7 @@ function BridgeHealthPanel(props: {
                     onClick={async () => {
                       const copied = await copyText(watcherCommand);
                       setCopyState(copied ? "copied" : "failed");
-                      window.setTimeout(() => setCopyState(""), 1600);
+                      window.setTimeout(() => setCopyState(""), 3000);
                     }}
                   >
                     {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy command"}
@@ -1261,7 +1261,7 @@ function Header(props: {
     clearHoverTimer();
     const copied = await copyText(value);
     setPairCopyState(copied ? kind : "failed");
-    window.setTimeout(() => setPairCopyState(""), 1600);
+    window.setTimeout(() => setPairCopyState(""), 3000);
   };
 
   useEffect(() => {
@@ -2452,7 +2452,7 @@ function PairingPanel(props: {
   const copyPairValue = async (kind: "code" | "link", value: string) => {
     const copied = await copyText(value);
     setPairCopyState(copied ? kind : "failed");
-    window.setTimeout(() => setPairCopyState(""), 1600);
+    window.setTimeout(() => setPairCopyState(""), 3000);
   };
 
   return (
