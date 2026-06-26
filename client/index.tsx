@@ -2713,6 +2713,7 @@ export function App() {
   const [planningPrompt, setPlanningPrompt] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState("");
   const [planningBusy, setPlanningBusy] = useState(false);
+  const [optimisticIdeaEvent, setOptimisticIdeaEvent] = useState<BridgeEvent | null>(null);
   const [modal, setModal] = useState<"connection" | "thread" | null>(null);
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
@@ -2734,14 +2735,26 @@ export function App() {
     : backgroundHandoff
       ? parseResponses(backgroundHandoff.responsesJson)
       : [];
-  const latestEvent = bridgeEvents[0];
+  const hasRealOptimisticIdea = Boolean(
+    optimisticIdeaEvent &&
+      bridgeEvents.some(
+        (event) =>
+          event.action === optimisticIdeaEvent.action &&
+          event.feedback === optimisticIdeaEvent.feedback,
+      ),
+  );
+  const visibleBridgeEvents =
+    optimisticIdeaEvent && !hasRealOptimisticIdea
+      ? [optimisticIdeaEvent, ...bridgeEvents]
+      : bridgeEvents;
+  const latestEvent = visibleBridgeEvents[0];
   const connected = isConnectedIntegration(integration) && !isDisconnected;
   const bridgeHealth = bridgeHealthState({
     connected,
     integration,
     handoff: activeHandoff || backgroundHandoff,
     heartbeat: bridgeHeartbeat,
-    bridgeEvents,
+    bridgeEvents: visibleBridgeEvents,
     threads: codexThreads,
   });
   const connectionState = runtimeState({
@@ -2753,6 +2766,25 @@ export function App() {
   });
   const busy = Boolean(motion || pendingAction || submitting || activeHandoff?.status === "responding_to_codex");
   const deviceSessionJson = JSON.stringify(deviceSession);
+
+  useEffect(() => {
+    if (!optimisticIdeaEvent) {
+      return;
+    }
+
+    if (hasRealOptimisticIdea) {
+      setOptimisticIdeaEvent(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setOptimisticIdeaEvent((current) =>
+        current?.id === optimisticIdeaEvent.id ? null : current,
+      );
+    }, 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [bridgeEvents, hasRealOptimisticIdea, optimisticIdeaEvent]);
 
   useEffect(() => {
     if (typeof window === "undefined" || autoPairCode) {
@@ -3094,6 +3126,39 @@ export function App() {
       return;
     }
 
+    const now = new Date().toISOString();
+    const targetThread = selectedThreadId
+      ? codexThreads.find((thread) => thread.threadId === selectedThreadId)
+      : undefined;
+    const optimisticRoute = selectedThreadId ? "project_idea_existing_thread" : "project_idea_new_thread";
+
+    setOptimisticIdeaEvent({
+      id: `optimistic-${now}`,
+      ownerId: "",
+      handoffId: `optimistic-${now}`,
+      connectionId: integration?.connectionId || "",
+      threadId: selectedThreadId,
+      threadTitle:
+        targetThread?.threadTitle ||
+        (selectedThreadId ? shortId(selectedThreadId) : "New thread"),
+      threadStatus: "queued",
+      cwd: targetThread?.cwd || integration?.cwd || "",
+      projectName:
+        targetThread?.projectName ||
+        integration?.projectName ||
+        "Project",
+      handoffRowId: "",
+      title: selectedThreadId
+        ? `Idea for ${targetThread?.threadTitle || shortId(selectedThreadId)}`
+        : "New project idea",
+      action: optimisticRoute,
+      prompt,
+      feedback: prompt,
+      status: "queued",
+      response: "",
+      createdAt: now,
+      updatedAt: now,
+    });
     setPlanningPrompt("");
     setToast(selectedThreadId ? "Idea queued for thread" : "New thread idea sent");
     setTimeout(() => setToast(""), 1600);
@@ -3276,7 +3341,7 @@ export function App() {
           <SentState handoff={backgroundHandoff} latestEvent={latestEvent} />
         ) : (
           <EmptyInbox
-            bridgeEvents={bridgeEvents}
+            bridgeEvents={visibleBridgeEvents}
             connected={connected}
             health={bridgeHealth}
             selectedThreadId={selectedThreadId}
