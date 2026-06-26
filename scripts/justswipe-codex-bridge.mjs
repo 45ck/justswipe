@@ -36,6 +36,7 @@ const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? 
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
 const heartbeatMs = Number.parseInt(valueAfter("--heartbeat-ms") ?? "90000", 10);
+const runningLeaseMs = Number.parseInt(valueAfter("--running-lease-ms") ?? "300000", 10);
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
 const threadPromptArg = valueAfter("--prompt");
@@ -1278,6 +1279,27 @@ async function claimEvent(event) {
   }
 }
 
+async function recoverStaleBridgeEvents({ quiet = false } = {}) {
+  const result = await runMutation("recoverStaleBridgeEvents", [String(runningLeaseMs)]);
+  let parsed;
+
+  try {
+    parsed = JSON.parse(String(result));
+  } catch {
+    parsed = { ok: false, error: "Could not recover stale bridge events." };
+  }
+
+  if (parsed.recovered > 0 && !quiet) {
+    console.log(`Recovered ${parsed.recovered} stale running bridge event${parsed.recovered === 1 ? "" : "s"}.`);
+  }
+
+  return parsed;
+}
+
+async function touchRunningEvent(event) {
+  return runMutation("touchRunningBridgeEvent", [event.id]);
+}
+
 async function markSent(event, response, threadMeta) {
   await runMutation("markBridgeSent", [event.id, response, metadataJson(threadMeta)]);
 }
@@ -2240,6 +2262,10 @@ async function main() {
 }
 
 async function processQueued({ all, quiet }) {
+  if (!dryRun) {
+    await recoverStaleBridgeEvents({ quiet });
+  }
+
   let db = await dumpDb();
   let event = nextQueuedEvent(db);
 
@@ -2290,7 +2316,12 @@ async function processQueued({ all, quiet }) {
     }
 
     console.log(`Relaying JustSwipe response ${event.handoffId || event.id}: ${event.title}`);
+    let leaseTimer = null;
     try {
+      leaseTimer = setInterval(() => {
+        touchRunningEvent(event).catch(() => {});
+      }, Math.max(15_000, Math.min(heartbeatMs, 60_000)));
+      leaseTimer.unref?.();
       const relayResult = await runCodex(event);
       const nextHandoffId = await maybeCreateNextHandoff(event, relayResult);
       const responseText = nextHandoffId
@@ -2312,6 +2343,10 @@ async function processQueued({ all, quiet }) {
       handled += 1;
       console.error(`Codex relay failed for ${event.handoffId || event.id}.`);
       console.error(error instanceof Error ? error.message : error);
+    } finally {
+      if (leaseTimer) {
+        clearInterval(leaseTimer);
+      }
     }
 
     if (!all) {

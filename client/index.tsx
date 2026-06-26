@@ -3156,6 +3156,7 @@ export function App() {
       feedback: prompt,
       status: "queued",
       response: "",
+      claimHeartbeatAt: "",
       createdAt: now,
       updatedAt: now,
     });

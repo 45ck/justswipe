@@ -125,6 +125,7 @@ export type BridgeEvent = {
   feedback: string;
   status: string;
   response: string;
+  claimHeartbeatAt: string;
   createdAt: string;
   updatedAt: string;
 };

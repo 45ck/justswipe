@@ -17,6 +17,7 @@ import {
   type CodexThread,
   type CodexThreadStatus,
   type DeviceSessionPayload,
+  type BridgeEvent,
   type BridgeHeartbeat,
   type Handoff,
   type HandoffResponse,
@@ -634,6 +635,7 @@ export default capsule({
       feedback: string().default(""),
       status: string().default("queued"),
       response: string().default(""),
+      claimHeartbeatAt: string().default(""),
     }),
     integrations: table({
       ownerId: string(),
@@ -1403,6 +1405,7 @@ export default capsule({
       ctx.db.bridgeEvents.update(id, {
         status: "running",
         threadStatus: "running",
+        claimHeartbeatAt: nowIso(),
       });
 
       if (event.threadId) {
@@ -1418,6 +1421,70 @@ export default capsule({
       }
 
       return JSON.stringify({ ok: true });
+    }),
+
+    touchRunningBridgeEvent: mutation((ctx, id: string) => {
+      const event = ctx.db.bridgeEvents.get(id);
+
+      if (!event || !canAccessBridgeEvent(ctx, event) || event.status !== "running") {
+        return "";
+      }
+
+      const current = nowIso();
+
+      ctx.db.bridgeEvents.update(id, {
+        claimHeartbeatAt: current,
+      });
+
+      return current;
+    }),
+
+    recoverStaleBridgeEvents: mutation((ctx, maxAgeMsValue = "300000") => {
+      const connectionId = connectionFor(ctx);
+      const maxAgeMs = Math.max(
+        60_000,
+        Math.min(Number.parseInt(String(maxAgeMsValue || "300000"), 10) || 300_000, 60 * 60_000),
+      );
+      const cutoff = Date.now() - maxAgeMs;
+      let recovered = 0;
+
+      if (!connectionId) {
+        return JSON.stringify({ ok: true, recovered });
+      }
+
+      for (const event of ctx.db.bridgeEvents.where("connectionId", connectionId).all() as BridgeEvent[]) {
+        if (event.status !== "running" || !canAccessBridgeEvent(ctx, event)) {
+          continue;
+        }
+
+        const seenAt = new Date(event.claimHeartbeatAt || event.updatedAt || event.createdAt).getTime();
+
+        if (Number.isFinite(seenAt) && seenAt > cutoff) {
+          continue;
+        }
+
+        ctx.db.bridgeEvents.update(event.id, {
+          status: "queued",
+          threadStatus: "queued",
+          claimHeartbeatAt: "",
+        });
+
+        if (event.threadId) {
+          upsertCodexThread(ctx, {
+            connectionId: event.connectionId,
+            threadId: event.threadId,
+            threadTitle: event.threadTitle,
+            threadStatus: "queued",
+            cwd: event.cwd,
+            projectName: event.projectName,
+            lastActivityAt: nowIso(),
+          }, event.ownerId);
+        }
+
+        recovered += 1;
+      }
+
+      return JSON.stringify({ ok: true, recovered });
     }),
 
     markBridgeSent: mutation((ctx, id: string, response: string, metadataJson = "") => {
@@ -1453,6 +1520,7 @@ export default capsule({
         cwd,
         projectName,
         response: cleanBridgeResponse(response),
+        claimHeartbeatAt: "",
       });
 
       if (threadId) {
@@ -1489,6 +1557,7 @@ export default capsule({
         status: "failed",
         threadStatus: "failed",
         response: cleanBridgeResponse(error),
+        claimHeartbeatAt: "",
       });
 
       if (event.threadId) {
