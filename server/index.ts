@@ -68,6 +68,16 @@ function cleanBridgeResponse(value: string): string {
     .slice(0, 1600);
 }
 
+function isTransientBridgeFailure(value: string): boolean {
+  const message = String(value || "");
+
+  return (
+    /thread-store internal error/i.test(message) ||
+    /rollout .* is empty/i.test(message) ||
+    /failed to read thread/i.test(message)
+  );
+}
+
 function cleanDeviceValue(value: unknown, maxLength = 80): string {
   return cleanText(typeof value === "string" ? value : "", maxLength);
 }
@@ -1453,13 +1463,17 @@ export default capsule({
       }
 
       for (const event of ctx.db.bridgeEvents.where("connectionId", connectionId).all() as BridgeEvent[]) {
-        if (event.status !== "running" || !canAccessBridgeEvent(ctx, event)) {
+        if (!["running", "failed"].includes(event.status) || !canAccessBridgeEvent(ctx, event)) {
+          continue;
+        }
+
+        if (event.status === "failed" && !isTransientBridgeFailure(event.response)) {
           continue;
         }
 
         const seenAt = new Date(event.claimHeartbeatAt || event.updatedAt || event.createdAt).getTime();
 
-        if (Number.isFinite(seenAt) && seenAt > cutoff) {
+        if (event.status === "running" && Number.isFinite(seenAt) && seenAt > cutoff) {
           continue;
         }
 

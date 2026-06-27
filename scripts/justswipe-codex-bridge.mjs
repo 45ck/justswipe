@@ -653,6 +653,7 @@ async function readTurnResult(client, threadId, turnId, threadMeta) {
 
 async function waitForTurnResult(client, threadId, turnId, threadMeta) {
   const deadline = Date.now() + codexTimeoutMs;
+  let lastReadError = null;
   const completedPromise = client
     .onceNotification(
       "turn/completed",
@@ -688,11 +689,23 @@ async function waitForTurnResult(client, threadId, turnId, threadMeta) {
       }
     }
 
-    const polled = await readTurnResult(client, threadId, turnId, threadMeta);
+    let polled;
+
+    try {
+      polled = await readTurnResult(client, threadId, turnId, threadMeta);
+      lastReadError = null;
+    } catch (error) {
+      lastReadError = error;
+      continue;
+    }
 
     if (polled.response) {
       return polled;
     }
+  }
+
+  if (lastReadError) {
+    throw lastReadError;
   }
 
   throw new Error("Timed out waiting for Codex turn result.");
