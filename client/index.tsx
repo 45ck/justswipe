@@ -2149,6 +2149,38 @@ function threadRows(threads: CodexThread[], events: BridgeEvent[]): ThreadTableR
   return rows.slice(0, 8);
 }
 
+function threadHomeSummary(rows: ThreadTableRow[]): string {
+  if (rows.length === 0) {
+    return "No tracked threads yet. Send an idea to start one.";
+  }
+
+  const waitingCards = rows.reduce((total, row) => total + row.pendingCards, 0);
+  const queuedIdeas = rows.reduce((total, row) => total + row.pendingIdeas, 0);
+  const awaitingThreads = rows.filter((row) => row.status === "awaiting_justswipe").length;
+  const runningThreads = rows.filter((row) => row.status === "running" || row.status === "queued").length;
+
+  if (waitingCards > 0 || awaitingThreads > 0) {
+    return `${waitingCards || awaitingThreads} ${plural(waitingCards || awaitingThreads, "card")} waiting across ${awaitingThreads || 1} ${plural(awaitingThreads || 1, "thread")}.`;
+  }
+
+  if (queuedIdeas > 0 || runningThreads > 0) {
+    return `${runningThreads || queuedIdeas} ${plural(runningThreads || queuedIdeas, "thread")} active. Codex will surface cards when it needs you.`;
+  }
+
+  return `${rows.length} tracked ${plural(rows.length, "thread")}. Nothing needs you right now.`;
+}
+
+function projectHomeTitle(rows: ThreadTableRow[]): string {
+  const waitingCards = rows.reduce((total, row) => total + row.pendingCards, 0);
+  const awaitingThreads = rows.filter((row) => row.status === "awaiting_justswipe").length;
+
+  if (waitingCards > 0 || awaitingThreads > 0) {
+    return `${waitingCards || awaitingThreads} ${plural(waitingCards || awaitingThreads, "card")} waiting`;
+  }
+
+  return "No cards waiting";
+}
+
 function ThreadTable(props: {
   threads: CodexThread[];
   events: BridgeEvent[];
@@ -2171,12 +2203,12 @@ function ThreadTable(props: {
   }
 
   return (
-    <div class="mt-4 rounded border border-white/10 bg-black/15 p-3 text-left">
+    <div class="rounded border border-white/10 bg-black/15 p-3 text-left">
       <div class="mb-2 flex items-center justify-between gap-3">
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
           Threads
         </p>
-        <span class="text-xs text-zinc-500">{rows.length} visible</span>
+        <span class="text-xs text-zinc-500">{rows.length} tracked</span>
       </div>
       <div class="grid gap-2">
         {rows.map((row) => {
@@ -2270,16 +2302,31 @@ function EmptyInbox(props: {
     );
   }
 
+  const rows = threadRows(props.threads, props.bridgeEvents);
+
   return (
-    <section class="mx-auto grid min-h-[420px] w-full max-w-2xl place-items-center rounded border border-white/10 bg-white/[0.03] p-6 text-center">
-      <div class="w-full max-w-lg">
-        <div class="mx-auto grid h-16 w-16 place-items-center rounded border border-cyan-300/30 bg-cyan-300/10 text-cyan-100">
-          <Icon name="inbox" class="h-8 w-8" />
+    <section class="mx-auto grid w-full max-w-2xl gap-4">
+      <div class="rounded border border-white/10 bg-white/[0.03] p-4 text-left">
+        <div class="flex items-start gap-3">
+          <div class="grid h-11 w-11 shrink-0 place-items-center rounded border border-cyan-300/25 bg-cyan-300/10 text-cyan-100">
+            <Icon name="inbox" class="h-5 w-5" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="truncate text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                {props.health.projectName || "Project"}
+              </p>
+              <span class="h-1 w-1 rounded-full bg-white/20" />
+              <p class="text-xs text-zinc-500">{props.threads.length} {plural(props.threads.length, "thread")}</p>
+            </div>
+            <h2 class="mt-2 text-2xl font-semibold text-white">
+              {projectHomeTitle(rows)}
+            </h2>
+            <p class="mt-2 text-sm leading-6 text-zinc-400">
+              {threadHomeSummary(rows)}
+            </p>
+          </div>
         </div>
-        <h2 class="mt-5 text-2xl font-semibold text-white">You're out of cards</h2>
-        <p class="mx-auto mt-3 max-w-sm text-sm leading-6 text-zinc-400">
-          Drop an idea into this project. JustSwipe starts a new Codex thread by default, or you can route it to an existing one.
-        </p>
         {props.health.status === "warning" || props.health.status === "failed" ? (
           <div class="mt-5">
             <BridgeHealthPanel
@@ -2288,15 +2335,23 @@ function EmptyInbox(props: {
               onOpenConnection={props.onOpenConnection}
             />
           </div>
-        ) : (
-          <div class="mt-5">
-            <BridgeHealthPanel compact health={props.health} onOpenConnection={props.onOpenConnection} />
-          </div>
-        )}
-        <div class="mt-5 rounded border border-white/10 bg-[#080d12] p-3 text-left">
-          <label class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
-            Send an idea to Codex
-          </label>
+        ) : null}
+      </div>
+
+      <ThreadTable
+        events={props.bridgeEvents}
+        selectedThreadId={props.selectedThreadId}
+        threads={props.threads}
+        onSelectThread={props.setSelectedThreadId}
+      />
+
+      <div class="rounded border border-white/10 bg-[#080d12] p-3 text-left">
+        <label class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
+          Send an idea to Codex
+        </label>
+        <p class="mt-2 text-sm leading-6 text-zinc-500">
+          Start a new thread by default, or route the idea to one already running.
+        </p>
           <textarea
             class="mt-3 min-h-24 w-full resize-none rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
             placeholder="Spit out an idea. Codex can run with it or come back with swipe cards."
@@ -2340,19 +2395,12 @@ function EmptyInbox(props: {
                 ? "Send to selected thread"
                 : "Start new thread"}
           </button>
-        </div>
-        <ThreadTable
-          events={props.bridgeEvents}
-          selectedThreadId={props.selectedThreadId}
-          threads={props.threads}
-          onSelectThread={props.setSelectedThreadId}
-        />
-        {props.latestEvent ? (
-          <p class="mt-3 text-xs text-zinc-500">
-            Last thread state: {bridgeStatusLabel(props.latestEvent.status)}
-          </p>
-        ) : null}
       </div>
+      {props.latestEvent ? (
+        <p class="px-1 text-xs text-zinc-500">
+          Last thread state: {bridgeStatusLabel(props.latestEvent.status)}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -3313,7 +3361,7 @@ export function App() {
           onToggleConnection={() => setConnectionMenuOpen((open) => !open)}
         />
 
-        {connected ? (
+        {connected && (activeHandoff || backgroundHandoff) ? (
           <DeckBar
             cards={activeCards}
             handoff={activeHandoff || backgroundHandoff}
