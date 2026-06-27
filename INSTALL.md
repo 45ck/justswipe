@@ -109,6 +109,12 @@ npm run bridge:watch:hosted:daemon
 
 If `bridge:status:hosted` reports `queuedBridgeEvents > 0`, the hosted app has a response waiting and the watcher is not currently relaying it.
 
+If it reports `failedBridgeEvents > 0`, fix the bridge/Codex error, then retry from the JustSwipe thread log or run:
+
+```powershell
+npm run bridge:retry-failed -- --app-url $app
+```
+
 The site connection panel shows the paired project, repo path, queued responses, relay state, and watcher heartbeat. If it shows the wrong repo or an E2E/test path, use Forget project in the connection panel or run `npm run bridge:forget:hosted`, then re-pair from the target repo.
 
 ## Hosted Mutation Quota Fallback

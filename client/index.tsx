@@ -1005,6 +1005,7 @@ function BridgeHealthPanel(props: {
   compact?: boolean;
   onForget?: () => void;
   onOpenConnection?: () => void;
+  onOpenThreadLog?: () => void;
 }) {
   const showForget = Boolean(props.onForget && props.health.fixtureProject);
   const showWatcherCommand =
@@ -1084,8 +1085,17 @@ function BridgeHealthPanel(props: {
               </div>
             ) : null}
           </div>
-          {showForget || props.onOpenConnection ? (
+          {showForget || props.onOpenConnection || props.onOpenThreadLog ? (
             <div class="mt-3 flex flex-wrap gap-2">
+              {props.onOpenThreadLog ? (
+                <button
+                  class="h-8 rounded border border-orange-300/35 bg-orange-300/10 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-300/20"
+                  type="button"
+                  onClick={props.onOpenThreadLog}
+                >
+                  Thread log
+                </button>
+              ) : null}
               {showForget ? (
                 <button
                   class="h-8 rounded border border-orange-300/35 bg-orange-300/10 px-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-300/20"
@@ -2401,6 +2411,7 @@ function EmptyInbox(props: {
   setSelectedThreadId: (value: string) => void;
   onStartPlanning: () => void;
   onOpenConnection: () => void;
+  onOpenThreadLog: () => void;
   onForgetProject: () => void;
 }) {
   if (!props.connected) {
@@ -2458,6 +2469,7 @@ function EmptyInbox(props: {
               health={props.health}
               onForget={props.onForgetProject}
               onOpenConnection={props.onOpenConnection}
+              onOpenThreadLog={props.onOpenThreadLog}
             />
           </div>
         ) : null}
@@ -2818,7 +2830,11 @@ function PairingPanel(props: {
   );
 }
 
-function ThreadLog(props: { events: BridgeEvent[] }) {
+function ThreadLog(props: {
+  events: BridgeEvent[];
+  retryingId: string;
+  onRetry: (event: BridgeEvent) => void;
+}) {
   const latest = props.events[0];
 
   return (
@@ -2840,6 +2856,17 @@ function ThreadLog(props: { events: BridgeEvent[] }) {
             <p class="mt-3 max-h-44 overflow-auto whitespace-pre-wrap text-xs leading-5 text-zinc-400">
               {latest.response}
             </p>
+          ) : null}
+          {latest.status === "failed" ? (
+            <button
+              class="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-orange-300 px-3 text-xs font-semibold text-zinc-950 transition hover:bg-orange-200 disabled:opacity-50"
+              disabled={props.retryingId === latest.id}
+              type="button"
+              onClick={() => props.onRetry(latest)}
+            >
+              <Icon name="play" class="h-4 w-4" />
+              {props.retryingId === latest.id ? "Queuing retry..." : "Retry relay"}
+            </button>
           ) : null}
         </div>
       ) : (
@@ -2875,6 +2902,7 @@ export function App() {
   const startPlanningDiscussion = useMutation<[prompt: string, targetThreadId: string, route: string], string>(
     "startPlanningDiscussion",
   );
+  const retryBridgeEvent = useMutation<[id: string], string>("retryBridgeEvent");
   const submitCardResponse = useMutation<
     [handoffRowId: string, cardId: string, action: string, payloadJson: string],
     string
@@ -2897,6 +2925,7 @@ export function App() {
   const [planningPrompt, setPlanningPrompt] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState("");
   const [planningBusy, setPlanningBusy] = useState(false);
+  const [retryingEventId, setRetryingEventId] = useState("");
   const [optimisticIdeaEvent, setOptimisticIdeaEvent] = useState<BridgeEvent | null>(null);
   const [modal, setModal] = useState<"connection" | "thread" | null>(null);
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
@@ -3349,6 +3378,30 @@ export function App() {
     setTimeout(() => setToast(""), 1600);
   }
 
+  async function retryFailedEvent(event: BridgeEvent) {
+    if (event.status !== "failed" || retryingEventId) {
+      return;
+    }
+
+    setRetryingEventId(event.id);
+    setToast("");
+
+    try {
+      const result = JSON.parse(await retryBridgeEvent(event.id));
+
+      if (!result.ok) {
+        setToast(result.error || "Could not queue retry.");
+        return;
+      }
+
+      setToast("Retry queued. Keep the bridge watcher running.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Could not queue retry.");
+    } finally {
+      setRetryingEventId("");
+    }
+  }
+
   async function enableAlerts() {
     if (typeof Notification === "undefined") {
       setToast("Browser alerts are not available here");
@@ -3537,6 +3590,7 @@ export function App() {
             setPlanningPrompt={setPlanningPrompt}
             setSelectedThreadId={setSelectedThreadId}
             onOpenConnection={() => setConnectionMenuOpen(true)}
+            onOpenThreadLog={() => setModal("thread")}
             onForgetProject={() => void forgetProject()}
             onStartPlanning={() => void startPlanning()}
           />
@@ -3572,7 +3626,11 @@ export function App() {
 
       {modal === "thread" ? (
         <Modal title="Thread log" onClose={() => setModal(null)}>
-          <ThreadLog events={bridgeEvents} />
+          <ThreadLog
+            events={bridgeEvents}
+            retryingId={retryingEventId}
+            onRetry={(event) => void retryFailedEvent(event)}
+          />
         </Modal>
       ) : null}
 

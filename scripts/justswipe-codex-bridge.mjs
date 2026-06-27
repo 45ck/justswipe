@@ -34,6 +34,7 @@ const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const forgetConnection = args.has("--forget");
 const syncThreads = args.has("--sync-threads");
+const retryFailed = args.has("--retry-failed");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -1083,7 +1084,7 @@ async function printStatusReport() {
   );
   const connected = Boolean(connectionId && integration?.pairedUntil && isFuture(integration.pairedUntil));
   const nextAction = failed.length
-    ? `inspect: npm run bridge:dry-run -- --app-url ${appBaseUrl()}`
+    ? `fix the bridge error, then retry: npm run bridge:retry-failed -- --app-url ${appBaseUrl()}`
     : running.length
       ? "bridge is relaying; wait or inspect watcher logs"
       : queued.length
@@ -1471,6 +1472,19 @@ async function createDemoHandoff() {
   console.log("Demo handoff bundle reset.");
 }
 
+async function retryFailedBridgeEvents() {
+  const result = JSON.parse(await runMutation("retryFailedBridgeEvents", []));
+
+  if (!result.ok) {
+    throw new Error(result.error || "Could not retry failed JustSwipe events.");
+  }
+
+  console.log(`Retried ${result.retried} failed JustSwipe event${result.retried === 1 ? "" : "s"}.`);
+  if (result.retried > 0) {
+    console.log(`Run the watcher to relay queued work: npm run bridge:watch -- --app-url ${appBaseUrl()}`);
+  }
+}
+
 async function runSmoke() {
   const quotaMessage = formatLakebedError(
     'mutations quota exceeded {"resetAt":"2026-06-26T00:00:00.000Z","retryAfterSeconds":7200}',
@@ -1565,6 +1579,31 @@ async function runSmoke() {
   await markFailed(event, "Smoke test intentionally stopped before Codex relay.");
 
   let db = await dumpDb();
+  const retryResult = JSON.parse(await runMutation("retryBridgeEvent", [event.id]));
+
+  if (!retryResult.ok || retryResult.retried !== 1) {
+    throw new Error(`Smoke failed: failed bridge event was not retried: ${retryResult.error || "unknown error"}`);
+  }
+
+  db = await dumpDb();
+  const retriedEvent = queuedEvents(db).find((row) => row.id === event.id);
+
+  if (!retriedEvent) {
+    throw new Error("Smoke failed: retried bridge event was not queued.");
+  }
+
+  await markSent(
+    retriedEvent,
+    "Smoke retry accepted.",
+    threadMetadataFromEvent(retriedEvent, { threadStatus: "idle" }),
+  );
+
+  db = await dumpDb();
+
+  if (queuedEvents(db).some((row) => row.id === event.id)) {
+    throw new Error("Smoke failed: retried bridge event stayed queued after mark sent.");
+  }
+
   const connectionId = bridgeConnectionId(db);
   const smokeThreadMeta = threadMetadataFromEvent({
     threadId: "smoke-multicard-thread",
@@ -2456,6 +2495,11 @@ async function main() {
 
   if (forgetConnection) {
     await forgetProjectConnection();
+    return;
+  }
+
+  if (retryFailed) {
+    await retryFailedBridgeEvents();
     return;
   }
 

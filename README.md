@@ -53,7 +53,7 @@ Default to the frictionless path: open the hosted pair link automatically with t
 
 Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, or local-dev pair link/code created if hosted quota is exhausted, setup handoff queued, and the bridge watcher running in the background or exact blocker reported.
 
-Keep the bridge watcher running while I use JustSwipe. Prefer `npm run bridge:up:hosted -- --cwd <repo> --open` for setup because it starts the watcher in the background. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted:daemon`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet.
+Keep the bridge watcher running while I use JustSwipe. Prefer `npm run bridge:up:hosted -- --cwd <repo> --open` for setup because it starts the watcher in the background. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted:daemon`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet. Failed bridge events can be retried from the JustSwipe thread log after the underlying error is fixed.
 
 If the site shows the wrong project path or an old E2E/test project, use the connection panel's Forget project action, then re-pair from the real repo.
 
@@ -88,6 +88,7 @@ npm run bridge:status:hosted
 npm run bridge:dry-run:hosted
 npm run bridge:watch:hosted
 npm run bridge:watch:hosted:daemon
+npm run bridge:retry-failed:hosted
 npm run bridge:up:hosted -- --cwd "C:\path\to\your-repo" --open
 npm run bridge:forget:hosted
 ```

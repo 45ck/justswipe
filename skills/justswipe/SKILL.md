@@ -173,6 +173,7 @@ npm run handoff:todo
 
 Use `npm run bridge:dry-run` to inspect queued packets before relaying them.
 Use `npm --silent run bridge:status -- --app-url <app-url> --json` when the agent needs machine-readable connection, queue, and thread state.
+If status shows `failedBridgeEvents > 0`, fix the underlying bridge or Codex error, then ask the user to retry from the JustSwipe thread log or run `npm run bridge:retry-failed -- --app-url <app-url>`.
 
 Hosted quota fallback:
 

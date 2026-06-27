@@ -23,6 +23,8 @@
     "bridge:smoke": "node scripts/justswipe-codex-bridge.mjs --smoke",
     "bridge:status": "node scripts/justswipe-codex-bridge.mjs --status",
     "bridge:status:hosted": "node scripts/justswipe-codex-bridge.mjs --status --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
+    "bridge:retry-failed": "node scripts/justswipe-codex-bridge.mjs --retry-failed",
+    "bridge:retry-failed:hosted": "node scripts/justswipe-codex-bridge.mjs --retry-failed --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:sync-threads": "node scripts/justswipe-codex-bridge.mjs --sync-threads",
     "bridge:sync-threads:hosted": "node scripts/justswipe-codex-bridge.mjs --sync-threads --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:doctor": "node scripts/justswipe-codex-bridge.mjs --doctor",

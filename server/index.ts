@@ -441,6 +441,35 @@ function canAccessBridgeEvent(ctx: any, event: any): boolean {
   return Boolean(event.connectionId && event.connectionId === connectionFor(ctx));
 }
 
+function requeueBridgeEvent(ctx: any, event: BridgeEvent): void {
+  ctx.db.bridgeEvents.update(event.id, {
+    status: "queued",
+    threadStatus: "queued",
+    claimHeartbeatAt: "",
+  });
+
+  if (event.threadId) {
+    upsertCodexThread(ctx, {
+      connectionId: event.connectionId,
+      threadId: event.threadId,
+      threadTitle: event.threadTitle,
+      threadStatus: "queued",
+      cwd: event.cwd,
+      projectName: event.projectName,
+      lastActivityAt: nowIso(),
+    }, event.ownerId);
+  }
+
+  const handoff = ctx.db.handoffs.get(event.handoffRowId);
+
+  if (handoff && canAccessHandoff(ctx, handoff)) {
+    ctx.db.handoffs.update(handoff.id, {
+      status: "responding_to_codex",
+      threadStatus: "queued",
+    });
+  }
+}
+
 function activePairingCodesForOwner(ctx: any): PairingCode[] {
   const current = nowIso();
 
@@ -1517,28 +1546,48 @@ export default capsule({
           continue;
         }
 
-        ctx.db.bridgeEvents.update(event.id, {
-          status: "queued",
-          threadStatus: "queued",
-          claimHeartbeatAt: "",
-        });
-
-        if (event.threadId) {
-          upsertCodexThread(ctx, {
-            connectionId: event.connectionId,
-            threadId: event.threadId,
-            threadTitle: event.threadTitle,
-            threadStatus: "queued",
-            cwd: event.cwd,
-            projectName: event.projectName,
-            lastActivityAt: nowIso(),
-          }, event.ownerId);
-        }
+        requeueBridgeEvent(ctx, event);
 
         recovered += 1;
       }
 
       return JSON.stringify({ ok: true, recovered });
+    }),
+
+    retryBridgeEvent: mutation((ctx, id: string) => {
+      const event = ctx.db.bridgeEvents.get(id) as BridgeEvent | undefined;
+
+      if (!event || !canAccessBridgeEvent(ctx, event)) {
+        return JSON.stringify({ ok: false, error: "Bridge event not available." });
+      }
+
+      if (event.status !== "failed") {
+        return JSON.stringify({ ok: false, error: "Only failed bridge events can be retried." });
+      }
+
+      requeueBridgeEvent(ctx, event);
+
+      return JSON.stringify({ ok: true, retried: 1 });
+    }),
+
+    retryFailedBridgeEvents: mutation((ctx) => {
+      const connectionId = connectionFor(ctx);
+      let retried = 0;
+
+      if (!connectionId) {
+        return JSON.stringify({ ok: false, error: "No active JustSwipe connection.", retried });
+      }
+
+      for (const event of ctx.db.bridgeEvents.where("connectionId", connectionId).all() as BridgeEvent[]) {
+        if (event.status !== "failed" || !canAccessBridgeEvent(ctx, event)) {
+          continue;
+        }
+
+        requeueBridgeEvent(ctx, event);
+        retried += 1;
+      }
+
+      return JSON.stringify({ ok: true, retried });
     }),
 
     markBridgeSent: mutation((ctx, id: string, response: string, metadataJson = "") => {
