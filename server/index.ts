@@ -1325,6 +1325,39 @@ export default capsule({
       return JSON.stringify({ ok: true });
     }),
 
+    recordSetupFailure: mutation((ctx, error: string, metadataJson = "") => {
+      const integration = ensureIntegration(ctx);
+      const meta = parseThreadMetadata(metadataJson);
+      const connectionId = integration.connectionId || defaultConnectionId;
+      const cwd = meta.cwd || integration.cwd;
+      const projectName =
+        cleanText(meta.projectName || integration.projectName || "", 80) || projectNameFromCwd(cwd);
+
+      if (!connectionId) {
+        return "";
+      }
+
+      ctx.db.bridgeEvents.insert({
+        ownerId: ctx.auth.userId,
+        handoffId: createId("setupfailed"),
+        connectionId,
+        threadId: meta.threadId || "",
+        threadTitle: meta.threadTitle || "Setup thread",
+        threadStatus: "failed",
+        cwd,
+        projectName,
+        handoffRowId: "",
+        title: "Codex setup did not finish",
+        action: "setup_failed",
+        prompt: "",
+        feedback: "",
+        status: "failed",
+        response: cleanBridgeResponse(error),
+      });
+
+      return "Setup failure recorded.";
+    }),
+
     createHandoffFromBridge: mutation(
       (
         ctx,

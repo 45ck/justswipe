@@ -2049,6 +2049,26 @@ async function createSetupHandoff(options = {}) {
   console.log(`Thread: ${threadId}`);
 }
 
+async function recordSetupFailure(error, options = {}) {
+  const message = error instanceof Error ? error.message : String(error || "Codex setup failed.");
+  const cwd = resolve(options.cwd ?? threadCwd);
+  const metadata = threadMetadataFromEvent({
+    threadId: options.threadId || "",
+    threadTitle: options.threadTitle || "Setup thread",
+    cwd,
+    projectName: projectNameFromCwd(cwd),
+    threadStatus: "failed",
+  });
+
+  await runMutation("recordSetupFailure", [
+    message,
+    metadataJson(metadata),
+  ]);
+
+  console.error(`Codex setup failed: ${message}`);
+  console.error("JustSwipe recorded the failure so the app can show the exact blocker.");
+}
+
 async function createTodoHandoff() {
   await runMutation("clearConnectionState", []);
   let db = await dumpDb();
@@ -2592,15 +2612,26 @@ async function main() {
   if (setup) {
     await clearConnectionState();
     const code = await createPairingCode();
-    const started = await startNativeThread();
-    if (!started.initialHandoffId) {
-      await createSetupHandoff({ clear: false, code });
+    let setupSucceeded = false;
+
+    try {
+      const started = await startNativeThread();
+      setupSucceeded = true;
+      if (!started.initialHandoffId) {
+        await createSetupHandoff({ clear: false, code });
+      }
+    } catch (error) {
+      await recordSetupFailure(error);
     }
+
     if (daemon) {
       await startWatcherDaemon();
     } else {
       console.log("Start the watcher with: npm run bridge:watch -- --app-url " + appBaseUrl());
       console.log("Or add --daemon to start the watcher in the background from setup.");
+    }
+    if (!setupSucceeded) {
+      process.exitCode = 1;
     }
     return;
   }
