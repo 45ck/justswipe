@@ -1475,6 +1475,29 @@ async function maybeCreateNextHandoff(event, relayResult) {
   ]);
 }
 
+async function maybeCreateInitialHandoff(threadId, final, threadMeta) {
+  const next = extractNextHandoff(final);
+
+  if (!next) {
+    return null;
+  }
+
+  const db = await dumpDb();
+  const connectionId = bridgeConnectionId(db);
+
+  if (!connectionId) {
+    throw new Error("Codex emitted a JustSwipe handoff, but no active JustSwipe connection exists.");
+  }
+
+  return runMutation("createHandoffFromBridge", [
+    connectionId,
+    threadId,
+    next.cardsJson,
+    next.reason,
+    metadataJson(threadMeta),
+  ]);
+}
+
 async function createPairingCode() {
   const code = await runMutation("createPairingCode", []);
   const link = pairingLink(code);
@@ -2274,9 +2297,13 @@ async function startNativeThread(options = {}) {
     integration?.customPrompt || "Treat JustSwipe packets as user steering, then continue or ask another JustSwipe card.",
     metadataJson(threadMeta),
   ]);
+  const initialHandoffId = await maybeCreateInitialHandoff(threadId, final, threadMeta);
 
   console.log(`Native Codex thread created and saved: ${threadId}`);
   console.log(`cwd: ${cwd}`);
+  if (initialHandoffId) {
+    console.log(`Initial JustSwipe handoff queued: ${initialHandoffId}`);
+  }
   if (final) {
     console.log(final);
   }
@@ -2285,6 +2312,7 @@ async function startNativeThread(options = {}) {
     threadId,
     cwd,
     final,
+    initialHandoffId,
     threadMeta,
   };
 }
@@ -2399,7 +2427,7 @@ async function runBridgeE2e(mode) {
   const e2ePrompt = [
     "Install JustSwipe steering in this disposable repo and preserve existing instructions.",
     "Do not build a JustSwipe UI, dashboard, bridge UI, auth shell, or replacement app in this repo.",
-    "After the setup card is answered, emit a JustSwipe card asking whether to build a non-UI doctor fixture.",
+    "After the steering contract is installed, emit a JustSwipe card asking whether to build a non-UI doctor fixture.",
     "If the user chooses the doctor fixture, add scripts/justswipe-doctor.ps1, update README.md with the command, run it normally and with -Json, then stop.",
   ].join(" ");
   const started = await startNativeThread({
@@ -2408,38 +2436,28 @@ async function runBridgeE2e(mode) {
     setup: true,
   });
 
-  await createSetupHandoff();
-
   let db = await dumpDb();
   let handoff = activeHandoffRows(db)[0];
 
   if (!handoff) {
-    throw new Error("E2E failed: setup handoff was not queued.");
+    throw new Error("E2E failed: Codex did not queue the first JustSwipe decision handoff.");
   }
 
-  const setupAnswer = await submitFirstYesReply(handoff, "Use desktop browser");
+  const activeBeforeAnswer = activeHandoffRows(db);
 
-  if (queuedEvents(await dumpDb()).length !== 1) {
-    throw new Error("E2E failed: setup response did not queue exactly one bridge event.");
-  }
-
-  const firstRelayCount = await processQueued({ all: false, quiet: false });
-
-  if (firstRelayCount !== 1) {
-    throw new Error("E2E failed: setup response was not relayed.");
-  }
-
-  db = await dumpDb();
-  handoff = activeHandoffRows(db).find((row) => row.status === "awaiting_justswipe");
-
-  if (!handoff) {
-    throw new Error("E2E failed: Codex did not queue a follow-up JustSwipe handoff.");
+  if (activeBeforeAnswer.length !== 1) {
+    throw new Error(`E2E failed: expected one active handoff, got ${activeBeforeAnswer.length}.`);
   }
 
   const workAnswer = await submitFirstYesReply(handoff, "Build doctor fixture");
-  const secondRelayCount = await processQueued({ all: false, quiet: false });
 
-  if (secondRelayCount !== 1) {
+  if (queuedEvents(await dumpDb()).length !== 1) {
+    throw new Error("E2E failed: work-slice response did not queue exactly one bridge event.");
+  }
+
+  const relayCount = await processQueued({ all: false, quiet: false });
+
+  if (relayCount !== 1) {
     throw new Error("E2E failed: work-slice response was not relayed.");
   }
 
@@ -2503,7 +2521,6 @@ async function runBridgeE2e(mode) {
     appUrl: appBaseUrl(),
     target,
     threadId: started.threadId,
-    setupAnswer,
     workAnswer,
     doctorPath,
   };
@@ -2516,7 +2533,6 @@ async function runBridgeE2e(mode) {
   console.log(`JustSwipe ${mode} E2E passed.`);
   console.log(`target: ${report.target}`);
   console.log(`threadId: ${report.threadId}`);
-  console.log(`setupAnswer: ${report.setupAnswer.reply}`);
   console.log(`workAnswer: ${report.workAnswer.reply}`);
   console.log(`doctor: ${report.doctorPath}`);
 }
