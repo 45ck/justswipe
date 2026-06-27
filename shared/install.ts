@@ -39,6 +39,7 @@ Add these JustSwipe rules to AGENTS.md and the skill:
 
 - Use JustSwipe when you need user taste, clarification, a checkpoint, a visual decision, or you are stuck.
 - Ask one clear decision per card.
+- Use as many cards as needed, as few as possible. There is no fixed bundle limit.
 - Give 3 to 4 useful quick replies, then allow custom text.
 - Include only the context needed to decide: current state, tradeoff, risk, and next effect.
 - Use card context well: include an HTML artifact, diagram, screenshot summary, UI state, code diff, evidence checklist, or compact schema form when it helps the user decide faster.
@@ -139,9 +140,13 @@ Report this blocker exactly: \`hosted mutation quota exhausted; switch bridge ap
 
 After setup is proven, continue the user's original project request. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 
+For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. Good planning bundles cover the decisions Codex genuinely needs, such as direction, UI taste, first build slice, constraints, or review expectations. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
+
 ## Handoff Format
 
 When you need a decision, emit this exact shape:
+
+A handoff can contain one card or a bundle. Use one card for one isolated question. Use a bundle when several related decisions are needed before productive work can continue. JustSwipe shows cards one at a time.
 
 JUSTSWIPE_HANDOFF_JSON
 {

@@ -12,6 +12,10 @@ Use `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md` as the ca
 
 When you need human direction, stop the long chat question and emit a JustSwipe handoff instead. Treat the response as user steering, not as permission. Continue normal safety, approval, and repo rules after the response arrives.
 
+Core loop: Codex asks, the user swipes, Codex continues. A handoff can contain one card or a bundle. Use as many cards as needed and as few as possible; each card must contain one concise decision with enough context to answer quickly.
+
+For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
+
 Hosted JustSwipe is the primary user surface. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
 
 Do not build JustSwipe, recreate its UI, or add a replacement JustSwipe browser control page to target repos. Hosted JustSwipe, or the local dev app when hosted quota blocks work, is the only JustSwipe UI. Target repos receive the steering contract only and consume steering packets; the hosted/local app and local bridge provide the runtime loop.
@@ -65,6 +69,7 @@ END_JUSTSWIPE_HANDOFF_JSON
 ## Card Rules
 
 - Ask one decision per card.
+- Use as many cards as needed, as few as possible.
 - Make the title understandable in 3 seconds.
 - Put 3 to 4 useful quick replies on each action that needs context, then allow custom text.
 - Use `agentHtmlPreview` for native inline context: headings, paragraphs, lists, code-like labels, button-like labels, simple diagrams, and evidence summaries.

@@ -5,7 +5,9 @@ description: Use when a Codex thread or agent workflow should pause for human st
 
 # JustSwipe
 
-Use JustSwipe as a low-attention decision remote for agent work. Ask one clear question, provide enough visual/contextual evidence to decide quickly, then wait for the structured response.
+Use JustSwipe as a low-attention decision remote for agent work. Ask one clear question per card, provide enough visual/contextual evidence to decide quickly, then wait for the structured response.
+
+Core loop: Codex asks, the user swipes, Codex continues. Prefer the smallest useful bundle, but do not impose a fixed card limit. If a planning or review moment genuinely needs several concise decisions, send all needed cards in one bundle; JustSwipe shows them one at a time.
 
 Use `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md` as the canonical install document. Hosted `/install.md` and `/setup.md` are mirrors only; if Lakebed quota blocks hosted reads, keep using the GitHub/raw install doc and switch the bridge app URL to local dev when needed.
 
@@ -35,10 +37,11 @@ Install JustSwipe into this repo without replacing existing repo instructions.
 
 If AGENTS.md already exists, preserve all existing content and append a clearly marked JustSwipe section. If it does not exist, create it. If skills/justswipe/SKILL.md already exists, update it carefully; otherwise create it.
 
-JustSwipe is a low-attention steering loop for Codex. When you need clarification, user taste, a checkpoint, or you are stuck, do not ask a long chat question. Emit a JustSwipe handoff card, then stop and wait.
+JustSwipe is a low-attention steering loop for Codex. When you need clarification, user taste, a checkpoint, or you are stuck, do not ask a long chat question. Emit a JustSwipe handoff card or bundle, then stop and wait.
 
 Use this behavior:
 - one clear decision per card
+- as many cards as needed, as few as possible
 - 3 to 4 useful quick replies for each relevant action
 - optional custom answer
 - concise visual context using safe inline HTML-like content
@@ -54,6 +57,10 @@ AWAITING_JUSTSWIPE_RESPONSE <handoff-id>
 ## When You Need A Decision
 
 Prefer a JustSwipe card when the next user question would be broad, slow, visual, or likely to interrupt flow. Do not ask a long chat question if a short swipe plus optional context will work.
+
+A handoff can contain one card or a bundle. Use one card for one isolated question. Use a bundle when Codex needs several related decisions before it can work productively. There is no fixed maximum; every card must be concise, visually grounded where useful, and necessary.
+
+For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. Good planning bundles usually cover direction, UI taste, first build slice, and any important constraint. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
 Emit a packet between exact markers, then stop and wait for the response packet. The minimum documented shape is:
 
@@ -88,6 +95,8 @@ Each card should include:
 - `agentHtmlPreview`: short inline context rendered natively by JustSwipe. Use it for HTML artifacts, diagrams, screenshot summaries, UI previews, code diffs, and evidence checklists when those make the decision clearer.
 
 Keep `agentHtmlPreview` simple: headings, paragraphs, lists, code-like labels, button-like labels, tables, and diagram-like text. Do not include scripts, iframes, network resources, hidden prompts, or raw executable UI.
+
+For follow-up feedback, use quick replies first and schema fields only when a swipe alone would lose important context. Keep follow-up inputs short and tied to the chosen action.
 
 ## Good Card Defaults
 

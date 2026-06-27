@@ -471,8 +471,8 @@ function actionSolid(action: SwipeAction): string {
 }
 
 function bridgeStatusLabel(status: string): string {
-  if (status === "queued") return "Waiting for Codex";
-  if (status === "running") return "Codex working";
+  if (status === "queued") return "Sent to Codex";
+  if (status === "running") return "Codex resuming";
   if (status === "sent") return "Codex resumed";
   if (status === "failed") return "Bridge failed";
   return status || "Waiting";
@@ -481,7 +481,7 @@ function bridgeStatusLabel(status: string): string {
 function handoffStatusLabel(status: string): string {
   if (status === "awaiting_justswipe") return "Awaiting JustSwipe";
   if (status === "in_progress") return "Clearing bundle";
-  if (status === "responding_to_codex") return "Waiting for Codex";
+  if (status === "responding_to_codex") return "Codex resuming";
   if (status === "codex_resumed") return "Thread resumed";
   if (status === "failed") return "Bridge failed";
   return status;
@@ -765,7 +765,7 @@ function runtimeState(props: {
     props.latestEvent?.status === "running"
   ) {
     return {
-      label: props.latestEvent?.status === "running" ? "Codex working" : "Waiting for Codex",
+      label: props.latestEvent?.status === "running" ? "Codex resuming" : "Sent to Codex",
       detail: "Local bridge is relaying work",
       status: "queued",
     };
@@ -937,8 +937,8 @@ function bridgeHealthState(props: {
   if (runningEvents > 0 || props.handoff?.status === "responding_to_codex") {
     return {
       status: "running",
-      label: "Bridge relaying",
-      detail: "The local bridge is sending a response to Codex.",
+      label: "Codex resuming",
+      detail: "The local bridge is sending your swipe to Codex.",
       action: "The watcher is active. Keep it running while Codex works.",
       icon: "play",
       queuedEvents,
@@ -2553,6 +2553,14 @@ function SentState(props: {
   latestEvent?: BridgeEvent;
 }) {
   const status = props.latestEvent?.status || props.handoff.status;
+  const title =
+    status === "failed"
+      ? "Bridge needs attention"
+      : status === "sent" || status === "codex_resumed"
+        ? "Codex resumed"
+        : status === "running" || status === "responding_to_codex"
+          ? "Codex resuming"
+          : "Sent to Codex";
 
   return (
     <section class="mx-auto grid min-h-[420px] w-full max-w-2xl place-items-center rounded border border-lime-300/25 bg-lime-300/8 p-6 text-center jsw-sent-pulse">
@@ -2561,12 +2569,14 @@ function SentState(props: {
           <Icon name={status === "failed" ? "no" : "yes"} class="h-10 w-10" />
         </div>
         <h2 class="mt-5 text-2xl font-semibold text-white">
-          {status === "failed" ? "Bridge needs attention" : "Response sent"}
+          {title}
         </h2>
         <p class="mx-auto mt-3 max-w-sm text-sm leading-6 text-zinc-400">
           {status === "failed"
             ? "The local bridge could not resume Codex. The response is saved and can be retried from the bridge."
-            : "Codex has the structured response. It can continue working or ask the next JustSwipe card."}
+            : status === "sent" || status === "codex_resumed"
+              ? "Codex has the structured response and can continue or ask the next JustSwipe card."
+              : "Your swipe is saved. The bridge is handing it back to Codex."}
         </p>
         <div class="mt-5 rounded border border-white/10 bg-black/20 p-3 text-left">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">

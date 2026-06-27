@@ -78,12 +78,13 @@ function setupThreadPrompt(prompt) {
     "3. Create AGENTS.md if missing, or append a JustSwipe section if it exists.",
     "4. Create or update skills/justswipe/SKILL.md.",
     "5. State that hosted/local JustSwipe is the only UI and this repo only consumes steering packets.",
-    "6. If you need user direction, emit one JUSTSWIPE_HANDOFF_JSON card and stop.",
+    "6. If you need user direction, emit a JUSTSWIPE_HANDOFF_JSON card or bundle and stop.",
     "",
     "Skill requirements:",
     "- Consume JUSTSWIPE RESPONSE PACKET messages as user steering.",
     "- Treat JustSwipe responses as steering, not permission.",
     "- Ask one clear decision per card.",
+    "- Use as many cards as needed and as few as possible; there is no fixed bundle limit.",
     "- Provide 3 to 4 quick replies plus custom text.",
     "- Include compact HTML/artifact context when it helps the user decide.",
     "- Handoff requests must be wrapped in JUSTSWIPE_HANDOFF_JSON and END_JUSTSWIPE_HANDOFF_JSON markers.",
@@ -1087,7 +1088,7 @@ async function printStatusReport() {
 function promptForEvent(event) {
   return `${event.prompt}
 
-Keep normal prose under 180 words. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above.`;
+Keep normal prose under 180 words. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above. Use as many cards as needed and as few as possible; each card must be one concise decision.`;
 }
 
 async function runCodexExec(event) {

@@ -500,6 +500,7 @@ function buildResponsePrompt(
     responseSummary(responses),
     "",
     "If you need another JustSwipe handoff, end your reply with:",
+    "A handoff may contain one card or a bundle. Use as many cards as needed and as few as possible; each card must be one concise decision with useful quick replies and visual context when it helps.",
     "Set agentHtmlPreview to a short HTML fragment that communicates the actual UI state, diagram, screenshot summary, or evidence the user needs. Use headings, paragraphs, lists, and button-like labels only; JustSwipe renders it inline as native card content.",
     "JUSTSWIPE_HANDOFF_JSON",
     '{"reason":"short reason","cards":[{"cardId":"next","title":"Short question","summary":"No fluff.","recommendedAction":"yes","visualContext":"What the user needs to know.","questionType":"yes_no","quickRepliesByAction":{"yes":["Do this","Keep it simple","Ship this slice"],"no":["Not this","Too broad","Try smaller"]},"yesPayloadSchema":[],"noPayloadSchema":[],"morePayloadSchema":[],"laterPayloadSchema":[],"optionPayloadSchemas":{},"requiredFieldsByAction":{},"agentHtmlPreview":"<section><h2>UI state or diagram</h2><p>Show the concrete thing the user is deciding on.</p><ul><li>Evidence point</li><li>Tradeoff</li><li>Next effect</li></ul><button>Yes</button><button>No</button></section>"}]}',
@@ -523,7 +524,11 @@ function buildPlanningPrompt(
     route === "new_thread"
       ? "The user started a new project idea from an empty JustSwipe deck."
       : "The user sent a project idea to an existing Codex thread from JustSwipe.",
-    "Treat this as a normal Codex planning prompt. If you need human direction, create a JustSwipe handoff bundle instead of asking a long chat question.",
+    "Treat this as a normal Codex planning prompt, but optimize for the JustSwipe loop: Codex asks, the user swipes, Codex continues.",
+    "For greenfield app work, default to a planning handoff bundle before building unless the prompt is already fully constrained.",
+    "A handoff may contain one card or a bundle. Use as many cards as needed and as few as possible; each card must be one concise decision with useful quick replies and visual context when it helps.",
+    "If you need human direction, create a JustSwipe handoff bundle instead of asking a long chat question.",
+    "After building a visible slice, prefer a review card with screenshot, HTML, diff, or evidence context before polishing further.",
     "",
     `Connection id: ${integration.connectionId}`,
     `Thread id: ${route === "new_thread" ? "new thread requested" : meta.threadId || integration.codexThreadId || defaultCodexThreadId}`,
