@@ -91,6 +91,8 @@ function setupThreadPrompt(prompt) {
     "- Handoff requests must be wrapped in JUSTSWIPE_HANDOFF_JSON and END_JUSTSWIPE_HANDOFF_JSON markers.",
     "- After the marker block, end with AWAITING_JUSTSWIPE_RESPONSE <cardId>.",
     "- After emitting a JustSwipe handoff, stop and wait for a response packet.",
+    "- If the user prompt says to emit, ask, or send a JustSwipe card, do it in the current response with the marker block. Do not merely say you will do it.",
+    "- If you mention that you will ask JustSwipe, send a card, or emit a handoff, the response is incomplete unless it includes the marker block.",
     "",
     "Minimum handoff marker shape the skill must document:",
     "JUSTSWIPE_HANDOFF_JSON",
@@ -713,9 +715,21 @@ async function readTurnResult(client, threadId, turnId, threadMeta) {
     includeTurns: true,
   });
   const turn = turnFromThreadRead(refreshed, turnId);
+  const terminal = isTerminalTurn(turn);
   const response = finalTextFromTurn(turn);
 
-  if (!response && isTerminalTurn(turn)) {
+  if (!terminal) {
+    return {
+      response: "",
+      threadMeta: threadMetadataFromThread(refreshed?.thread, {
+        ...threadMeta,
+        threadId,
+        threadStatus: "running",
+      }),
+    };
+  }
+
+  if (!response) {
     throw codexTurnError(await emptyTurnReasonFromSession(refreshed));
   }
 
@@ -1165,7 +1179,14 @@ async function printStatusReport() {
 function promptForEvent(event) {
   return `${event.prompt}
 
-Keep normal prose under 180 words. If this is a JustSwipe-started greenfield idea, your first useful response must be a JustSwipe planning handoff unless the user explicitly said not to ask questions. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above. Use as many cards as needed and as few as possible; each card must be one concise decision.`;
+Keep normal prose under 180 words.
+
+JustSwipe machine contract:
+- If this is a JustSwipe-started greenfield idea, your first useful response must be a JustSwipe planning handoff unless the user explicitly said not to ask questions.
+- If this packet, the repo instructions, or your own response says you should ask/send/emit a JustSwipe card or handoff, append a valid JUSTSWIPE_HANDOFF_JSON block before ending.
+- Do not say "I will send/emit/ask JustSwipe" unless the same response includes the marker block.
+- Use as many cards as needed and as few as possible; each card must be one concise decision.
+- End a handoff response with AWAITING_JUSTSWIPE_RESPONSE <handoff-or-card-id>.`;
 }
 
 async function runCodexExec(event) {
@@ -1496,6 +1517,37 @@ async function runSmoke() {
     !quotaMessage.includes("retryAfterSeconds: 7200")
   ) {
     throw new Error("Smoke failed: quota fallback message did not include required guidance.");
+  }
+
+  const partialTurn = await readTurnResult(
+    {
+      request: async () => ({
+        thread: {
+          id: "smoke-thread",
+          cwd: root,
+          status: { type: "running" },
+          turns: [
+            {
+              id: "smoke-turn",
+              status: { type: "running" },
+              items: [
+                {
+                  type: "agentMessage",
+                  text: "I am checking files before emitting the required JustSwipe handoff.",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    },
+    "smoke-thread",
+    "smoke-turn",
+    { cwd: root, threadStatus: "running" },
+  );
+
+  if (partialTurn.response) {
+    throw new Error("Smoke failed: non-terminal Codex message was treated as a final response.");
   }
 
   await clearConnectionState();

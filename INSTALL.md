@@ -148,6 +148,8 @@ After setup is proven, continue the user's original project request. When the fi
 
 For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. Good planning bundles cover the decisions Codex genuinely needs, such as direction, UI taste, first build slice, constraints, or review expectations. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
+If you say you will ask JustSwipe, send a card, emit a handoff, or wait for a swipe, the same response must include the `JUSTSWIPE_HANDOFF_JSON` block. Do not describe a future handoff in prose without emitting the machine-readable packet.
+
 ## Handoff Format
 
 When you need a decision, emit this exact shape:

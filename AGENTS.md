@@ -16,6 +16,8 @@ Core loop: Codex asks, the user swipes, Codex continues. A handoff can contain o
 
 For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
+If you say you will ask JustSwipe, send a card, emit a handoff, or wait for a swipe, the same response must include the `JUSTSWIPE_HANDOFF_JSON` block. Do not describe a future handoff in prose without emitting the machine-readable packet.
+
 Hosted JustSwipe is the primary user surface. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
 
 Do not build JustSwipe, recreate its UI, or add a replacement JustSwipe browser control page to target repos. Hosted JustSwipe, or the local dev app when hosted quota blocks work, is the only JustSwipe UI. Target repos receive the steering contract only and consume steering packets; the hosted/local app and local bridge provide the runtime loop.

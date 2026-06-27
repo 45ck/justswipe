@@ -62,6 +62,8 @@ A handoff can contain one card or a bundle. Use one card for one isolated questi
 
 For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. Good planning bundles usually cover direction, UI taste, first build slice, and any important constraint. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
+If you say you will ask JustSwipe, send a card, emit a handoff, or wait for a swipe, the same response must include the `JUSTSWIPE_HANDOFF_JSON` block. Do not describe a future handoff in prose without emitting the machine-readable packet.
+
 Emit a packet between exact markers, then stop and wait for the response packet. The minimum documented shape is:
 
 ```txt
