@@ -2193,14 +2193,28 @@ function rowMatchesThreadFilter(row: ThreadTableRow, filter: ThreadFilter): bool
   return row.status === "unknown";
 }
 
-function threadDisplayTitle(row: ThreadTableRow): string {
-  const fallbackPattern = new RegExp(`^${row.projectName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} thread [a-z0-9-]+$`, "i");
+function friendlyThreadTitle(title: string, projectName: string, threadId: string): string {
+  const escapedProject = projectName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fallbackPattern = new RegExp(`^${escapedProject} thread [a-z0-9-]+$`, "i");
 
-  if (fallbackPattern.test(row.title)) {
-    return `Codex thread ${shortId(row.threadId)}`;
+  if (!title || fallbackPattern.test(title)) {
+    return `Codex thread ${shortId(threadId)}`;
   }
 
-  return row.title;
+  return title;
+}
+
+function threadDisplayTitle(row: ThreadTableRow): string {
+  return friendlyThreadTitle(row.title, row.projectName, row.threadId);
+}
+
+function threadOptionLabel(thread: CodexThread): string {
+  return [
+    thread.projectName || "Project",
+    friendlyThreadTitle(thread.threadTitle || "", thread.projectName || "Project", thread.threadId),
+  ]
+    .filter(Boolean)
+    .join(" - ");
 }
 
 function ThreadTable(props: {
@@ -2498,9 +2512,7 @@ function EmptyInbox(props: {
               <option value="">New Codex thread</option>
               {props.threads.map((thread) => (
                 <option value={thread.threadId}>
-                  {[thread.projectName || "Project", thread.threadTitle || shortId(thread.threadId)]
-                    .filter(Boolean)
-                    .join(" - ")}
+                  {threadOptionLabel(thread)}
                 </option>
               ))}
             </select>
