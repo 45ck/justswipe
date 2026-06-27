@@ -1147,6 +1147,22 @@ export default capsule({
           projectName,
           lastActivityAt,
         });
+
+        for (const row of ctx.db.pairingCodes
+          .where("connectionId", existing.connectionId)
+          .all() as PairingCode[]) {
+          if (row.ownerId !== ctx.auth.userId || !["active", "paired"].includes(row.status)) {
+            continue;
+          }
+
+          ctx.db.pairingCodes.update(row.id, {
+            threadId: savedThreadId,
+            threadTitle,
+            cwd,
+            projectName,
+            customPrompt: cleanBridgeResponse(customPrompt || defaultCustomPrompt),
+          });
+        }
       }
     }),
 

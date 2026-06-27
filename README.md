@@ -79,7 +79,7 @@ $repo = "C:\path\to\your-repo"
 npm run bridge:up:hosted -- --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
 ```
 
-`bridge:up:hosted` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, queues the setup card, and starts the watcher in the background. The watcher is the live relay that sends swipe responses back into Codex. If the watcher is not running, JustSwipe can still collect a response, but Codex will not see it until `bridge:watch:hosted:daemon`, `bridge:watch:hosted`, or `bridge` runs. Pair codes last 2 minutes. A paired browser lasts for the day.
+`bridge:up:hosted` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, queues Codex's first JustSwipe handoff when it emits one, falls back to a setup card only when needed, and starts the watcher in the background. The watcher is the live relay that sends swipe responses back into Codex. If the watcher is not running, JustSwipe can still collect a response, but Codex will not see it until `bridge:watch:hosted:daemon`, `bridge:watch:hosted`, or `bridge` runs. Pair codes last 2 minutes. A paired browser lasts for the day.
 
 Hosted shortcuts from the bridge repo:
 
@@ -143,6 +143,6 @@ npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
 
 Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
 Use `npm run bridge:doctor -- --app-url http://localhost:3001` to verify the raw install doc, local install mirror, pairing state, queue state, and next bridge action without touching hosted quota.
-Use `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` for a full local round trip: disposable target repo, setup handoff, swipe response, bridge relay, follow-up card, second response, and target-repo doctor proof.
+Use `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` for a full local round trip: disposable target repo, Codex-emitted first handoff, swipe response, bridge relay, and target-repo doctor proof.
 After hosted quota resets, run `npm run deploy:hosted`, then `npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000` for the same proof against the hosted app.
 `npm run bridge:smoke`, `bridge:e2e-local`, and `bridge:e2e-hosted` use isolated test guests unless you pass `--guest`.

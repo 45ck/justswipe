@@ -2006,8 +2006,11 @@ function newestThreadForConnection(db, connectionId) {
     )[0];
 }
 
-async function createSetupHandoff() {
-  await runMutation("clearConnectionState", []);
+async function createSetupHandoff(options = {}) {
+  if (options.clear !== false) {
+    await runMutation("clearConnectionState", []);
+  }
+
   let db = await dumpDb();
   let integration = integrationForGuest(db);
   const threadId = valueAfter("--thread-id") ?? integration?.codexThreadId ?? "";
@@ -2016,7 +2019,7 @@ async function createSetupHandoff() {
     throw new Error("No Codex thread id is saved. Run npm run bridge:start-thread first or pass --thread-id.");
   }
 
-  const code = await createPairingCode();
+  const code = options.code || await createPairingCode();
   const link = pairingLink(code);
   db = await dumpDb();
   integration = integrationForGuest(db);
@@ -2587,8 +2590,11 @@ async function main() {
   }
 
   if (setup) {
-    await startNativeThread();
-    await createSetupHandoff();
+    const code = await createPairingCode();
+    const started = await startNativeThread();
+    if (!started.initialHandoffId) {
+      await createSetupHandoff({ clear: false, code });
+    }
     if (daemon) {
       await startWatcherDaemon();
     } else {
