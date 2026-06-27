@@ -2803,6 +2803,20 @@ async function processQueued({ all, quiet }) {
 }
 
 main().catch((error) => {
-  console.error(formatTopLevelError(error));
+  const message = formatTopLevelError(error);
+
+  if (jsonOutput) {
+    console.log(JSON.stringify({
+      status: "failed",
+      mode: e2eHosted ? "hosted" : e2eLocal ? "local" : isLocalAppUrl() ? "local" : "hosted",
+      appUrl: appBaseUrl(),
+      error: message,
+      hostedFallback: message.includes("hosted mutation quota exhausted")
+        ? "use --app-url http://localhost:3001 until hosted quota resets"
+        : "",
+    }, null, 2));
+  } else {
+    console.error(message);
+  }
   process.exitCode = 1;
 });
