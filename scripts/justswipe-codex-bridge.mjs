@@ -621,15 +621,20 @@ function finalTextFromTurn(turn) {
   return (finalAnswer?.text || lastAgentMessage?.text || "").trim();
 }
 
-function finalTextFromThreadRead(result, turnId) {
+function turnFromThreadRead(result, turnId) {
   const turns = Array.isArray(result?.thread?.turns)
     ? result.thread.turns
     : Array.isArray(result?.turns)
       ? result.turns
       : [];
-  const matchingTurn = turnId
+
+  return turnId
     ? turns.find((turn) => turn.id === turnId)
     : turns[0];
+}
+
+function finalTextFromThreadRead(result, turnId) {
+  const matchingTurn = turnFromThreadRead(result, turnId);
 
   if (!matchingTurn) {
     return "";
@@ -638,12 +643,80 @@ function finalTextFromThreadRead(result, turnId) {
   return finalTextFromTurn(matchingTurn);
 }
 
+function turnStatusType(turn) {
+  return String(typeof turn?.status === "object" ? turn.status?.type : turn?.status || "").toLowerCase();
+}
+
+function isTerminalTurn(turn) {
+  return ["completed", "failed", "cancelled", "canceled"].includes(turnStatusType(turn));
+}
+
+function codexTurnError(message) {
+  const error = new Error(message);
+  error.code = "CODEX_TURN_TERMINAL_EMPTY";
+  return error;
+}
+
+async function emptyTurnReasonFromSession(result) {
+  const defaultReason = "Codex turn completed without a response body.";
+  const sessionPath = result?.thread?.path;
+
+  if (!sessionPath) {
+    return defaultReason;
+  }
+
+  try {
+    const lines = (await readFile(sessionPath, "utf8")).trim().split(/\r?\n/);
+    let sawNullAgentMessage = false;
+    let credits = null;
+
+    for (const line of lines) {
+      let entry;
+
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
+
+      if (entry?.type !== "event_msg") {
+        continue;
+      }
+
+      if (entry.payload?.type === "task_complete" && entry.payload?.last_agent_message === null) {
+        sawNullAgentMessage = true;
+      }
+
+      if (entry.payload?.type === "token_count" && entry.payload?.rate_limits?.credits) {
+        credits = entry.payload.rate_limits.credits;
+      }
+    }
+
+    if (credits?.has_credits === false || credits?.balance === "0" || credits?.balance === 0) {
+      return `${defaultReason} Codex reported no available credits for that turn.`;
+    }
+
+    if (sawNullAgentMessage) {
+      return `${defaultReason} Codex marked the task complete with no agent message.`;
+    }
+  } catch {
+    return defaultReason;
+  }
+
+  return defaultReason;
+}
+
 async function readTurnResult(client, threadId, turnId, threadMeta) {
   const refreshed = await client.request("thread/read", {
     threadId,
     includeTurns: true,
   });
-  const response = finalTextFromThreadRead(refreshed, turnId);
+  const turn = turnFromThreadRead(refreshed, turnId);
+  const response = finalTextFromTurn(turn);
+
+  if (!response && isTerminalTurn(turn)) {
+    throw codexTurnError(await emptyTurnReasonFromSession(refreshed));
+  }
 
   return {
     response,
@@ -699,6 +772,9 @@ async function waitForTurnResult(client, threadId, turnId, threadMeta) {
       polled = await readTurnResult(client, threadId, turnId, threadMeta);
       lastReadError = null;
     } catch (error) {
+      if (error?.code === "CODEX_TURN_TERMINAL_EMPTY") {
+        throw error;
+      }
       lastReadError = error;
       continue;
     }
@@ -1088,7 +1164,7 @@ async function printStatusReport() {
 function promptForEvent(event) {
   return `${event.prompt}
 
-Keep normal prose under 180 words. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above. Use as many cards as needed and as few as possible; each card must be one concise decision.`;
+Keep normal prose under 180 words. If this is a JustSwipe-started greenfield idea, your first useful response must be a JustSwipe planning handoff unless the user explicitly said not to ask questions. If you need another JustSwipe card bundle, append the exact JUSTSWIPE_HANDOFF_JSON block described above. Use as many cards as needed and as few as possible; each card must be one concise decision.`;
 }
 
 async function runCodexExec(event) {
@@ -2086,17 +2162,9 @@ async function startNativeThread(options = {}) {
         throw new Error("Codex app-server did not return an initial turn id.");
       }
 
-      const completed = await client.onceNotification(
-        "turn/completed",
-        (params) => params?.threadId === threadId && params?.turn?.id === turnId,
-        codexTimeoutMs,
-      );
-      final = finalTextFromTurn(completed?.turn);
-      threadMeta = {
-        ...threadMeta,
-        threadStatus: "idle",
-        lastActivityAt: new Date().toISOString(),
-      };
+      const turnResult = await waitForTurnResult(client, threadId, turnId, threadMeta);
+      final = turnResult.response;
+      threadMeta = turnResult.threadMeta;
     }
   } finally {
     client.close();

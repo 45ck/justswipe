@@ -1,7 +1,4 @@
 import {
-  SignInWithGoogle,
-  signOut,
-  useAuth,
   useMutation,
   useQuery,
 } from "lakebed/client";
@@ -922,7 +919,7 @@ function bridgeHealthState(props: {
       status: "failed",
       label: "Bridge needs attention",
       detail: "A relay failed. The response is saved for retry.",
-      action: "Open the thread log or run npm run bridge:dry-run:hosted.",
+      action: "Open the thread log, fix the bridge error, then retry the watcher.",
       icon: "log",
       queuedEvents,
       runningEvents,
@@ -1265,7 +1262,6 @@ function Header(props: {
   alertsEnabled: boolean;
   connected: boolean;
 }) {
-  const auth = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<number | null>(null);
   const removeConfirming = useRef(false);
@@ -1572,19 +1568,6 @@ function Header(props: {
         >
           <Icon name="inbox" class="h-4 w-4" />
         </button>
-        {!auth.isLoading && auth.isGuest ? (
-          <div class="hidden sm:block">
-            <SignInWithGoogle />
-          </div>
-        ) : !auth.isLoading ? (
-          <button
-            class="hidden rounded border border-white/10 px-3 py-2 text-sm text-zinc-200 transition hover:bg-white/10 sm:block"
-            type="button"
-            onClick={() => signOut()}
-          >
-            Sign out
-          </button>
-        ) : null}
       </div>
     </header>
   );

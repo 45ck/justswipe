@@ -525,9 +525,11 @@ function buildPlanningPrompt(
       ? "The user started a new project idea from an empty JustSwipe deck."
       : "The user sent a project idea to an existing Codex thread from JustSwipe.",
     "Treat this as a normal Codex planning prompt, but optimize for the JustSwipe loop: Codex asks, the user swipes, Codex continues.",
-    "For greenfield app work, default to a planning handoff bundle before building unless the prompt is already fully constrained.",
+    route === "new_thread"
+      ? "For greenfield app work, your first useful response must be a JustSwipe planning handoff unless the user explicitly said not to ask questions."
+      : "If this steering changes scope, taste, risk, or next-step priority, ask through a JustSwipe handoff instead of a long chat question.",
     "A handoff may contain one card or a bundle. Use as many cards as needed and as few as possible; each card must be one concise decision with useful quick replies and visual context when it helps.",
-    "If you need human direction, create a JustSwipe handoff bundle instead of asking a long chat question.",
+    "Do not ask multiple questions inside one card. Split separate decisions into separate cards.",
     "After building a visible slice, prefer a review card with screenshot, HTML, diff, or evidence context before polishing further.",
     "",
     `Connection id: ${integration.connectionId}`,

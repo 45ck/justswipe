@@ -60,7 +60,7 @@ Prefer a JustSwipe card when the next user question would be broad, slow, visual
 
 A handoff can contain one card or a bundle. Use one card for one isolated question. Use a bundle when Codex needs several related decisions before it can work productively. There is no fixed maximum; every card must be concise, visually grounded where useful, and necessary.
 
-For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. Good planning bundles usually cover direction, UI taste, first build slice, and any important constraint. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
+For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. Good planning bundles usually cover direction, UI taste, first build slice, and any important constraint. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
 Emit a packet between exact markers, then stop and wait for the response packet. The minimum documented shape is:
 

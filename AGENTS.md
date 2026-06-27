@@ -14,7 +14,7 @@ When you need human direction, stop the long chat question and emit a JustSwipe 
 
 Core loop: Codex asks, the user swipes, Codex continues. A handoff can contain one card or a bundle. Use as many cards as needed and as few as possible; each card must contain one concise decision with enough context to answer quickly.
 
-For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
+For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
 Hosted JustSwipe is the primary user surface. The local laptop bridge must create a pair code or share link, and the user's browser must pair before cards can appear. Do not assume a cloud browser belongs to the local Codex bridge until it is paired.
 

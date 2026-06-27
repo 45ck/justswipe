@@ -140,7 +140,7 @@ Report this blocker exactly: \`hosted mutation quota exhausted; switch bridge ap
 
 After setup is proven, continue the user's original project request. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
 
-For greenfield app work started from JustSwipe, default to a planning bundle before building unless the user prompt is already fully constrained. Good planning bundles cover the decisions Codex genuinely needs, such as direction, UI taste, first build slice, constraints, or review expectations. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
+For greenfield app work started from JustSwipe, the first useful response must be a planning bundle before building unless the user explicitly says not to ask questions. Good planning bundles cover the decisions Codex genuinely needs, such as direction, UI taste, first build slice, constraints, or review expectations. After building a visible slice, send a review card with screenshot/HTML/diff/evidence context before polishing further.
 
 ## Handoff Format
 
