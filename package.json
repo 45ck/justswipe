@@ -36,6 +36,7 @@
     "bridge:start-thread": "node scripts/justswipe-codex-bridge.mjs --start-thread",
     "handoff:setup": "node scripts/justswipe-codex-bridge.mjs --setup-handoff",
     "handoff:todo": "node scripts/justswipe-codex-bridge.mjs --todo-handoff",
+    "handoff:smoke": "node scripts/justswipe-codex-bridge.mjs --smoke-handoff",
     "handoff:demo": "node scripts/justswipe-codex-bridge.mjs --demo-handoff",
     "db": "npx --yes --cache .lakebed/npm-cache lakebed db dump --port 3001",
     "logs": "npx --yes --cache .lakebed/npm-cache lakebed logs --port 3001"

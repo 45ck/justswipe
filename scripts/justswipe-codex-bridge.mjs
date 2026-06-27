@@ -26,6 +26,7 @@ const daemon = args.has("--daemon") || args.has("--background") || args.has("--w
 const pair = args.has("--pair");
 const openPairLink = args.has("--open") || args.has("--open-browser");
 const demoHandoff = args.has("--demo-handoff");
+const smokeHandoff = args.has("--smoke-handoff");
 const startThread = args.has("--start-thread");
 const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
@@ -1763,6 +1764,55 @@ function setupHandoffCard(code, link) {
   };
 }
 
+function handoffSmokeCard() {
+  return {
+    cardId: `handoff-smoke-${Date.now().toString(36)}`,
+    title: "Confirm hosted handoff loop",
+    summary:
+      "This is a live no-edit card proving Codex can hand a decision to hosted JustSwipe and receive the swipe response.",
+    recommendedAction: "yes",
+    visualContext:
+      "Scope: hosted handoff smoke | Expected: swipe yes, bridge relays response, Codex acknowledges without editing files",
+    questionType: "yes_no",
+    yesPayloadSchema: [],
+    noPayloadSchema: [],
+    morePayloadSchema: [],
+    laterPayloadSchema: [],
+    optionPayloadSchemas: {},
+    quickRepliesByAction: {
+      yes: [
+        "Hosted card reached JustSwipe",
+        "Relay this no-edit proof back to Codex",
+        "Confirm the handoff loop works",
+      ],
+      no: [
+        "Card did not have enough context",
+        "Do not relay this proof",
+      ],
+      more: [
+        "Show more handoff context",
+        "Explain what will be relayed",
+      ],
+      later: [
+        "Save this proof for later",
+      ],
+    },
+    requiredFieldsByAction: {},
+    agentHtmlPreview:
+      "<section><h2>Hosted handoff smoke</h2><p>Swipe yes to prove a Codex handoff card can return to the selected thread.</p><ul><li>No file edits</li><li>Hosted JustSwipe card</li><li>Bridge relay back to Codex</li></ul><button>Confirm handoff loop</button></section>",
+  };
+}
+
+function newestThreadForConnection(db, connectionId) {
+  return (db.tables?.codexThreads ?? [])
+    .filter((thread) => thread.connectionId === connectionId && thread.threadId)
+    .sort((left, right) =>
+      String(right.lastActivityAt || right.updatedAt || right.createdAt || "").localeCompare(
+        String(left.lastActivityAt || left.updatedAt || left.createdAt || ""),
+      ),
+    )[0];
+}
+
 async function createSetupHandoff() {
   await runMutation("clearConnectionState", []);
   let db = await dumpDb();
@@ -1842,6 +1892,44 @@ async function createTodoHandoff() {
   ]);
 
   console.log(`Todo handoff queued: ${handoffId}`);
+  console.log(`Thread: ${threadId}`);
+}
+
+async function createSmokeHandoff() {
+  const db = await dumpDb();
+  const integration = integrationForGuest(db);
+  const connectionId = valueAfter("--connection-id") ?? bridgeConnectionId(db) ?? "";
+  const thread = newestThreadForConnection(db, connectionId);
+  const threadId =
+    valueAfter("--thread-id") ??
+    thread?.threadId ??
+    integration?.codexThreadId ??
+    "";
+
+  if (!connectionId) {
+    throw new Error("No active JustSwipe connection found. Pair hosted JustSwipe first.");
+  }
+
+  if (!threadId) {
+    throw new Error("No Codex thread id found. Start or pair a JustSwipe project thread first.");
+  }
+
+  const threadMeta = threadMetadataFromEvent({
+    threadId,
+    threadTitle: thread?.threadTitle || integration?.threadTitle,
+    cwd: thread?.cwd || integration?.cwd || resolve(threadCwd),
+    projectName: thread?.projectName || integration?.projectName,
+    threadStatus: "awaiting_justswipe",
+  });
+  const handoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    threadId,
+    JSON.stringify([handoffSmokeCard()]),
+    "Hosted handoff smoke: confirm a card can return to Codex without editing files.",
+    metadataJson(threadMeta),
+  ]);
+
+  console.log(`Smoke handoff queued: ${handoffId}`);
   console.log(`Thread: ${threadId}`);
 }
 
@@ -2266,6 +2354,11 @@ async function main() {
 
   if (todoHandoff) {
     await createTodoHandoff();
+    return;
+  }
+
+  if (smokeHandoff) {
+    await createSmokeHandoff();
     return;
   }
 
