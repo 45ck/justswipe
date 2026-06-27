@@ -346,6 +346,43 @@ function formatCounts(counts) {
     .join(", ");
 }
 
+function recentRows(rows, limit = 5) {
+  return [...rows]
+    .sort((left, right) =>
+      String(right.lastActivityAt || right.updatedAt || right.createdAt || "").localeCompare(
+        String(left.lastActivityAt || left.updatedAt || left.createdAt || ""),
+      ),
+    )
+    .slice(0, limit);
+}
+
+function statusThreadSummary(thread) {
+  return {
+    threadId: thread.threadId || "",
+    threadTitle: thread.threadTitle || shortThreadId(thread.threadId || ""),
+    threadStatus: thread.threadStatus || "unknown",
+    projectName: thread.projectName || "",
+    cwd: thread.cwd || "",
+    pendingCards: thread.pendingCards || "0",
+    pendingIdeas: thread.pendingIdeas || "0",
+    lastActivityAt: thread.lastActivityAt || "",
+  };
+}
+
+function statusEventSummary(event) {
+  return {
+    handoffId: event.handoffId || "",
+    threadId: event.threadId || "",
+    threadTitle: event.threadTitle || shortThreadId(event.threadId || ""),
+    status: event.status || "unknown",
+    action: event.action || "",
+    title: event.title || "",
+    projectName: event.projectName || "",
+    cwd: event.cwd || "",
+    updatedAt: event.updatedAt || event.claimHeartbeatAt || "",
+  };
+}
+
 async function fetchTextCheck(url, expected = []) {
   try {
     const response = await fetch(url);
@@ -1097,6 +1134,9 @@ async function printStatusReport() {
     row.ownerId === ownerIdForGuest() && row.status === "active" && isFuture(row.expiresAt),
   );
   const connected = Boolean(connectionId && integration?.pairedUntil && isFuture(integration.pairedUntil));
+  const recentThreads = recentRows(threads).map(statusThreadSummary);
+  const recentBridgeEvents = recentRows([...queued, ...running, ...failed]).map(statusEventSummary);
+  const currentThread = recentThreads[0];
   const nextAction = failed.length
     ? `fix the bridge error, then retry: npm run bridge:retry-failed -- --app-url ${appBaseUrl()}`
     : running.length
@@ -1115,6 +1155,9 @@ async function printStatusReport() {
     connected,
     connectionId: connectionId || "",
     pairedUntil: integration?.pairedUntil || "",
+    currentProject: currentThread?.projectName || integration?.projectName || "",
+    currentCwd: currentThread?.cwd || integration?.cwd || "",
+    currentThread: currentThread?.threadTitle || integration?.threadTitle || "",
     pairedDevices: pairedDevices.length,
     activePairCodes: activePairCodes.length,
     activeHandoffs: activeHandoffs.length,
@@ -1124,6 +1167,8 @@ async function printStatusReport() {
     failedBridgeEvents: failed.length,
     threads: threads.length,
     threadStatuses: statusCounts(threads, "threadStatus"),
+    recentThreads,
+    recentBridgeEvents,
     nextAction,
     hostedFallback:
       isLocalAppUrl()
