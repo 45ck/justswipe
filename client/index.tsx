@@ -2089,6 +2089,10 @@ type ThreadTableRow = {
   synthetic: boolean;
 };
 
+type ThreadFilter = "all" | "waiting" | "active" | "idle" | "unknown";
+
+const threadPageSize = 5;
+
 function numberValue(value: string): number {
   const parsed = Number.parseInt(value || "0", 10);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -2146,7 +2150,7 @@ function threadRows(threads: CodexThread[], events: BridgeEvent[]): ThreadTableR
     });
   }
 
-  return rows.slice(0, 8);
+  return rows;
 }
 
 function threadHomeSummary(rows: ThreadTableRow[]): string {
@@ -2181,6 +2185,24 @@ function projectHomeTitle(rows: ThreadTableRow[]): string {
   return "No cards waiting";
 }
 
+function rowMatchesThreadFilter(row: ThreadTableRow, filter: ThreadFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "waiting") return row.status === "awaiting_justswipe" || row.pendingCards > 0;
+  if (filter === "active") return row.status === "running" || row.status === "queued" || row.pendingIdeas > 0;
+  if (filter === "idle") return row.status === "idle";
+  return row.status === "unknown";
+}
+
+function threadDisplayTitle(row: ThreadTableRow): string {
+  const fallbackPattern = new RegExp(`^${row.projectName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} thread [a-z0-9-]+$`, "i");
+
+  if (fallbackPattern.test(row.title)) {
+    return `Codex thread ${shortId(row.threadId)}`;
+  }
+
+  return row.title;
+}
+
 function ThreadTable(props: {
   threads: CodexThread[];
   events: BridgeEvent[];
@@ -2188,10 +2210,34 @@ function ThreadTable(props: {
   onSelectThread: (threadId: string) => void;
 }) {
   const rows = threadRows(props.threads, props.events);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ThreadFilter>("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const projectOptions = Array.from(new Set(rows.map((row) => row.projectName).filter(Boolean))).sort();
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredRows = rows.filter((row) => {
+    const matchesQuery =
+      !normalizedQuery ||
+      [row.title, row.projectName, row.cwd, row.threadId, threadStatusLabel(row.status)]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    const matchesProject = projectFilter === "all" || row.projectName === projectFilter;
+
+    return matchesQuery && matchesProject && rowMatchesThreadFilter(row, statusFilter);
+  });
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / threadPageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visibleRows = filteredRows.slice(currentPage * threadPageSize, currentPage * threadPageSize + threadPageSize);
+
+  useEffect(() => {
+    setPage(0);
+  }, [query, statusFilter, projectFilter]);
 
   if (rows.length === 0) {
     return (
-      <div class="mt-4 rounded border border-white/10 bg-black/15 p-3 text-left">
+      <div class="rounded border border-white/10 bg-black/15 p-3 text-left">
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
           Threads
         </p>
@@ -2204,17 +2250,99 @@ function ThreadTable(props: {
 
   return (
     <div class="rounded border border-white/10 bg-black/15 p-3 text-left">
-      <div class="mb-2 flex items-center justify-between gap-3">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-          Threads
-        </p>
-        <span class="text-xs text-zinc-500">{rows.length} tracked</span>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Threads
+          </p>
+          <p class="mt-1 text-xs text-zinc-500">
+            {filteredRows.length} of {rows.length} tracked
+          </p>
+        </div>
+        {pageCount > 1 ? (
+          <div class="flex items-center gap-2 text-xs text-zinc-400">
+            <button
+              class="h-8 rounded border border-white/10 px-2 font-semibold transition hover:bg-white/10 disabled:opacity-35"
+              disabled={currentPage === 0}
+              type="button"
+              onClick={() => setPage((value) => Math.max(0, value - 1))}
+            >
+              Prev
+            </button>
+            <span>
+              {currentPage + 1}/{pageCount}
+            </span>
+            <button
+              class="h-8 rounded border border-white/10 px-2 font-semibold transition hover:bg-white/10 disabled:opacity-35"
+              disabled={currentPage >= pageCount - 1}
+              type="button"
+              onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </div>
-      <div class="grid gap-2">
-        {rows.map((row) => {
+
+      <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+        <label class="min-w-0">
+          <span class="sr-only">Search threads</span>
+          <input
+            class="h-10 w-full rounded border border-white/10 bg-[#05080c] px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
+            placeholder="Search threads, projects, status..."
+            value={query}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label class="min-w-0">
+          <span class="sr-only">Project filter</span>
+          <select
+            class="h-10 w-full rounded border border-white/10 bg-[#05080c] px-3 text-sm text-white outline-none focus:border-cyan-300/70 sm:w-44"
+            value={projectFilter}
+            onInput={(event) => setProjectFilter(event.currentTarget.value)}
+            onChange={(event) => setProjectFilter(event.currentTarget.value)}
+          >
+            <option value="all">All projects</option>
+            {projectOptions.map((project) => (
+              <option value={project}>{project}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
+        {([
+          ["all", "All"],
+          ["waiting", "Waiting"],
+          ["active", "Active"],
+          ["idle", "Idle"],
+          ["unknown", "Unknown"],
+        ] as Array<[ThreadFilter, string]>).map(([value, label]) => (
+          <button
+            class={`h-8 shrink-0 rounded border px-2 text-xs font-semibold transition ${
+              statusFilter === value
+                ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100"
+                : "border-white/10 text-zinc-400 hover:bg-white/10"
+            }`}
+            type="button"
+            onClick={() => setStatusFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div class="mt-3 grid gap-2">
+        {visibleRows.length === 0 ? (
+          <div class="rounded border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-400">
+            No threads match this filter.
+          </div>
+        ) : null}
+        {visibleRows.map((row) => {
           const selected = props.selectedThreadId === row.threadId && Boolean(row.threadId);
           const detail = [
             row.projectName,
+            row.cwd,
             row.pendingCards ? `${row.pendingCards} cards` : "",
             row.pendingIdeas ? `${row.pendingIdeas} ideas` : "",
             row.lastActivityAt ? formatAgo(row.lastActivityAt) : "",
@@ -2232,7 +2360,7 @@ function ThreadTable(props: {
               <div class="min-w-0">
                 <div class="flex min-w-0 items-center gap-2">
                   <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${threadDotTone(row.status)}`} />
-                  <p class="truncate text-sm font-medium text-white">{row.title}</p>
+                  <p class="truncate text-sm font-medium text-white">{threadDisplayTitle(row)}</p>
                 </div>
                 <p class="mt-1 truncate text-xs text-zinc-500">{detail}</p>
               </div>
@@ -2338,13 +2466,6 @@ function EmptyInbox(props: {
         ) : null}
       </div>
 
-      <ThreadTable
-        events={props.bridgeEvents}
-        selectedThreadId={props.selectedThreadId}
-        threads={props.threads}
-        onSelectThread={props.setSelectedThreadId}
-      />
-
       <div class="rounded border border-white/10 bg-[#080d12] p-3 text-left">
         <label class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
           Send an idea to Codex
@@ -2377,7 +2498,9 @@ function EmptyInbox(props: {
               <option value="">New Codex thread</option>
               {props.threads.map((thread) => (
                 <option value={thread.threadId}>
-                  {thread.threadTitle || shortId(thread.threadId)}
+                  {[thread.projectName || "Project", thread.threadTitle || shortId(thread.threadId)]
+                    .filter(Boolean)
+                    .join(" - ")}
                 </option>
               ))}
             </select>
@@ -2396,6 +2519,14 @@ function EmptyInbox(props: {
                 : "Start new thread"}
           </button>
       </div>
+
+      <ThreadTable
+        events={props.bridgeEvents}
+        selectedThreadId={props.selectedThreadId}
+        threads={props.threads}
+        onSelectThread={props.setSelectedThreadId}
+      />
+
       {props.latestEvent ? (
         <p class="px-1 text-xs text-zinc-500">
           Last thread state: {bridgeStatusLabel(props.latestEvent.status)}

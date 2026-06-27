@@ -33,10 +33,12 @@ const setup = args.has("--setup");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const forgetConnection = args.has("--forget");
+const syncThreads = args.has("--sync-threads");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
 const heartbeatMs = Number.parseInt(valueAfter("--heartbeat-ms") ?? "90000", 10);
+const threadSyncMs = Number.parseInt(valueAfter("--thread-sync-ms") ?? "300000", 10);
 const runningLeaseMs = Number.parseInt(valueAfter("--running-lease-ms") ?? "300000", 10);
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
@@ -1944,6 +1946,7 @@ async function forgetProjectConnection() {
 }
 
 let lastHeartbeatAt = 0;
+let lastThreadSyncAt = 0;
 
 async function touchBridgeHeartbeat({ force = false } = {}) {
   const current = Date.now();
@@ -1960,6 +1963,73 @@ async function touchBridgeHeartbeat({ force = false } = {}) {
   if (touched) {
     lastHeartbeatAt = current;
   }
+}
+
+async function syncKnownThreads({ force = false, quiet = false } = {}) {
+  if (dryRun || relayMode !== "app-server") {
+    return 0;
+  }
+
+  const current = Date.now();
+  if (!force && current - lastThreadSyncAt < threadSyncMs) {
+    return 0;
+  }
+
+  lastThreadSyncAt = current;
+
+  const db = await dumpDb();
+  const connectionId = bridgeConnectionId(db);
+  const threads = (db.tables?.codexThreads ?? [])
+    .filter((thread) => thread.connectionId === connectionId && thread.threadId)
+    .slice(0, 50);
+
+  if (!connectionId || threads.length === 0) {
+    return 0;
+  }
+
+  const client = await createAppServerClient();
+  let synced = 0;
+
+  try {
+    for (const thread of threads) {
+      try {
+        const read = await client.request("thread/read", {
+          threadId: thread.threadId,
+          includeTurns: false,
+        });
+        const metadata = threadMetadataFromThread(read?.thread, {
+          threadId: thread.threadId,
+          threadTitle: thread.threadTitle,
+          threadStatus: thread.threadStatus,
+          cwd: thread.cwd,
+          projectName: thread.projectName,
+          lastActivityAt: thread.lastActivityAt,
+        });
+        await runMutation("saveThreadMetadata", [
+          connectionId,
+          thread.threadId,
+          metadataJson(metadata),
+        ]);
+        synced += 1;
+      } catch (error) {
+        if (!quiet) {
+          console.warn(
+            `Could not sync Codex thread ${shortThreadId(thread.threadId)}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    }
+  } finally {
+    client.close();
+  }
+
+  if (!quiet) {
+    console.log(`Synced ${synced} ${synced === 1 ? "thread" : "threads"} from Codex.`);
+  }
+
+  return synced;
 }
 
 async function startNativeThread(options = {}) {
@@ -2320,6 +2390,11 @@ async function main() {
     return;
   }
 
+  if (syncThreads) {
+    await syncKnownThreads({ force: true });
+    return;
+  }
+
   if (e2eLocal) {
     await runLocalE2e();
     return;
@@ -2385,8 +2460,10 @@ async function main() {
   if (watch) {
     console.log(`Watching JustSwipe responses on port ${port} with ${relayMode} relay.`);
     await touchBridgeHeartbeat({ force: true });
+    await syncKnownThreads({ force: true, quiet: true });
     while (true) {
       await touchBridgeHeartbeat();
+      await syncKnownThreads({ quiet: true });
       const handled = await processQueued({ all: false, quiet: true });
       if (!handled) {
         await new Promise((resolve) => setTimeout(resolve, intervalMs));

@@ -1114,6 +1114,39 @@ export default capsule({
       }
     }),
 
+    saveThreadMetadata: mutation((ctx, connectionIdValue: string, threadIdValue: string, metadataJson = "") => {
+      const integration = ensureIntegration(ctx);
+      const connectionId = cleanText(connectionIdValue || integration.connectionId, 140);
+      const meta = parseThreadMetadata(metadataJson);
+      const threadId = cleanText(threadIdValue || meta.threadId, 140);
+
+      if (!connectionId || connectionId !== integration.connectionId || !threadId) {
+        return JSON.stringify({ ok: false });
+      }
+
+      const thread = upsertCodexThread(ctx, {
+        connectionId,
+        threadId,
+        threadTitle: meta.threadTitle,
+        threadStatus: meta.threadStatus,
+        cwd: meta.cwd || integration.cwd,
+        projectName: meta.projectName || integration.projectName,
+        lastActivityAt: meta.lastActivityAt || nowIso(),
+      });
+
+      if (integration.codexThreadId === threadId) {
+        ctx.db.integrations.update(integration.id, {
+          threadTitle: thread?.threadTitle || integration.threadTitle,
+          threadStatus: thread?.threadStatus || integration.threadStatus,
+          cwd: thread?.cwd || integration.cwd,
+          projectName: thread?.projectName || integration.projectName,
+          lastActivityAt: thread?.lastActivityAt || integration.lastActivityAt,
+        });
+      }
+
+      return JSON.stringify({ ok: Boolean(thread) });
+    }),
+
     disconnectIntegration: mutation((ctx) => {
       const existing = ensureIntegration(ctx);
 
