@@ -665,6 +665,14 @@ function formatAgo(value: string): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+function compactBridgeFailure(value = ""): string {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)[0]
+    ?.slice(0, 180) || "";
+}
+
 function plural(count: number, singular: string, pluralValue = `${singular}s`): string {
   return count === 1 ? singular : pluralValue;
 }
@@ -837,6 +845,8 @@ function bridgeHealthState(props: {
   const queuedEvents = props.bridgeEvents.filter((event) => event.status === "queued").length;
   const runningEvents = props.bridgeEvents.filter((event) => event.status === "running").length;
   const failedEvents = props.bridgeEvents.filter((event) => event.status === "failed").length;
+  const failedEvent = props.bridgeEvents.find((event) => event.status === "failed");
+  const failureDetail = compactBridgeFailure(failedEvent?.response);
   const context = latestProjectContext({
     integration: props.integration,
     bridgeEvents: props.bridgeEvents,
@@ -856,6 +866,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -873,6 +884,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -890,6 +902,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -907,6 +920,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -924,6 +938,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -941,6 +956,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -958,6 +974,7 @@ function bridgeHealthState(props: {
       queuedEvents,
       runningEvents,
       failedEvents,
+      failureDetail,
       fixtureProject,
       heartbeatFresh,
       heartbeatAge,
@@ -993,6 +1010,7 @@ function bridgeHealthState(props: {
     queuedEvents,
     runningEvents,
     failedEvents,
+    failureDetail,
     fixtureProject,
     heartbeatFresh,
     heartbeatAge,
@@ -1058,6 +1076,12 @@ function BridgeHealthPanel(props: {
                 <p class="mt-1 font-medium text-zinc-100">
                   {props.health.heartbeatFresh ? "Online" : "Stale"} · {props.health.heartbeatAge}
                 </p>
+              </div>
+            ) : null}
+            {props.health.failureDetail ? (
+              <div class="rounded border border-orange-300/20 bg-black/20 px-2 py-2">
+                <p class="text-zinc-500">Last error</p>
+                <p class="mt-1 break-words font-medium text-orange-100">{props.health.failureDetail}</p>
               </div>
             ) : null}
             <p class="text-xs leading-5 opacity-80">{props.health.action}</p>

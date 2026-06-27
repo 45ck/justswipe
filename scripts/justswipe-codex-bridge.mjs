@@ -2590,6 +2590,7 @@ async function main() {
   }
 
   if (setup) {
+    await clearConnectionState();
     const code = await createPairingCode();
     const started = await startNativeThread();
     if (!started.initialHandoffId) {

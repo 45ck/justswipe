@@ -425,6 +425,28 @@ function connectionFor(ctx: any): string {
   return integration ? integration.connectionId : defaultConnectionId;
 }
 
+function deleteRowsForConnectionOrOwner(
+  ctx: any,
+  tableName: "handoffs" | "bridgeEvents" | "codexThreads" | "bridgeHeartbeats",
+  connectionId: string,
+): void {
+  const table = ctx.db[tableName];
+  const deleted = new Set<string>();
+
+  if (connectionId) {
+    for (const row of table.where("connectionId", connectionId).all()) {
+      table.delete(row.id);
+      deleted.add(row.id);
+    }
+  }
+
+  for (const row of table.where("ownerId", ctx.auth.userId).all()) {
+    if (!deleted.has(row.id)) {
+      table.delete(row.id);
+    }
+  }
+}
+
 function canAccessHandoff(ctx: any, handoff: Handoff): boolean {
   if (handoff.ownerId === ctx.auth.userId) {
     return true;
@@ -1212,23 +1234,10 @@ export default capsule({
       const existing = ensureIntegration(ctx);
       const connectionId = existing.connectionId;
 
-      if (connectionId) {
-        for (const row of ctx.db.handoffs.where("connectionId", connectionId).all()) {
-          ctx.db.handoffs.delete(row.id);
-        }
-
-        for (const row of ctx.db.bridgeEvents.where("connectionId", connectionId).all()) {
-          ctx.db.bridgeEvents.delete(row.id);
-        }
-
-        for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
-          ctx.db.codexThreads.delete(row.id);
-        }
-
-        for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
-          ctx.db.bridgeHeartbeats.delete(row.id);
-        }
-      }
+      deleteRowsForConnectionOrOwner(ctx, "handoffs", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeEvents", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "codexThreads", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeHeartbeats", connectionId);
 
       for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
         ctx.db.pairingCodes.delete(row.id);
@@ -1358,21 +1367,10 @@ export default capsule({
         return;
       }
 
-      for (const row of ctx.db.handoffs.where("connectionId", connectionId).all()) {
-        ctx.db.handoffs.delete(row.id);
-      }
-
-      for (const row of ctx.db.bridgeEvents.where("connectionId", connectionId).all()) {
-        ctx.db.bridgeEvents.delete(row.id);
-      }
-
-      for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
-        ctx.db.codexThreads.delete(row.id);
-      }
-
-      for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
-        ctx.db.bridgeHeartbeats.delete(row.id);
-      }
+      deleteRowsForConnectionOrOwner(ctx, "handoffs", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeEvents", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "codexThreads", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeHeartbeats", connectionId);
 
       for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
         ctx.db.pairingCodes.delete(row.id);
@@ -1708,21 +1706,10 @@ export default capsule({
         return;
       }
 
-      for (const row of ctx.db.handoffs.where("connectionId", connectionId).all()) {
-        ctx.db.handoffs.delete(row.id);
-      }
-
-      for (const row of ctx.db.bridgeEvents.where("connectionId", connectionId).all()) {
-        ctx.db.bridgeEvents.delete(row.id);
-      }
-
-      for (const row of ctx.db.codexThreads.where("connectionId", connectionId).all()) {
-        ctx.db.codexThreads.delete(row.id);
-      }
-
-      for (const row of ctx.db.bridgeHeartbeats.where("connectionId", connectionId).all()) {
-        ctx.db.bridgeHeartbeats.delete(row.id);
-      }
+      deleteRowsForConnectionOrOwner(ctx, "handoffs", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeEvents", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "codexThreads", connectionId);
+      deleteRowsForConnectionOrOwner(ctx, "bridgeHeartbeats", connectionId);
 
       for (const row of ctx.db.pairingCodes.where("ownerId", ctx.auth.userId).all()) {
         ctx.db.pairingCodes.delete(row.id);
