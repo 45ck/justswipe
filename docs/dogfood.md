@@ -116,4 +116,5 @@ Recent proven states:
 
 - Hosted self-dogfood auto-relayed through the hosted watcher and returned idle.
 - Local real-project dogfood against `E:\random-number-generator` emitted a card, accepted a swipe, implemented `--summary`, passed 15 tests, then later repeated read-only with no edits.
+- Local current-thread real-project proof on `E:\random-number-generator` routed through `bridge:idea:current`, relayed to thread `019f1047-6dcb-7690-8286-549c9d77cfb4`, returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, left the RNG worktree clean, and passed 15 tests.
 - `bridge:status` now exposes `bridgeHeartbeat` so stale watcher state is visible before the user swipes.
