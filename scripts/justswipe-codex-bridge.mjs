@@ -45,6 +45,7 @@ const heartbeatMs = Number.parseInt(valueAfter("--heartbeat-ms") ?? "90000", 10)
 const threadSyncMs = Number.parseInt(valueAfter("--thread-sync-ms") ?? "300000", 10);
 const runningLeaseMs = Number.parseInt(valueAfter("--running-lease-ms") ?? "300000", 10);
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
+const codexRetryDelayMs = Number.parseInt(valueAfter("--codex-retry-delay-ms") ?? "7000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
 const threadPromptArg = valueAfter("--prompt");
 const threadPromptFile = valueAfter("--prompt-file");
@@ -1498,6 +1499,40 @@ async function runCodex(event) {
   }
 
   throw new Error(`Unknown relay mode "${relayMode}". Use app-server or exec.`);
+}
+
+function isTransientCodexRelayError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+
+  return [
+    /database is locked/i,
+    /failed to initialize sqlite state runtime/i,
+    /failed to initialize state runtime/i,
+    /app-server closed before responding/i,
+    /ECONNRESET/i,
+    /EPIPE/i,
+  ].some((pattern) => pattern.test(message));
+}
+
+async function runCodexWithTransientRetry(event, { quiet = false } = {}) {
+  try {
+    return await runCodex(event);
+  } catch (error) {
+    if (!isTransientCodexRelayError(error)) {
+      throw error;
+    }
+
+    if (!quiet) {
+      const message = error instanceof Error ? error.message : String(error || "");
+      console.warn(
+        `Transient Codex relay error for ${event.handoffId || event.id}; retrying once in ${codexRetryDelayMs}ms.`,
+      );
+      console.warn(message.split("\n")[0]);
+    }
+
+    await sleep(codexRetryDelayMs);
+    return runCodex(event);
+  }
 }
 
 function extractNextHandoff(response) {
@@ -2982,7 +3017,7 @@ async function processQueued({ all, quiet }) {
         touchRunningEvent(event).catch(() => {});
       }, Math.max(15_000, Math.min(heartbeatMs, 60_000)));
       leaseTimer.unref?.();
-      const relayResult = await runCodex(event);
+      const relayResult = await runCodexWithTransientRetry(event, { quiet });
       const nextHandoffId = await maybeCreateNextHandoff(event, relayResult);
       const responseText = nextHandoffId
         ? `${relayResult.response}\n\nCreated next JustSwipe handoff: ${nextHandoffId}`
