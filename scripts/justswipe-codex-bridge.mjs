@@ -19,6 +19,7 @@ const inspectToken = valueAfter("--inspect-token") ?? process.env.JUSTSWIPE_INSP
 const jsonOutput = args.has("--json");
 const dryRun = args.has("--dry-run");
 const doctorReport = args.has("--doctor");
+const failOnAttention = args.has("--fail-on-attention") || args.has("--fail-if-not-ready");
 const statusReport = args.has("--status") || doctorReport;
 const runAll = args.has("--all");
 const watch = args.has("--watch");
@@ -1216,6 +1217,12 @@ function doctorVerdictFor(report) {
   };
 }
 
+function applyDoctorExitCode(report) {
+  if (failOnAttention && report.doctor && !report.doctor.ready) {
+    process.exitCode = 2;
+  }
+}
+
 async function printStatusReport() {
   let db;
   let dumpRetryCount = 0;
@@ -1274,6 +1281,7 @@ async function printStatusReport() {
     };
     if (doctorReport) {
       report.doctor = doctorVerdictFor(report);
+      applyDoctorExitCode(report);
     }
 
     if (jsonOutput) {
@@ -1373,6 +1381,7 @@ async function printStatusReport() {
   if (doctorReport) {
     report.installDocs = await installDocDoctor();
     report.doctor = doctorVerdictFor(report);
+    applyDoctorExitCode(report);
   }
 
   if (jsonOutput) {

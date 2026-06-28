@@ -34,6 +34,8 @@
     "bridge:sync-threads": "node scripts/justswipe-codex-bridge.mjs --sync-threads",
     "bridge:sync-threads:hosted": "node scripts/justswipe-codex-bridge.mjs --sync-threads --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:doctor": "node scripts/justswipe-codex-bridge.mjs --doctor",
+    "bridge:doctor:ready": "node scripts/justswipe-codex-bridge.mjs --doctor --json --fail-on-attention",
+    "bridge:doctor:ready:hosted": "node scripts/justswipe-codex-bridge.mjs --doctor --json --fail-on-attention --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:e2e-local": "node scripts/justswipe-codex-bridge.mjs --e2e-local",
     "bridge:e2e-hosted": "node scripts/justswipe-codex-bridge.mjs --e2e-hosted",
     "bridge:pair": "node scripts/justswipe-codex-bridge.mjs --pair",

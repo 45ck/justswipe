@@ -220,6 +220,7 @@ A successful install means:
 - `queuedBridgeEvents` is `0`, or `npm run bridge:watch -- --app-url <app-url> --daemon` is running to relay them.
 - The connection panel shows the expected project/repo path and a fresh bridge heartbeat when the watcher is running.
 - `npm run bridge:doctor -- --app-url <app-url> --json` reports `"doctor": { "status": "ready" }` plus the canonical GitHub install doc, app mirror state, pairing state, queue state, and next action.
+- `npm run bridge:doctor:ready -- --app-url <app-url>` exits nonzero when the bridge is not ready, so setup scripts can fail fast.
 - `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` proves the local setup, Codex-emitted first handoff, response relay, and target-repo doctor loop when hosted quota blocks cloud testing.
 - After hosted quota resets, `npm run deploy:hosted` refreshes the hosted app, then `npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000` proves the same loop against the hosted app.
 - A JustSwipe handoff was queued, or the exact blocker and next command were reported.

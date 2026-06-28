@@ -25,6 +25,8 @@ npm --silent run bridge:status -- --json
 npm --silent run bridge:status:hosted -- --json
 npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
 npm --silent run bridge:doctor -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
+npm --silent run bridge:doctor:ready -- --app-url http://localhost:3001
+npm --silent run bridge:doctor:ready:hosted
 ```
 
 Required status before testing:

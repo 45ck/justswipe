@@ -130,6 +130,7 @@ Even with accounts, the bridge still needs to register a trusted local connectio
 
 - `justswipe doctor`: verify hosted app, bridge, repo install, pair status, and one round trip.
 - `npm run bridge:doctor -- --app-url <app-url> --json` now verifies the raw install doc, app mirror state, pairing state, queue state, current thread, and next action without mutating hosted state. It returns `doctor.status: ready` only when the project is paired, the current thread is known, the watcher heartbeat is fresh, and no queued/running/failed bridge work is left behind.
+- `npm run bridge:doctor:ready -- --app-url <app-url>` uses the same checks and exits nonzero when `doctor.status` is not `ready`.
 - `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` now runs the local full-loop proof against a disposable target repo.
 - After quota resets, `npm run deploy:hosted` refreshes the hosted app and `npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000` runs the same proof against hosted JustSwipe.
 - Add Device modal in the app with QR and expiry countdown.
