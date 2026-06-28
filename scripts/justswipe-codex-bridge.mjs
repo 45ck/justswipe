@@ -35,6 +35,7 @@ const clearState = args.has("--clear");
 const forgetConnection = args.has("--forget");
 const syncThreads = args.has("--sync-threads");
 const retryFailed = args.has("--retry-failed");
+const forceSetupCard = args.has("--setup-card");
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -2138,6 +2139,22 @@ function newestThreadForConnection(db, connectionId) {
     )[0];
 }
 
+function hasActivePairedDevice(db, connectionId) {
+  return (db.tables?.integrations ?? []).some((row) =>
+    row.connectionId === connectionId && row.pairedUntil && isFuture(row.pairedUntil),
+  );
+}
+
+async function shouldCreateSetupHandoff() {
+  if (forceSetupCard) {
+    return true;
+  }
+
+  const db = await dumpDb();
+  const connectionId = bridgeConnectionId(db);
+  return !connectionId || !hasActivePairedDevice(db, connectionId);
+}
+
 async function createSetupHandoff(options = {}) {
   if (options.clear !== false) {
     await runMutation("clearConnectionState", []);
@@ -2749,8 +2766,10 @@ async function main() {
     try {
       const started = await startNativeThread();
       setupSucceeded = true;
-      if (!started.initialHandoffId) {
+      if (!started.initialHandoffId && await shouldCreateSetupHandoff()) {
         await createSetupHandoff({ clear: false, code });
+      } else if (!started.initialHandoffId) {
+        console.log("Setup handoff skipped: project already has an active JustSwipe pairing.");
       }
     } catch (error) {
       await recordSetupFailure(error);
