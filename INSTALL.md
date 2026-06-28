@@ -115,6 +115,16 @@ If it reports `failedBridgeEvents > 0`, fix the bridge/Codex error, then retry f
 npm run bridge:retry-failed -- --app-url $app
 ```
 
+To queue an idea from the bridge instead of the web composer:
+
+```powershell
+# Start a new Codex thread in the paired project
+npm run bridge:idea -- --app-url $app --idea "Plan the smallest useful next slice."
+
+# Send to a known existing Codex thread
+npm run bridge:idea -- --app-url $app --thread-id <thread-id> --idea "Review this repo and ask JustSwipe for one product decision."
+```
+
 The site connection panel shows the paired project, repo path, queued responses, relay state, and watcher heartbeat. If it shows the wrong repo or an E2E/test path, use Forget project in the connection panel or run `npm run bridge:forget:hosted`, then re-pair from the target repo.
 
 ## Hosted Mutation Quota Fallback
