@@ -425,6 +425,28 @@ function statusEventSummary(event) {
   };
 }
 
+function statusHandoffSummary(handoff) {
+  const cards = parseCardsJson(handoff.cardsJson);
+  const activeIndex = Number.parseInt(handoff.activeCardIndex || "0", 10) || 0;
+  const card = cards[activeIndex] || {};
+
+  return {
+    handoffId: handoff.handoffId || handoff.id,
+    status: handoff.status || "unknown",
+    threadId: handoff.threadId || "",
+    threadTitle: handoff.threadTitle || shortThreadId(handoff.threadId || ""),
+    projectName: handoff.projectName || "",
+    cwd: handoff.cwd || "",
+    activeCardIndex: activeIndex,
+    cardCount: cards.length,
+    cardId: card.cardId || "",
+    cardTitle: card.title || "",
+    recommendedAction: card.recommendedAction || "",
+    questionType: card.questionType || "",
+    updatedAt: handoff.updatedAt || handoff.createdAt || "",
+  };
+}
+
 async function fetchTextCheck(url, expected = []) {
   try {
     const response = await fetch(url);
@@ -1167,6 +1189,7 @@ async function printStatusReport() {
       activePairCodes: 0,
       activeHandoffs: 0,
       activeHandoffStatuses: {},
+      activeHandoffCards: [],
       queuedBridgeEvents: 0,
       runningBridgeEvents: 0,
       failedBridgeEvents: 0,
@@ -1225,6 +1248,7 @@ async function printStatusReport() {
   const recentThreads = recentRows(threads).map(statusThreadSummary);
   const threadSummaries = threads.map(statusThreadSummary);
   const recentBridgeEvents = recentRows([...queued, ...running, ...failed]).map(statusEventSummary);
+  const activeHandoffCards = activeHandoffs.map(statusHandoffSummary);
   const currentThread = recentThreads[0];
   const nextAction = failed.length
     ? `fix the bridge error, then retry: npm run bridge:retry-failed -- --app-url ${appBaseUrl()}`
@@ -1251,6 +1275,7 @@ async function printStatusReport() {
     activePairCodes: activePairCodes.length,
     activeHandoffs: activeHandoffs.length,
     activeHandoffStatuses: statusCounts(activeHandoffs),
+    activeHandoffCards,
     queuedBridgeEvents: queued.length,
     runningBridgeEvents: running.length,
     failedBridgeEvents: failed.length,
@@ -1285,6 +1310,12 @@ async function printStatusReport() {
   console.log(`pairedDevices: ${report.pairedDevices}`);
   console.log(`activePairCodes: ${report.activePairCodes}`);
   console.log(`activeHandoffs: ${report.activeHandoffs} (${formatCounts(report.activeHandoffStatuses)})`);
+  for (const handoff of report.activeHandoffCards) {
+    const position = `${handoff.activeCardIndex + 1}/${Math.max(handoff.cardCount, 1)}`;
+    console.log(
+      `- ${handoff.status}: ${handoff.threadTitle || handoff.threadId || "unknown thread"} -> ${handoff.cardTitle || handoff.cardId || "unknown card"} (${position}, ${handoff.recommendedAction || "no recommendation"})`,
+    );
+  }
   console.log(`queuedBridgeEvents: ${report.queuedBridgeEvents}`);
   console.log(`runningBridgeEvents: ${report.runningBridgeEvents}`);
   console.log(`failedBridgeEvents: ${report.failedBridgeEvents}`);
