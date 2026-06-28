@@ -117,4 +117,5 @@ Recent proven states:
 - Hosted self-dogfood auto-relayed through the hosted watcher and returned idle.
 - Local real-project dogfood against `E:\random-number-generator` emitted a card, accepted a swipe, implemented `--summary`, passed 15 tests, then later repeated read-only with no edits.
 - Local current-thread real-project proof on `E:\random-number-generator` routed through `bridge:idea:current`, relayed to thread `019f1047-6dcb-7690-8286-549c9d77cfb4`, returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, left the RNG worktree clean, and passed 15 tests.
+- Local isolated E2E passed against `http://localhost:3001`: disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782690731069-16628`, thread `019f10a5-d994-7092-9c17-f73d24861302`, initial handoff `handoff-mqyg5dnu-qv32c4`, simulated swipe `Build doctor fixture`, bridge relay back into Codex, generated `scripts/justswipe-doctor.ps1`, and normal/JSON doctor checks passed.
 - `bridge:status` now exposes `bridgeHeartbeat` so stale watcher state is visible before the user swipes.

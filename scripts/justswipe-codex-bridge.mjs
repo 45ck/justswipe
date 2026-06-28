@@ -1813,6 +1813,23 @@ async function createPairingCode() {
   return code;
 }
 
+async function pairBridgeDevice(label = "JustSwipe bridge") {
+  const deviceJson = JSON.stringify({
+    deviceId: `justswipe-${guest}-bridge`,
+    label,
+    browser: "Bridge",
+    platform: process.platform,
+  });
+  const code = await runMutation("createPairingCode", [deviceJson]);
+  const message = await runMutation("pairWithCode", [code, deviceJson]);
+
+  if (!String(message || "").includes("Connected")) {
+    throw new Error(`Could not pair bridge device with code ${code}: ${message || "unknown error"}`);
+  }
+
+  return { code, message };
+}
+
 async function createDemoHandoff() {
   await runMutation("resetDemo", []);
   console.log("Demo handoff bundle reset.");
@@ -2838,6 +2855,7 @@ async function runBridgeE2e(mode) {
 
   const target = await prepareE2eTarget();
   await clearConnectionState();
+  const paired = await pairBridgeDevice(`JustSwipe ${mode} E2E bridge`);
 
   const e2ePrompt = [
     "Install JustSwipe steering in this disposable repo and preserve existing instructions.",
@@ -2936,6 +2954,7 @@ async function runBridgeE2e(mode) {
     appUrl: appBaseUrl(),
     target,
     threadId: started.threadId,
+    pairCode: paired.code,
     workAnswer,
     doctorPath,
   };
@@ -2948,6 +2967,7 @@ async function runBridgeE2e(mode) {
   console.log(`JustSwipe ${mode} E2E passed.`);
   console.log(`target: ${report.target}`);
   console.log(`threadId: ${report.threadId}`);
+  console.log(`pairCode: ${report.pairCode}`);
   console.log(`workAnswer: ${report.workAnswer.reply}`);
   console.log(`doctor: ${report.doctorPath}`);
 }
