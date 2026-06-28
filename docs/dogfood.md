@@ -47,7 +47,7 @@ Use this to prove hosted JustSwipe can steer the JustSwipe repo itself.
 
 ```powershell
 Set-Location E:\justswipe
-npm --silent run bridge:idea:hosted -- --thread-id 019f100e-ad5e-71a1-a210-97d544689620 --idea "Hosted self-dogfood proof: inspect the JustSwipe repo read-only, report bridge state briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
+npm --silent run bridge:idea:hosted -- --current-thread --idea "Hosted self-dogfood proof: inspect the JustSwipe repo read-only, report bridge state briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
 ```
 
 Then verify the watcher relays automatically:
@@ -71,8 +71,10 @@ Use this to prove a separate repo can be steered through JustSwipe.
 
 ```powershell
 Set-Location E:\justswipe
-npm --silent run bridge:idea -- --thread-id 019f1047-6dcb-7690-8286-549c9d77cfb4 --idea "Real-project dogfood proof for RNG: inspect current repo state read-only, run python -m unittest discover -s tests, report briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
+npm --silent run bridge:idea -- --current-thread --idea "Real-project dogfood proof for RNG: inspect current repo state read-only, run python -m unittest discover -s tests, report briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
 ```
+
+Use `--thread-id <thread-id>` instead of `--current-thread` when proving a specific older thread.
 
 Then verify:
 

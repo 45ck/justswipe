@@ -1787,7 +1787,19 @@ async function queuePlanningIdea() {
     throw new Error("Pass an idea with --idea \"...\".");
   }
 
-  const targetThreadId = valueAfter("--thread-id") ?? "";
+  let targetThreadId = valueAfter("--thread-id") ?? "";
+
+  if (!targetThreadId && args.has("--current-thread")) {
+    const db = await dumpDb();
+    const connectionId = bridgeConnectionId(db);
+    const thread = newestThreadForConnection(db, connectionId);
+    targetThreadId = thread?.threadId || "";
+
+    if (!targetThreadId) {
+      throw new Error("No current Codex thread found for this JustSwipe connection.");
+    }
+  }
+
   const route = targetThreadId ? "existing_thread" : "new_thread";
   const result = await runMutation("startPlanningDiscussion", [
     ideaPrompt.trim(),
