@@ -392,7 +392,10 @@ function statusThreadSummary(thread) {
   const pendingCards = thread.pendingCards || "0";
   const pendingIdeas = thread.pendingIdeas || "0";
   const hasPendingWork = Number.parseInt(pendingCards, 10) > 0 || Number.parseInt(pendingIdeas, 10) > 0;
-  const threadStatus = thread.threadStatus === "awaiting_justswipe" && !hasPendingWork ? "idle" : thread.threadStatus;
+  const threadStatus =
+    ["awaiting_justswipe", "unknown"].includes(thread.threadStatus) && !hasPendingWork
+      ? "idle"
+      : thread.threadStatus;
 
   return {
     threadId: thread.threadId || "",

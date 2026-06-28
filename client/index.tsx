@@ -2116,7 +2116,7 @@ function numberValue(value: string): number {
 }
 
 function effectiveThreadStatus(status: CodexThreadStatus, pendingCards: number, pendingIdeas: number): CodexThreadStatus {
-  if (status === "awaiting_justswipe" && pendingCards === 0 && pendingIdeas === 0) {
+  if ((status === "awaiting_justswipe" || status === "unknown") && pendingCards === 0 && pendingIdeas === 0) {
     return "idle";
   }
 
