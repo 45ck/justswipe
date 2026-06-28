@@ -23,6 +23,8 @@ git status -sb
 npm run build
 npm --silent run bridge:status -- --json
 npm --silent run bridge:status:hosted -- --json
+npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
+npm --silent run bridge:doctor -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
 ```
 
 Required status before testing:
@@ -33,6 +35,7 @@ Required status before testing:
 - `queuedBridgeEvents: 0`
 - `runningBridgeEvents: 0`
 - `failedBridgeEvents: 0`
+- `doctor.status: ready`
 
 If `bridgeHeartbeat.status` is `stale` or `missing`, start the watcher for that app URL:
 

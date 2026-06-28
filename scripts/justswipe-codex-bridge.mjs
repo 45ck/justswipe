@@ -1189,6 +1189,33 @@ async function dumpDbForStatus() {
   throw lastError;
 }
 
+function doctorVerdictFor(report) {
+  const checks = {
+    connected: Boolean(report.connected),
+    currentProjectKnown: Boolean(report.currentProject && report.currentCwd),
+    currentThreadKnown: Boolean(report.currentThread),
+    bridgeHeartbeatOnline: report.bridgeHeartbeat?.status === "online" && report.bridgeHeartbeat?.fresh === true,
+    noActiveHandoffs: Number(report.activeHandoffs || 0) === 0,
+    noQueuedBridgeEvents: Number(report.queuedBridgeEvents || 0) === 0,
+    noRunningBridgeEvents: Number(report.runningBridgeEvents || 0) === 0,
+    noFailedBridgeEvents: Number(report.failedBridgeEvents || 0) === 0,
+    installDocReachable: report.installDocs ? report.installDocs.raw?.ok === true : true,
+    appInstallMirrorOkOrSkipped: report.installDocs
+      ? report.installDocs.appMirror?.ok === true || report.installDocs.appMirror?.skipped === true
+      : true,
+  };
+  const failedChecks = Object.entries(checks)
+    .filter(([, passed]) => !passed)
+    .map(([name]) => name);
+
+  return {
+    ready: failedChecks.length === 0,
+    status: failedChecks.length === 0 ? "ready" : "attention",
+    failedChecks,
+    checks,
+  };
+}
+
 async function printStatusReport() {
   let db;
   let dumpRetryCount = 0;
@@ -1245,6 +1272,9 @@ async function printStatusReport() {
       dbUnavailable: fallback,
       installDocs: doctorReport ? await installDocDoctor() : undefined,
     };
+    if (doctorReport) {
+      report.doctor = doctorVerdictFor(report);
+    }
 
     if (jsonOutput) {
       console.log(JSON.stringify(report, null, 2));
@@ -1261,6 +1291,10 @@ async function printStatusReport() {
       `installDocReachable: ${report.installDocs.raw.ok ? "yes" : "no"} (${report.installDocs.raw.status})`,
     );
     console.log(`appInstallMirror: skipped (${report.installDocs.appMirror.reason})`);
+    console.log(`doctor: ${report.doctor.status}`);
+    if (!report.doctor.ready) {
+      console.log(`doctorFailedChecks: ${report.doctor.failedChecks.join(", ")}`);
+    }
     return;
   }
 
@@ -1338,6 +1372,7 @@ async function printStatusReport() {
 
   if (doctorReport) {
     report.installDocs = await installDocDoctor();
+    report.doctor = doctorVerdictFor(report);
   }
 
   if (jsonOutput) {
@@ -1391,6 +1426,11 @@ async function printStatusReport() {
       console.log(
         `appInstallMirror: ${report.installDocs.appMirror.ok ? "ok" : "failed"} (${report.installDocs.appMirror.status})`,
       );
+    }
+
+    console.log(`doctor: ${report.doctor.status}`);
+    if (!report.doctor.ready) {
+      console.log(`doctorFailedChecks: ${report.doctor.failedChecks.join(", ")}`);
     }
   }
 }
