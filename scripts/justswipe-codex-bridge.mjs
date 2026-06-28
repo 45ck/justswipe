@@ -388,14 +388,19 @@ function recentRows(rows, limit = 5) {
 }
 
 function statusThreadSummary(thread) {
+  const pendingCards = thread.pendingCards || "0";
+  const pendingIdeas = thread.pendingIdeas || "0";
+  const hasPendingWork = Number.parseInt(pendingCards, 10) > 0 || Number.parseInt(pendingIdeas, 10) > 0;
+  const threadStatus = thread.threadStatus === "awaiting_justswipe" && !hasPendingWork ? "idle" : thread.threadStatus;
+
   return {
     threadId: thread.threadId || "",
     threadTitle: thread.threadTitle || shortThreadId(thread.threadId || ""),
-    threadStatus: thread.threadStatus || "unknown",
+    threadStatus: threadStatus || "unknown",
     projectName: thread.projectName || "",
     cwd: thread.cwd || "",
-    pendingCards: thread.pendingCards || "0",
-    pendingIdeas: thread.pendingIdeas || "0",
+    pendingCards,
+    pendingIdeas,
     lastActivityAt: thread.lastActivityAt || "",
   };
 }
@@ -1212,6 +1217,7 @@ async function printStatusReport() {
   );
   const connected = Boolean(connectionId && integration?.pairedUntil && isFuture(integration.pairedUntil));
   const recentThreads = recentRows(threads).map(statusThreadSummary);
+  const threadSummaries = threads.map(statusThreadSummary);
   const recentBridgeEvents = recentRows([...queued, ...running, ...failed]).map(statusEventSummary);
   const currentThread = recentThreads[0];
   const nextAction = failed.length
@@ -1243,7 +1249,7 @@ async function printStatusReport() {
     runningBridgeEvents: running.length,
     failedBridgeEvents: failed.length,
     threads: threads.length,
-    threadStatuses: statusCounts(threads, "threadStatus"),
+    threadStatuses: statusCounts(threadSummaries, "threadStatus"),
     recentThreads,
     recentBridgeEvents,
     dumpRetryCount,

@@ -2115,6 +2115,14 @@ function numberValue(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function effectiveThreadStatus(status: CodexThreadStatus, pendingCards: number, pendingIdeas: number): CodexThreadStatus {
+  if (status === "awaiting_justswipe" && pendingCards === 0 && pendingIdeas === 0) {
+    return "idle";
+  }
+
+  return status;
+}
+
 function threadRows(threads: CodexThread[], events: BridgeEvent[]): ThreadTableRow[] {
   const activeEvents = events.filter((event) =>
     ["queued", "running"].includes(event.status),
@@ -2129,21 +2137,23 @@ function threadRows(threads: CodexThread[], events: BridgeEvent[]): ThreadTableR
 
   const rows: ThreadTableRow[] = threads.map((thread) => {
     const event = latestEventByThread.get(thread.threadId);
-    const status = (event?.threadStatus || event?.status || thread.threadStatus || "unknown") as CodexThreadStatus;
+    const rawStatus = (event?.threadStatus || event?.status || thread.threadStatus || "unknown") as CodexThreadStatus;
+    const pendingCards = numberValue(thread.pendingCards);
     const pendingIdeas = activeEvents.filter(
       (item) => item.threadId === thread.threadId && item.action.includes("idea"),
     ).length;
+    const effectivePendingIdeas = Math.max(numberValue(thread.pendingIdeas), pendingIdeas);
 
     return {
       key: thread.id || thread.threadId,
       threadId: thread.threadId,
       title: thread.threadTitle || shortId(thread.threadId),
-      status,
+      status: effectiveThreadStatus(rawStatus, pendingCards, effectivePendingIdeas),
       projectName: thread.projectName || event?.projectName || "Project",
       cwd: thread.cwd || event?.cwd || "",
       lastActivityAt: event?.updatedAt || event?.createdAt || thread.lastActivityAt || thread.updatedAt,
-      pendingCards: numberValue(thread.pendingCards),
-      pendingIdeas: Math.max(numberValue(thread.pendingIdeas), pendingIdeas),
+      pendingCards,
+      pendingIdeas: effectivePendingIdeas,
       synthetic: false,
     };
   });
