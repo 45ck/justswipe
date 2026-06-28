@@ -449,6 +449,36 @@ function statusHandoffSummary(handoff) {
   };
 }
 
+function statusBridgeHeartbeat(db, connectionId) {
+  const heartbeat = (db.tables?.bridgeHeartbeats ?? [])
+    .filter((row) => connectionId && row.connectionId === connectionId)
+    .sort((left, right) => String(right.lastSeenAt || "").localeCompare(String(left.lastSeenAt || "")))[0];
+
+  if (!heartbeat?.lastSeenAt) {
+    return {
+      status: "missing",
+      fresh: false,
+      lastSeenAt: "",
+      ageSeconds: null,
+      label: "",
+      appUrl: "",
+    };
+  }
+
+  const seenAt = new Date(heartbeat.lastSeenAt).getTime();
+  const ageSeconds = Number.isFinite(seenAt) ? Math.max(0, Math.round((Date.now() - seenAt) / 1000)) : null;
+  const fresh = ageSeconds !== null && ageSeconds < 180;
+
+  return {
+    status: fresh ? "online" : "stale",
+    fresh,
+    lastSeenAt: heartbeat.lastSeenAt,
+    ageSeconds,
+    label: heartbeat.label || "",
+    appUrl: heartbeat.appUrl || "",
+  };
+}
+
 async function fetchTextCheck(url, expected = []) {
   try {
     const response = await fetch(url);
@@ -1192,6 +1222,14 @@ async function printStatusReport() {
       activeHandoffs: 0,
       activeHandoffStatuses: {},
       activeHandoffCards: [],
+      bridgeHeartbeat: {
+        status: "missing",
+        fresh: false,
+        lastSeenAt: "",
+        ageSeconds: null,
+        label: "",
+        appUrl: "",
+      },
       queuedBridgeEvents: 0,
       runningBridgeEvents: 0,
       failedBridgeEvents: 0,
@@ -1251,7 +1289,9 @@ async function printStatusReport() {
   const threadSummaries = threads.map(statusThreadSummary);
   const recentBridgeEvents = recentRows([...queued, ...running, ...failed]).map(statusEventSummary);
   const activeHandoffCards = activeHandoffs.map(statusHandoffSummary);
+  const bridgeHeartbeat = statusBridgeHeartbeat(db, connectionId);
   const currentThread = recentThreads[0];
+  const watcherCommand = `npm run bridge:watch -- --app-url ${appBaseUrl()} --daemon`;
   const nextAction = failed.length
     ? `fix the bridge error, then retry: npm run bridge:retry-failed -- --app-url ${appBaseUrl()}`
     : running.length
@@ -1260,6 +1300,8 @@ async function printStatusReport() {
         ? `run: npm run bridge${runAll ? ":all" : ""} -- --app-url ${appBaseUrl()}`
         : activeHandoffs.some((row) => ["awaiting_justswipe", "in_progress"].includes(row.status))
       ? `open: ${appBaseUrl()}`
+      : connected && !bridgeHeartbeat.fresh
+        ? `start watcher: ${watcherCommand}`
       : connected
         ? "no cards waiting; send an idea from JustSwipe or keep watcher running"
         : `pair: npm run bridge:pair -- --app-url ${appBaseUrl()} --open`;
@@ -1278,6 +1320,7 @@ async function printStatusReport() {
     activeHandoffs: activeHandoffs.length,
     activeHandoffStatuses: statusCounts(activeHandoffs),
     activeHandoffCards,
+    bridgeHeartbeat,
     queuedBridgeEvents: queued.length,
     runningBridgeEvents: running.length,
     failedBridgeEvents: failed.length,
@@ -1311,6 +1354,11 @@ async function printStatusReport() {
   console.log(`pairedUntil: ${report.pairedUntil || "none"}`);
   console.log(`pairedDevices: ${report.pairedDevices}`);
   console.log(`activePairCodes: ${report.activePairCodes}`);
+  console.log(
+    `bridgeHeartbeat: ${report.bridgeHeartbeat.status}${
+      report.bridgeHeartbeat.ageSeconds === null ? "" : ` (${report.bridgeHeartbeat.ageSeconds}s ago)`
+    }`,
+  );
   console.log(`activeHandoffs: ${report.activeHandoffs} (${formatCounts(report.activeHandoffStatuses)})`);
   for (const handoff of report.activeHandoffCards) {
     const position = `${handoff.activeCardIndex + 1}/${Math.max(handoff.cardCount, 1)}`;
