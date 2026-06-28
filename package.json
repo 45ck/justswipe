@@ -29,6 +29,8 @@
     "bridge:answer-first-card:hosted": "node scripts/justswipe-codex-bridge.mjs --answer-first-card --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:idea": "node scripts/justswipe-codex-bridge.mjs",
     "bridge:idea:hosted": "node scripts/justswipe-codex-bridge.mjs --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
+    "bridge:idea:current": "node scripts/justswipe-codex-bridge.mjs --current-thread",
+    "bridge:idea:current:hosted": "node scripts/justswipe-codex-bridge.mjs --current-thread --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:sync-threads": "node scripts/justswipe-codex-bridge.mjs --sync-threads",
     "bridge:sync-threads:hosted": "node scripts/justswipe-codex-bridge.mjs --sync-threads --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:doctor": "node scripts/justswipe-codex-bridge.mjs --doctor",
