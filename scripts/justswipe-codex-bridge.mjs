@@ -36,6 +36,8 @@ const forgetConnection = args.has("--forget");
 const syncThreads = args.has("--sync-threads");
 const retryFailed = args.has("--retry-failed");
 const forceSetupCard = args.has("--setup-card");
+const answerFirstCard = args.has("--answer-first-card");
+const replyArg = valueAfter("--reply") ?? "";
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -2547,6 +2549,36 @@ async function submitFirstYesReply(handoff, preferredReply = "") {
   };
 }
 
+async function answerFirstActiveCard() {
+  const db = await dumpDb();
+  const handoff = activeHandoffRows(db)[0];
+
+  if (!handoff) {
+    throw new Error("No active JustSwipe card is waiting.");
+  }
+
+  const response = await submitFirstYesReply(handoff, replyArg);
+  const report = {
+    handoffId: handoff.handoffId || handoff.id,
+    threadId: handoff.threadId || "",
+    threadTitle: handoff.threadTitle || "",
+    projectName: handoff.projectName || "",
+    cardId: response.cardId,
+    title: response.title,
+    reply: response.reply,
+  };
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log(`Answered JustSwipe card: ${report.handoffId}`);
+  console.log(`thread: ${report.threadTitle || report.threadId || "unknown"}`);
+  console.log(`card: ${report.title}`);
+  console.log(`reply: ${report.reply}`);
+}
+
 async function prepareE2eTarget() {
   const explicitCwd = process.argv.includes("--cwd");
   const defaultRoot = resolve(root, ".lakebed");
@@ -2748,6 +2780,11 @@ async function main() {
 
   if (syncThreads) {
     await syncKnownThreads({ force: true });
+    return;
+  }
+
+  if (answerFirstCard) {
+    await answerFirstActiveCard();
     return;
   }
 
