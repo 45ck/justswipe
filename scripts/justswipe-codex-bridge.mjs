@@ -96,7 +96,38 @@ function setupThreadPrompt(prompt) {
     "",
     "Minimum handoff marker shape the skill must document:",
     "JUSTSWIPE_HANDOFF_JSON",
-    "{\"reason\":\"Need one human decision before continuing.\",\"cards\":[{\"cardId\":\"next-decision\",\"title\":\"Pick the next step\",\"summary\":\"One clear choice.\",\"recommendedAction\":\"yes\",\"visualContext\":\"Current state, tradeoff, risk, and next effect.\",\"questionType\":\"yes_no\",\"quickRepliesByAction\":{\"yes\":[\"Do this\",\"Keep it simple\",\"Ship this slice\"],\"no\":[\"Not this\",\"Too broad\",\"Try smaller\"]},\"requiredFieldsByAction\":{\"yes\":[\"quick_reply\"],\"no\":[\"quick_reply\"]},\"yesPayloadSchema\":[],\"noPayloadSchema\":[],\"morePayloadSchema\":[],\"laterPayloadSchema\":[],\"optionPayloadSchemas\":{},\"agentHtmlPreview\":\"<section><h2>Decision context</h2><p>Show the concrete thing the user is deciding on.</p></section>\"}]}",
+    JSON.stringify(
+      {
+        reason: "Need one human decision before continuing.",
+        cards: [
+          {
+            cardId: "next-decision",
+            title: "Pick the next step",
+            summary: "One clear choice.",
+            recommendedAction: "yes",
+            visualContext: "Current state, tradeoff, risk, and next effect.",
+            questionType: "yes_no",
+            quickRepliesByAction: {
+              yes: ["Do this", "Keep it simple", "Ship this slice"],
+              no: ["Not this", "Too broad", "Try smaller"],
+            },
+            requiredFieldsByAction: {
+              yes: ["quick_reply"],
+              no: ["quick_reply"],
+            },
+            yesPayloadSchema: [],
+            noPayloadSchema: [],
+            morePayloadSchema: [],
+            laterPayloadSchema: [],
+            optionPayloadSchemas: {},
+            agentHtmlPreview:
+              "<section><h2>Decision context</h2><p>Show the concrete thing the user is deciding on.</p></section>",
+          },
+        ],
+      },
+      null,
+      2,
+    ),
     "END_JUSTSWIPE_HANDOFF_JSON",
     "AWAITING_JUSTSWIPE_RESPONSE next-decision",
     "",
@@ -1060,22 +1091,63 @@ async function dumpDb() {
   return parseDump(result.stdout);
 }
 
+function isTransientDumpError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /Lakebed DB dump failed/i.test(message) && !/mutations quota exceeded/i.test(message);
+}
+
+function sleep(ms) {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+async function dumpDbForStatus() {
+  const attempts = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return {
+        db: await dumpDb(),
+        dumpRetryCount: attempt - 1,
+      };
+    } catch (error) {
+      lastError = error;
+
+      if (!isTransientDumpError(error) || attempt === attempts) {
+        throw error;
+      }
+
+      await sleep(350 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
 async function printStatusReport() {
   let db;
+  let dumpRetryCount = 0;
 
   try {
-    db = await dumpDb();
+    const statusDump = await dumpDbForStatus();
+    db = statusDump.db;
+    dumpRetryCount = statusDump.dumpRetryCount;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "");
 
-    if (!doctorReport || isLocalAppUrl() || !/mutations quota exceeded/i.test(message)) {
+    const canReturnUnavailableStatus =
+      statusReport && (isLocalAppUrl() || (doctorReport && /mutations quota exceeded/i.test(message)));
+
+    if (!canReturnUnavailableStatus) {
       throw error;
     }
 
-    const fallback = formatLakebedError(message);
+    const fallback = isLocalAppUrl()
+      ? `local JustSwipe app is not reachable at ${appBaseUrl()}. Start it with: npm run dev`
+      : formatLakebedError(message);
     const report = {
       appUrl: appBaseUrl(),
-      mode: "hosted",
+      mode: isLocalAppUrl() ? "local" : "hosted",
       guest: ownerIdForGuest(),
       connected: false,
       connectionId: "",
@@ -1089,10 +1161,15 @@ async function printStatusReport() {
       failedBridgeEvents: 0,
       threads: 0,
       threadStatuses: {},
-      nextAction: "run local app and rerun with --app-url http://localhost:3001",
-      hostedFallback: fallback,
+      recentThreads: [],
+      recentBridgeEvents: [],
+      dumpRetryCount: 2,
+      nextAction: isLocalAppUrl()
+        ? `run: npm run dev -- --port ${port}`
+        : "run local app and rerun with --app-url http://localhost:3001",
+      hostedFallback: isLocalAppUrl() ? "" : fallback,
       dbUnavailable: fallback,
-      installDocs: await installDocDoctor(),
+      installDocs: doctorReport ? await installDocDoctor() : undefined,
     };
 
     if (jsonOutput) {
@@ -1169,6 +1246,7 @@ async function printStatusReport() {
     threadStatuses: statusCounts(threads, "threadStatus"),
     recentThreads,
     recentBridgeEvents,
+    dumpRetryCount,
     nextAction,
     hostedFallback:
       isLocalAppUrl()
@@ -1199,6 +1277,9 @@ async function printStatusReport() {
   console.log(`runningBridgeEvents: ${report.runningBridgeEvents}`);
   console.log(`failedBridgeEvents: ${report.failedBridgeEvents}`);
   console.log(`threads: ${report.threads} (${formatCounts(report.threadStatuses)})`);
+  if (report.dumpRetryCount) {
+    console.log(`dbDumpRetries: ${report.dumpRetryCount}`);
+  }
   console.log(`next: ${report.nextAction}`);
 
   if (report.hostedFallback) {
