@@ -38,6 +38,7 @@ const retryFailed = args.has("--retry-failed");
 const forceSetupCard = args.has("--setup-card");
 const answerFirstCard = args.has("--answer-first-card");
 const replyArg = valueAfter("--reply") ?? "";
+const ideaPrompt = valueAfter("--idea") ?? "";
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
 const bridgeDir = join(root, ".lakebed", "bridge-runs");
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") ?? "1200", 10);
@@ -1733,6 +1734,38 @@ async function retryFailedBridgeEvents() {
   }
 }
 
+async function queuePlanningIdea() {
+  if (!ideaPrompt.trim()) {
+    throw new Error("Pass an idea with --idea \"...\".");
+  }
+
+  const targetThreadId = valueAfter("--thread-id") ?? "";
+  const route = targetThreadId ? "existing_thread" : "new_thread";
+  const result = await runMutation("startPlanningDiscussion", [
+    ideaPrompt.trim(),
+    targetThreadId,
+    route,
+  ]);
+  let parsed;
+
+  try {
+    parsed = JSON.parse(String(result));
+  } catch {
+    parsed = { ok: false, error: String(result || "Could not queue JustSwipe idea.") };
+  }
+
+  if (!parsed.ok) {
+    throw new Error(parsed.error || "Could not queue JustSwipe idea.");
+  }
+
+  console.log("Queued JustSwipe idea.");
+  console.log(`route: ${route}`);
+  if (targetThreadId) {
+    console.log(`thread: ${targetThreadId}`);
+  }
+  console.log(`Run the watcher to relay queued work: npm run bridge:watch -- --app-url ${appBaseUrl()}`);
+}
+
 async function runSmoke() {
   const quotaMessage = formatLakebedError(
     'mutations quota exceeded {"resetAt":"2026-06-26T00:00:00.000Z","retryAfterSeconds":7200}',
@@ -2841,6 +2874,11 @@ async function main() {
 
   if (retryFailed) {
     await retryFailedBridgeEvents();
+    return;
+  }
+
+  if (ideaPrompt) {
+    await queuePlanningIdea();
     return;
   }
 

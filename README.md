@@ -6,36 +6,26 @@
 
 **Pause. Decide. Move forward.**
 
-JustSwipe is a low-attention decision layer for Codex and agentic engineering.
+JustSwipe is a swipe-first decision layer for Codex.
 
-Codex is great when you are sitting in the thread. JustSwipe is for the moments when Codex needs quick human judgment while you are doing something else. It turns agent questions into small swipe cards you can answer from your phone, laptop, or desktop, then the local bridge sends that answer back into the same Codex thread.
+Codex can build faster than you can watch every thread. JustSwipe lets Codex pause when it needs human taste, scope, risk, or review input, send one clear card to your browser or phone, then continue after you swipe or add a short answer.
 
-**Why Use It Over Normal Codex Chat**
+Use it when you want to:
 
-- Codex can keep working without you watching the thread all day.
-- You get one clear decision at a time instead of a long chat interruption.
-- You can respond from anywhere with a swipe, quick reply, or short custom answer.
-- Codex can ask for taste, scope, risk, planning, or checkpoint input without derailing your day.
-- The response is structured, so Codex can resume with the exact signal it asked for.
+- steer Codex without sitting in chat all day
+- answer one clear decision instead of reading a long interruption
+- review app screens, HTML artifacts, diagrams, diffs, screenshots, or evidence quickly
+- start a planning discussion from your phone or browser
+- keep agent work moving while still giving high-quality human signal
 
-**What It Is Useful For**
+## Paste Into Codex
 
-- approving the next build slice
-- choosing between implementation options
-- giving UI/UX taste feedback
-- catching risk before Codex keeps going
-- starting planning discussions from an empty deck
-- checking agent work while away from your main machine
-- reviewing HTML artifacts, diagrams, screenshots, diffs, and app previews
-
-Codex decides what context belongs on each card. A card can stay as plain text, or it can include a small HTML artifact, diagram, screenshot summary, UI state, code diff, evidence checklist, or custom schema form. The point is not more content. The point is the right context in a format you can judge quickly.
-
-**Paste Into Codex**
+Paste this into Codex inside the repo you want to steer:
 
 ```txt
 I want to use JustSwipe in this repo.
 
-First read and follow this JustSwipe install doc from GitHub:
+Read and follow the JustSwipe install doc:
 
 https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md
 
@@ -43,106 +33,20 @@ Use the hosted JustSwipe app as the only JustSwipe UI:
 
 https://clear-harbor-b4fc257b5a.lakebed.app
 
-Do not build JustSwipe, do not recreate its UI, and do not make a local replacement in this repo.
+Do not build JustSwipe, recreate its UI, or make a local replacement in this repo.
 
-If hosted Lakebed reports `mutations quota exceeded`, stop retrying hosted mutations or hosted normal reads. Continue from the GitHub install doc above, switch the bridge app URL to local development (`npm run dev` in the JustSwipe bridge repo, then `$app = "http://localhost:3001"`) until hosted quota resets, and do not build a replacement JustSwipe UI in the target repo.
+Install the repo steering contract first. Preserve existing repo instructions, append JustSwipe guidance to AGENTS.md, create or update skills/justswipe/SKILL.md, then set up pairing through the local JustSwipe bridge.
 
-Phase 1 is mandatory setup. Do not decide JustSwipe is unnecessary. Before doing my project work, install only the repo steering contract, preserve existing repo instructions, then set up hosted pairing through the local bridge.
+Use the frictionless hosted path by default: open the hosted pair link automatically, print the same code/link for my phone or another browser, and start the bridge watcher in the background.
 
-Default to the frictionless path: open the hosted pair link automatically with the justswipe_pair parameter, print the same code/link for my phone, and ask me only if you need to know whether I want desktop, phone, or both.
+If hosted Lakebed reports mutations quota exceeded, stop retrying hosted setup and use the local-dev fallback from the install doc. Do not build a replacement UI.
 
-Prove setup status: AGENTS.md updated, skills/justswipe/SKILL.md present, hosted pair link/code created or opened, or local-dev pair link/code created if hosted quota is exhausted, setup handoff queued, and the bridge watcher running in the background or exact blocker reported.
-
-Keep the bridge watcher running while I use JustSwipe. Prefer `npm run bridge:up:hosted -- --cwd <repo> --open` for setup because it starts the watcher in the background. If I swipe and Codex does not respond, check `npm run bridge:status:hosted` and run `npm run bridge:watch:hosted:daemon`; queued bridge events mean the hosted app has my response but nothing is relaying it into Codex yet. Failed bridge events can be retried from the JustSwipe thread log after the underlying error is fixed.
-
-If the site shows the wrong project path or an old E2E/test project, use the connection panel's Forget project action, then re-pair from the real repo.
-
-After setup is proven, continue my project request normally. When the first real product, design, scope, or implementation choice appears, send that choice to JustSwipe instead of deciding silently.
+After setup is proven, continue my project normally. When you need human taste, scope, risk, planning, review, or clarification, send a concise JustSwipe card or bundle and stop until the response packet arrives.
 ```
 
-**Why This Exists**
+## More
 
-AI agents make software work faster, but they also create more tiny decisions: approve this direction, pick this option, clarify this edge case, review this screen, continue or stop. That oversight load can become its own fatigue.
-
-JustSwipe is a direct response to that. It gamifies the human-input loop without turning it into a toy: one card, clear context, quick action, agent resumes. It is built for shorter attention windows, interruption-heavy days, and agentic systems that need occasional high-quality human signal.
-
-Research background: [RATIONALE.md](RATIONALE.md)
-
-**What Codex Should Run**
-
-Most users should paste the prompt above and let Codex run this. The bridge lives outside your target repo; your repo only gets `AGENTS.md` and `skills/justswipe/SKILL.md`.
-
-```powershell
-$app = "https://clear-harbor-b4fc257b5a.lakebed.app"
-$repo = "C:\path\to\your-repo"
-
-npm run bridge:up:hosted -- --cwd $repo --open --prompt "Use hosted JustSwipe for steering. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-```
-
-`bridge:up:hosted` creates or saves the Codex thread link, opens the hosted pair URL, prints the same phone/browser code, queues Codex's first JustSwipe handoff when it emits one, falls back to a setup card only when needed, and starts the watcher in the background. The watcher is the live relay that sends swipe responses back into Codex. If the watcher is not running, JustSwipe can still collect a response, but Codex will not see it until `bridge:watch:hosted:daemon`, `bridge:watch:hosted`, or `bridge` runs. Pair codes last 2 minutes. A paired browser lasts for the day.
-
-Hosted shortcuts from the bridge repo:
-
-```powershell
-npm run bridge:status:hosted
-npm run bridge:dry-run:hosted
-npm run bridge:watch:hosted
-npm run bridge:watch:hosted:daemon
-npm run bridge:retry-failed:hosted
-npm run bridge:up:hosted -- --cwd "C:\path\to\your-repo" --open
-npm run bridge:forget:hosted
-```
-
-**Hosted Quota Fallback**
-
-The hosted Lakebed deployment currently exposes its limits through `npx lakebed inspect <deploy-url-or-id> --json`; for this deploy, the important operational limits are `mutationsPerDay: 1000` and `requestsPerDay: 10000`. When the hosted app reaches the mutation quota, stop pushing more hosted pair/session/handoff mutations and switch active work to local development:
-
-```powershell
-# Terminal 1: keep the local JustSwipe app running
-Set-Location E:\justswipe
-npm run dev
-```
-
-```powershell
-# Terminal 2: point the bridge at local dev
-Set-Location E:\justswipe
-$app = "http://localhost:3001"
-$repo = "C:\path\to\your-repo"
-
-npm run bridge:up -- --app-url $app --cwd $repo --open --prompt "Use JustSwipe for steering. Hosted quota is exhausted; use local dev until hosted quota resets. Do not build a replacement JustSwipe UI. Stop and wait after any JustSwipe handoff."
-```
-
-Report the exact blocker as: `hosted mutation quota exhausted; switch bridge app URL to local dev`. If Lakebed's 429 body includes `resetAt` or `retryAfterSeconds`, include that timing in the report, then continue active work locally. Hosted can resume after the Lakebed quota resets.
-
-**Public Install Docs**
-
-- Primary, quota-safe: `https://raw.githubusercontent.com/45ck/justswipe/main/INSTALL.md`
-- Repo copy: `INSTALL.md`
-- Hosted mirror: `https://clear-harbor-b4fc257b5a.lakebed.app/install.md`
-- Alias mirror: `https://clear-harbor-b4fc257b5a.lakebed.app/setup.md`
-- Protocol and future flow: [docs/protocol.md](docs/protocol.md)
-
-Use the GitHub/raw doc for installation. The hosted mirrors are convenient when Lakebed quota is available, but they can be blocked by hosted quota because they are served by the Lakebed app.
-
-**Check**
-
-```powershell
-npm run build
-npm run deploy:hosted
-npm run bridge:doctor -- --app-url http://localhost:3001
-npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
-npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000
-npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000
-npm run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
-npm run bridge:status:hosted
-npm run bridge:dry-run:hosted
-npm run bridge:forget:hosted
-npm --silent run bridge:status -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
-npm run bridge:dry-run -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app
-```
-
-Use `npm --silent run bridge:status -- --app-url http://localhost:3001 --json` while hosted quota is exhausted.
-Use `npm run bridge:doctor -- --app-url http://localhost:3001` to verify the raw install doc, local install mirror, pairing state, queue state, and next bridge action without touching hosted quota.
-Use `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 300000` for a full local round trip: disposable target repo, Codex-emitted first handoff, swipe response, bridge relay, and target-repo doctor proof.
-After hosted quota resets, run `npm run deploy:hosted`, then `npm run bridge:e2e-hosted -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --timeout-ms 300000` for the same proof against the hosted app.
-`npm run bridge:smoke`, `bridge:e2e-local`, and `bridge:e2e-hosted` use isolated test guests unless you pass `--guest`.
+- Full install instructions: [INSTALL.md](INSTALL.md)
+- Agent contract: [AGENTS.md](AGENTS.md)
+- Protocol notes: [docs/protocol.md](docs/protocol.md)
+- Why this exists: [RATIONALE.md](RATIONALE.md)
