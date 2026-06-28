@@ -37,7 +37,7 @@
     "bridge:doctor:ready": "node scripts/justswipe-codex-bridge.mjs --doctor --json --fail-on-attention",
     "bridge:doctor:ready:hosted": "node scripts/justswipe-codex-bridge.mjs --doctor --json --fail-on-attention --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:e2e-local": "node scripts/justswipe-codex-bridge.mjs --e2e-local",
-    "bridge:e2e-hosted": "node scripts/justswipe-codex-bridge.mjs --e2e-hosted",
+    "bridge:e2e-hosted": "node scripts/justswipe-codex-bridge.mjs --e2e-hosted --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:pair": "node scripts/justswipe-codex-bridge.mjs --pair",
     "bridge:pair:hosted": "node scripts/justswipe-codex-bridge.mjs --pair --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:setup": "node scripts/justswipe-codex-bridge.mjs --setup",
