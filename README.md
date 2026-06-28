@@ -49,4 +49,5 @@ After setup is proven, continue my project normally. When you need human taste, 
 - Full install instructions: [INSTALL.md](INSTALL.md)
 - Agent contract: [AGENTS.md](AGENTS.md)
 - Protocol notes: [docs/protocol.md](docs/protocol.md)
+- Dogfood proof runbook: [docs/dogfood.md](docs/dogfood.md)
 - Why this exists: [RATIONALE.md](RATIONALE.md)

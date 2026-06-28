@@ -2,6 +2,8 @@
 
 This is the working product contract for the MVP.
 
+For repeatable hosted/local proof commands, use [dogfood.md](dogfood.md).
+
 ## One Skill For Now
 
 Use one `justswipe` skill with two responsibilities:
