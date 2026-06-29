@@ -500,6 +500,24 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The target setup path now satisfies the “paste and it works” expectation better: a fresh repo gets the JustSwipe contract in one pass.
 
+### EXP-018: Watcher Scope Clarity
+
+- Date: 2026-06-29
+- Status: improved and verified locally
+- Context:
+  - EXP-016 found confusing operational evidence: the long-lived watcher process command line could still show an old `--cwd`, even though the active JustSwipe connection and event metadata routed to the current project correctly.
+- Change:
+  - `bridge:watch --daemon` output now states that there is one watcher per app URL and guest, and that current project routing comes from JustSwipe state rather than the daemon command cwd.
+  - Setup current-state output now includes `watcherScope: app-url + guest; project routing uses currentCwd/currentThread above.`
+- Verification:
+  - Re-ran `npm run dogfood:target -- --cwd E:\justswipe-greenfield-breath-lab`.
+  - Output showed the new daemon scope line after `JustSwipe bridge watcher is already running.`
+  - Output showed the new `watcherScope` line after setup current state.
+  - Direct doctor passed for `E:\justswipe-greenfield-breath-lab` with `expectedCwdMatches: true`, heartbeat online, and queued/running/failed events all `0`.
+  - `npm run build` passed.
+- Result:
+  - The CLI now makes the authoritative routing source explicit, reducing confusion when a reused watcher daemon has stale-looking process arguments.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.

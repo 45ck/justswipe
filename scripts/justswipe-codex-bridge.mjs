@@ -320,6 +320,7 @@ async function startWatcherDaemon() {
     console.log(`pid: ${existingPid}`);
     console.log(`stdout: ${outLog}`);
     console.log(`stderr: ${errLog}`);
+    console.log("scope: one watcher per app URL and guest; current project routing comes from JustSwipe state, not the daemon command cwd.");
     return Number.parseInt(existingPid, 10);
   }
 
@@ -385,6 +386,7 @@ async function startWatcherDaemon() {
   console.log(`pidFile: ${pidFile}`);
   console.log(`stdout: ${outLog}`);
   console.log(`stderr: ${errLog}`);
+  console.log("scope: one watcher per app URL and guest; current project routing comes from JustSwipe state, not the daemon command cwd.");
   console.log("The hosted app will show Bridge online when the first heartbeat lands.");
 
   return child.pid;
@@ -3223,6 +3225,7 @@ async function printSetupCurrentState() {
       }`,
     );
     console.log(`bridgeEvents: queued=${queued} running=${running} failed=${failed}`);
+    console.log("watcherScope: app-url + guest; project routing uses currentCwd/currentThread above.");
 
     if (!cwdMatches) {
       process.exitCode = process.exitCode || 2;
