@@ -31,6 +31,7 @@ npm --silent run bridge:doctor:ready:hosted
 Required status before testing:
 
 - `connected: true`
+- `expectedCwdMatches: true` when using `--expect-cwd`
 - `bridgeHeartbeat.status: online`
 - `activeHandoffs: 0`
 - `queuedBridgeEvents: 0`
@@ -113,6 +114,7 @@ Then verify:
 
 ```powershell
 npm --silent run bridge:status:local -- --json
+npm --silent run bridge:doctor:ready -- --app-url http://localhost:3001 --expect-cwd E:\random-number-generator
 Get-Content .lakebed\bridge-watch-local-localhost-local.out.log -Tail 50
 Set-Location E:\random-number-generator
 git status -sb

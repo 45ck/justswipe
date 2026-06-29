@@ -49,6 +49,7 @@ const runningLeaseMs = Number.parseInt(valueAfter("--running-lease-ms") ?? "3000
 const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 10);
 const codexRetryDelayMs = Number.parseInt(valueAfter("--codex-retry-delay-ms") ?? "7000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
+const expectedCwd = valueAfter("--expect-cwd") ?? "";
 const threadPromptArg = valueAfter("--prompt");
 const threadPromptFile = valueAfter("--prompt-file");
 const defaultThreadPrompt =
@@ -1191,10 +1192,13 @@ async function dumpDbForStatus() {
 }
 
 function doctorVerdictFor(report) {
+  const expectedCwdResolved = report.expectedCwd ? resolve(report.expectedCwd) : "";
+  const currentCwdResolved = report.currentCwd ? resolve(report.currentCwd) : "";
   const checks = {
     connected: Boolean(report.connected),
     currentProjectKnown: Boolean(report.currentProject && report.currentCwd),
     currentThreadKnown: Boolean(report.currentThread),
+    expectedCwdMatches: !expectedCwdResolved || currentCwdResolved.toLowerCase() === expectedCwdResolved.toLowerCase(),
     bridgeHeartbeatOnline: report.bridgeHeartbeat?.status === "online" && report.bridgeHeartbeat?.fresh === true,
     noActiveHandoffs: Number(report.activeHandoffs || 0) === 0,
     noQueuedBridgeEvents: Number(report.queuedBridgeEvents || 0) === 0,
@@ -1272,6 +1276,7 @@ async function printStatusReport() {
       recentThreads: [],
       recentBridgeEvents: [],
       dumpRetryCount: 2,
+      expectedCwd: expectedCwd ? resolve(expectedCwd) : "",
       nextAction: isLocalAppUrl()
         ? `run: npm run dev -- --port ${port}`
         : "run local app and rerun with --app-url http://localhost:3001",
@@ -1371,6 +1376,7 @@ async function printStatusReport() {
     recentThreads,
     recentBridgeEvents,
     dumpRetryCount,
+    expectedCwd: expectedCwd ? resolve(expectedCwd) : "",
     nextAction,
     hostedFallback:
       isLocalAppUrl()
@@ -1397,6 +1403,12 @@ async function printStatusReport() {
   console.log(`connectionId: ${report.connectionId || "none"}`);
   console.log(`pairedUntil: ${report.pairedUntil || "none"}`);
   console.log(`pairedDevices: ${report.pairedDevices}`);
+  console.log(`currentProject: ${report.currentProject || "unknown"}`);
+  console.log(`currentCwd: ${report.currentCwd || "unknown"}`);
+  console.log(`currentThread: ${report.currentThread || "unknown"}`);
+  if (report.expectedCwd) {
+    console.log(`expectedCwd: ${report.expectedCwd}`);
+  }
   console.log(`activePairCodes: ${report.activePairCodes}`);
   console.log(
     `bridgeHeartbeat: ${report.bridgeHeartbeat.status}${
@@ -2980,6 +2992,48 @@ async function runHostedE2e() {
   await runBridgeE2e("hosted");
 }
 
+async function printSetupCurrentState() {
+  try {
+    await syncKnownThreads({ force: true, quiet: true });
+    const db = await dumpDb();
+    const integration = integrationForGuest(db);
+    const connectionId = bridgeConnectionId(db);
+    const threads = (db.tables?.codexThreads ?? []).filter((row) =>
+      connectionId ? row.connectionId === connectionId : row.ownerId === ownerIdForGuest(),
+    );
+    const currentThread = recentRows(threads).map(statusThreadSummary)[0];
+    const heartbeat = statusBridgeHeartbeat(db, connectionId);
+    const queued = queuedEvents(db).length;
+    const running = bridgeEventsByStatus(db, ["running"]).length;
+    const failed = bridgeEventsByStatus(db, ["failed"]).length;
+    const currentProject = currentThread?.projectName || integration?.projectName || "";
+    const currentCwd = currentThread?.cwd || integration?.cwd || "";
+    const currentThreadTitle = currentThread?.threadTitle || integration?.threadTitle || "";
+    const expected = expectedCwd ? resolve(expectedCwd) : resolve(threadCwd);
+    const cwdMatches = currentCwd && resolve(currentCwd).toLowerCase() === expected.toLowerCase();
+
+    console.log("JustSwipe setup current state");
+    console.log(`currentProject: ${currentProject || "unknown"}`);
+    console.log(`currentCwd: ${currentCwd || "unknown"}`);
+    console.log(`currentThread: ${currentThreadTitle || "unknown"}`);
+    console.log(`expectedCwd: ${expected}`);
+    console.log(`expectedCwdMatches: ${cwdMatches ? "yes" : "no"}`);
+    console.log(
+      `bridgeHeartbeat: ${heartbeat.status}${
+        heartbeat.ageSeconds === null ? "" : ` (${heartbeat.ageSeconds}s ago)`
+      }`,
+    );
+    console.log(`bridgeEvents: queued=${queued} running=${running} failed=${failed}`);
+
+    if (!cwdMatches) {
+      process.exitCode = process.exitCode || 2;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown error");
+    console.log(`JustSwipe setup current state unavailable: ${message}`);
+  }
+}
+
 async function main() {
   if (statusReport) {
     await printStatusReport();
@@ -3057,6 +3111,7 @@ async function main() {
     if (!setupSucceeded) {
       process.exitCode = 1;
     }
+    await printSetupCurrentState();
     return;
   }
 
