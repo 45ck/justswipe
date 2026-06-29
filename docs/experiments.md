@@ -833,6 +833,25 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Multi-hour/multi-day reliability evidence is now actively collecting locally. This is not yet proof of hours/days continuity; it is the start of the long-run observation window.
 
+### EXP-032: Compact Monitor Status Check
+
+- Date: 2026-06-29
+- Status: status command added and verifier passed
+- Change:
+  - Added `scripts/justswipe-dogfood-monitor-status.mjs`.
+  - Added `npm run dogfood:monitor:status`.
+  - The command summarizes the active monitor pid, daemon logs, latest monitor run, latest dogfood snapshot, and live bridge heartbeat/events in one compact output.
+- Verification:
+  - Ran `npm run dogfood:monitor:status -- --name local-longrun`.
+  - Status showed pid `13884` alive, bridge `online`, `fresh=true`, `events=0/0/0`, latest monitor run `passed`, `readyForDogfood: yes`, `threads: 5`, and `bridgeEvents: queued=0 running=0 failed=0`.
+  - Ran `node --check scripts\justswipe-dogfood-monitor-status.mjs`.
+  - Ran `npm run build`.
+  - Ran `npm run bridge:dry-run`; no JustSwipe responses were waiting.
+  - Ran `npm run dogfood:verify`; it passed build, bridge status, UI smoke, card shapes, multi-thread UI, relay state, failure recovery, bridge dry-run, snapshot append, and final bridge status.
+  - Fresh verify snapshot reported `readyForDogfood: yes`, `threads: 5`, `cachedThreads: 5`, and bridge events `queued=0 running=0 failed=0`.
+- Result:
+  - Dogfood health is now easy to inspect without manually tailing several files. This improves long-running reliability work, but it is still a monitoring improvement rather than proof of multi-day usage.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
