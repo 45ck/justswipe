@@ -443,6 +443,39 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The hosted app is still not usable for live relay while hosted mutations are exhausted, but the bridge startup now fails honestly instead of giving a false “started” signal.
 
+### EXP-016: Timer Lab Greenfield Dogfood
+
+- Date: 2026-06-29
+- Status: proven locally with rough edges
+- Target repo: `E:\justswipe-greenfield-timer-lab`
+- Target commits:
+  - `7022317 Initial timer lab`
+  - `4caa41a Build timer app through JustSwipe dogfood`
+- Thread:
+  - `019f1255-a4b5-75c0-9e6d-5ca0878bc347`
+  - `justswipe-greenfield-timer-lab thread 019f1255`
+- Commands and flow:
+  - Created a fresh disposable repo with only `README.md`.
+  - Ran `npm run dogfood:target -- --cwd E:\justswipe-greenfield-timer-lab`.
+  - Setup first inspected read-only and correctly did not write missing repo contract files.
+  - Sent a write-enabled install idea through JustSwipe: `idea-mqyx0psl-9gesu6`.
+  - Codex installed `AGENTS.md` and `skills/justswipe/SKILL.md` without modifying `README.md`.
+  - Sent a vague app idea through JustSwipe: `I want a tiny useful browser app for focus sessions...`.
+  - Codex naturally emitted planning handoff `handoff-mqyx6nsa-hg6v9s` with card `focus-first-slice`, title `Build the calm timer slice?`, quick replies, and `agentHtmlPreview`.
+  - Answered the card with `npm run bridge:answer-first-card -- --app-url http://localhost:3001 --yes --quick-reply "Build calm first slice"`.
+  - Codex built `index.html`, `styles.css`, and `app.js`.
+- Verification:
+  - `node --check app.js` passed.
+  - Browser smoke loaded `file:///E:/justswipe-greenfield-timer-lab/index.html` at `390x844`.
+  - Browser smoke filled session intent, clicked `Complete`, verified history row, verified `1` minute today, reloaded, verified localStorage persistence, detected no horizontal overflow, and captured no console/page errors.
+  - Final bridge status returned `activeHandoffs: 0`, `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, and both known threads idle.
+- Rough edges:
+  - The default target setup prompt was read-only, so it did not install missing contract files until a separate write-enabled idea was sent.
+  - The long-lived watcher process still had an old command-line cwd (`E:\random-number-generator`) even after the active project changed to the timer repo. Event metadata still carried the correct target cwd, but this is confusing operational evidence.
+  - After answering the planning card, app files appeared before the bridge marked the handoff sent. The bridge stayed in `responding_to_codex` / `running` for several minutes, with stale heartbeat, then eventually returned to idle.
+- Result:
+  - Strong local proof for the core loop: fresh repo, install contract via JustSwipe, vague greenfield idea, natural planning card, swipe response, working app build, browser verification, and clean idle bridge state.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
