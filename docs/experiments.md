@@ -185,6 +185,47 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - Failure recovery UX is now covered by browser-click proof for the main failed-relay path.
   - This does not prove every possible Codex or hosted failure, but it proves the user can see the saved error and retry from the app.
 
+### EXP-008: Natural Notes App Dogfood
+
+- Date: 2026-06-29
+- Status: partial
+- Surface: `E:\justswipe-greenfield-notes-lab`, local app `http://localhost:3001`
+- Prompt:
+  - `I want a tiny local web app for capturing quick notes and turning them into a clean short list for later. Make it pleasant and useful. Start from this repo and do what setup makes sense.`
+- Evidence:
+  - Fresh repo started with only `README.md` and initial commit `549b23b Initial notes lab`.
+  - `dogfood:target -- --cwd E:\justswipe-greenfield-notes-lab` installed the JustSwipe target contract and created Codex thread `019f11a0-3fdc-7973-a8e5-99d1620c0731`.
+  - The vague app idea was sent through `dogfood:target:idea`, not typed directly into the target Codex thread.
+  - Codex naturally emitted planning handoff `handoff-mqypztmx-o1fble` with card `notes-first-slice`.
+  - The card asked for one focused planning decision: `Pick first notes slice`.
+  - Swipe response was sent through JustSwipe with `Build capture, list, and local save first`.
+  - Bridge relayed the response and Codex built the first app slice:
+    - `index.html`
+    - `styles.css`
+    - `app.js`
+    - updated `README.md`
+    - screenshot artifact `output/playwright/notes-lab-home.png`
+  - Independent browser smoke against `http://127.0.0.1:5188/index.html` verified:
+    - HTTP 200
+    - add note
+    - split pasted bullet-ish text into separate notes
+    - list rendering
+    - complete note
+    - reload persistence through localStorage
+    - delete note
+    - no mobile horizontal overflow at `390x844`
+    - no browser console errors
+  - Target repo committed locally at `32d8f92 Build notes app through JustSwipe dogfood`.
+  - Local JustSwipe pairing was restored to `E:\justswipe`; final status returned queued/running/failed bridge events all `0`.
+- Rough edges:
+  - Setup output briefly said the pairing was still scoped to `E:\justswipe`, even though final bridge status correctly showed the target cwd. This copy is confusing during setup.
+  - During the long relay/build, the thread/bridge status could look stale while the bridge event was still running. The event eventually completed, but this is still a trust problem.
+  - Codex thread read showed the turn as `interrupted` even though files were created, verification ran, and the bridge event was later marked sent. JustSwipe should explain this class of Codex-side ambiguity better.
+  - The target Codex run could not use the managed browser profile and fell back to a temp static server plus Playwright CLI screenshot. Independent smoke verified the app afterward.
+- Result:
+  - A normal vague greenfield idea can start in JustSwipe, cause Codex to ask a planning card, accept a swipe, build a real static app slice, and return to idle locally.
+  - This is useful evidence for the core loop, but still local-only and not enough to claim phone/hosted/multi-day reliability.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
