@@ -904,6 +904,28 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - This is a stronger proof than a happy-path auto-yes flow: JustSwipe carried planning, build review, negative feedback, correction, and return-to-idle for a fresh greenfield app.
 
+### EXP-035: Hosted Watcher Quota Recheck
+
+- Date: 2026-06-29
+- Status: hosted still blocked by mutation quota
+- Hosted app:
+  - `https://clear-harbor-b4fc257b5a.lakebed.app`
+  - Hosted connection `conn-mqvfklrk-flxv7l`
+  - Current hosted project `justswipe`
+  - Current hosted cwd `E:\justswipe`
+  - Current hosted thread `justswipe thread 019f100e`
+- Flow:
+  - Ran `npm run bridge:doctor:ready:hosted`.
+  - Doctor showed hosted app is connected, paired, has known project/thread, no active handoffs, and no queued/running/failed events.
+  - Doctor failed `bridgeHeartbeatOnline`: hosted heartbeat was stale, last seen `2026-06-29T03:09:35.565Z`, age about `36067s`.
+  - Ran `npm run bridge:status:hosted -- --json`; it confirmed the same stale hosted heartbeat and suggested starting the watcher.
+  - Ran `npm run bridge:watch:hosted:daemon`.
+  - Hosted watcher exited before first heartbeat with the exact blocker:
+    - `hosted mutation quota exhausted; switch bridge app URL to local dev`
+  - Ran `npx --yes --cache .lakebed/npm-cache lakebed deploy . --json`; deploy metadata was reachable and reported hosted limits including `mutationsPerDay: 1000` and `requestsPerDay: 10000`.
+- Result:
+  - Hosted is not ready for the phone/cloud proof yet. The app is readable and paired, but the bridge cannot update hosted heartbeat while hosted mutations are exhausted. Continue active dogfood against `http://localhost:3001` until hosted mutation quota resets.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.

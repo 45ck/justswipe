@@ -1,6 +1,6 @@
 # JustSwipe Dogfood Audit
 
-Generated: 2026-06-29T13:08:21.568Z
+Generated: 2026-06-29T13:14:06.238Z
 App URL: http://localhost:3001
 
 | Status | Requirement | Current evidence |
@@ -10,7 +10,7 @@ App URL: http://localhost:3001
 | proven-local | Failure recovery UX from user perspective | failure UI smoke and documented retry flow passed |
 | proven-local | Rich schema forms and HTML artifact previews | card shapes smoke covers schema fields, unsupported fallback, HTML preview, multi-card order |
 | proven-local | Codex naturally uses JustSwipe in greenfield planning | 5 documented local greenfield proofs include planning cards, build/review loops, or return-to-idle evidence |
-| gap | Hosted cloud and phone pairing path | hosted and real phone/touch proof still missing |
+| gap | Hosted cloud and phone pairing path | hosted app is paired/readable, but watcher heartbeat is blocked by hosted mutation quota; real phone/touch proof still missing |
 
 ## Interpretation
 

@@ -103,6 +103,7 @@ async function main() {
   ].filter((match) => /natural .*greenfield|greenfield .*dogfood|greenfield planning/i.test(match[1])).length;
   const hostedGap = experiments.includes("hosted cloud proof after Lakebed quota reset");
   const phoneGap = experiments.includes("mobile/phone ergonomics");
+  const hostedQuotaBlocked = experiments.includes("hosted mutation quota exhausted; switch bridge app URL to local dev");
 
   const bridgeEvidence = bridge.ok
     ? `bridge=${bridge.report.bridgeHeartbeat?.status || "unknown"}, fresh=${bridge.report.bridgeHeartbeat?.fresh === true}, threads=${bridge.report.threads || 0}, events=${bridge.report.queuedBridgeEvents || 0}/${bridge.report.runningBridgeEvents || 0}/${bridge.report.failedBridgeEvents || 0}`
@@ -139,7 +140,9 @@ async function main() {
     statusLine(
       hostedGap ? "gap" : "unknown",
       "Hosted cloud and phone pairing path",
-      phoneGap || hostedGap ? "hosted and real phone/touch proof still missing" : "no explicit gap recorded",
+      hostedQuotaBlocked
+        ? "hosted app is paired/readable, but watcher heartbeat is blocked by hosted mutation quota; real phone/touch proof still missing"
+        : phoneGap || hostedGap ? "hosted and real phone/touch proof still missing" : "no explicit gap recorded",
     ),
   ];
 
