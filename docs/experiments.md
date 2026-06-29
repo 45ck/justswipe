@@ -588,6 +588,25 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The active local JustSwipe connection can now keep multiple projects visible and route to an older cross-project thread, as long as setup uses the additive path.
 
+### EXP-022: Long-Running Dogfood Snapshot Command
+
+- Date: 2026-06-29
+- Status: improved and first snapshot captured
+- Change:
+  - Added `scripts/justswipe-dogfood-snapshot.mjs`.
+  - Added `npm run dogfood:snapshot` and `npm run dogfood:snapshot:hosted`.
+  - The snapshot command records app URL, connection, current project/cwd/thread, heartbeat, bridge event counts, active handoffs, visible thread/project list, and a `readyForDogfood` flag.
+- Evidence:
+  - Ran `npm run dogfood:snapshot` against `http://localhost:3001`.
+  - Snapshot appended to `docs/dogfood-snapshots.md`.
+  - First snapshot captured three idle threads across two projects:
+    - Stretch Lab thread `019f12a5`
+    - Breath Lab thread `019f1288`
+    - Breath Lab thread `019f127c`
+  - Snapshot reported `readyForDogfood: yes`, heartbeat online/fresh, active handoffs `0`, and bridge events `queued=0 running=0 failed=0`.
+- Result:
+  - Long-running dogfood now has a repeatable evidence collection command. This does not prove multi-day reliability yet, but it makes repeated checks comparable over time.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
