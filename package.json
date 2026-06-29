@@ -26,6 +26,7 @@
     "ui:smoke": "node scripts/justswipe-ui-smoke.mjs --app-url http://localhost:3001",
     "ui:smoke:failure": "node scripts/justswipe-ui-smoke.mjs --app-url http://localhost:3001 --mode failure",
     "ui:smoke:card-shapes": "node scripts/justswipe-ui-smoke.mjs --app-url http://localhost:3001 --mode card-shapes",
+    "ui:smoke:multi-thread": "node scripts/justswipe-ui-smoke.mjs --app-url http://localhost:3001 --mode multi-thread",
     "ui:smoke:relay-state": "node scripts/justswipe-ui-smoke.mjs --app-url http://localhost:3001 --mode relay-state",
     "bridge:status": "node scripts/justswipe-codex-bridge.mjs --status",
     "bridge:status:local": "node scripts/justswipe-codex-bridge.mjs --status --app-url http://localhost:3001",

@@ -383,6 +383,50 @@ async function setupMultiShapeHandoff() {
   return { ...connection, handoffId };
 }
 
+async function setupMultiThreadState() {
+  const connection = await setupConnection();
+  const activeThreadId = "ui-thread-active";
+  const idleThreadId = "ui-thread-idle";
+  const now = new Date().toISOString();
+
+  await runMutation("saveIntegration", [
+    activeThreadId,
+    "UI multi-thread smoke custom prompt.",
+    JSON.stringify({
+      threadId: activeThreadId,
+      threadTitle: "Marketing copy thread",
+      threadStatus: "idle",
+      cwd: root,
+      projectName: "justswipe",
+      lastActivityAt: now,
+    }),
+  ]);
+  await runMutation("startPlanningDiscussion", [
+    "Queue a smoke-test idea on the active thread.",
+    activeThreadId,
+    "existing_thread",
+  ]);
+  await runMutation("startPlanningDiscussion", [
+    "Queue a smoke-test idea for a brand new Codex thread.",
+    "",
+    "new_thread",
+  ]);
+  await runMutation("saveIntegration", [
+    idleThreadId,
+    "UI multi-thread smoke custom prompt.",
+    JSON.stringify({
+      threadId: idleThreadId,
+      threadTitle: "Backlog cleanup thread",
+      threadStatus: "idle",
+      cwd: root,
+      projectName: "justswipe",
+      lastActivityAt: now,
+    }),
+  ]);
+
+  return { ...connection, activeThreadId, idleThreadId };
+}
+
 async function setupQuickHandoff(reason = "UI smoke relay state handoff.") {
   const db = await dumpDb();
   const ownerId = `guest:${guest}`;
@@ -621,6 +665,64 @@ async function runCardShapesUiSmoke() {
   console.log("verified: yes/no, free text, adaptive form, unsupported field fallback, more action, multi-card order");
 }
 
+async function runMultiThreadUiSmoke() {
+  const setup = await setupMultiThreadState();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+  const rowTitle = (text) => page.locator("p").filter({ hasText: text }).first();
+
+  try {
+    await page.goto(guestUrl(setup.code), { waitUntil: "networkidle", timeout: 30_000 });
+    await page.getByText("Send an idea to Codex").waitFor({ timeout: 15_000 });
+    await rowTitle("Marketing copy thread").waitFor({ timeout: 10_000 });
+    await rowTitle("Backlog cleanup thread").waitFor({ timeout: 10_000 });
+    await page.getByText("1 ideas").first().waitFor({ timeout: 10_000 });
+    await rowTitle("New project idea").waitFor({ timeout: 10_000 });
+
+    await page.getByPlaceholder("Search threads, projects, status...").fill("marketing");
+    await rowTitle("Marketing copy thread").waitFor({ timeout: 10_000 });
+    const backlogAfterSearch = await rowTitle("Backlog cleanup thread").count();
+
+    if (backlogAfterSearch > 0) {
+      throw new Error("Multi-thread UI smoke failed: search did not filter thread rows.");
+    }
+
+    await page.getByPlaceholder("Search threads, projects, status...").fill("");
+    await page.getByRole("button", { name: "Waiting" }).click();
+    await page.getByText("No threads match this filter.").waitFor({ timeout: 10_000 });
+
+    await page.getByRole("button", { name: "Active" }).click();
+    await rowTitle("Marketing copy thread").waitFor({ timeout: 10_000 });
+    await rowTitle("New project idea").waitFor({ timeout: 10_000 });
+
+    await page.getByRole("button", { name: "All" }).click();
+    await page.locator("select").nth(1).selectOption("justswipe");
+    await page.locator("select").first().selectOption(setup.activeThreadId);
+    await page.getByRole("button", { name: "Send to selected thread" }).waitFor({ timeout: 10_000 });
+
+    if (consoleErrors.length > 0) {
+      throw new Error(`Multi-thread UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  if (!keepState) {
+    await runMutation("clearConnectionState", []);
+  }
+
+  console.log("JustSwipe multi-thread UI smoke passed.");
+  console.log(`appUrl: ${appBaseUrl()}`);
+  console.log(`guest: guest:${guest}`);
+  console.log("verified: multiple thread rows, active/empty waiting filters, project filter, existing-thread idea target");
+}
+
 async function runRelayStateUiSmoke() {
   const setup = await setupConnection();
   const browser = await chromium.launch({ headless: true });
@@ -786,6 +888,7 @@ const runners = {
   schema: runUiSmoke,
   failure: runFailureUiSmoke,
   "card-shapes": runCardShapesUiSmoke,
+  "multi-thread": runMultiThreadUiSmoke,
   "relay-state": runRelayStateUiSmoke,
 };
 const runner = runners[runMode] || runUiSmoke;

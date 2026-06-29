@@ -366,9 +366,40 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The most common long-running local trust issue is now explicitly covered: an active relay with stale/missing heartbeat reads as Codex work in progress, not as an offline bridge.
 
+### EXP-013: Multi-Thread Project View Smoke
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, Playwright Chromium at `390x844`
+- Command:
+  - `npm run ui:smoke:multi-thread`
+- Evidence:
+  - Added a repeatable browser smoke mode that pairs an isolated `guest:ui-smoke` connection and creates multiple tracked thread states in one project.
+  - The smoke creates:
+    - `Marketing copy thread` with a queued existing-thread idea.
+    - `Backlog cleanup thread` as an idle existing thread.
+    - A synthetic `New project idea` row for a queued new-thread idea.
+  - Browser verified the no-card project view shows `Send an idea to Codex`.
+  - Browser verified multiple thread rows are visible.
+  - Browser verified active rows show `1 ideas`.
+  - Browser verified search filters to `Marketing copy thread`.
+  - Browser verified `Waiting` filter shows no matching rows when no cards are waiting.
+  - Browser verified `Active` filter shows the queued idea rows.
+  - Browser verified project filtering can select `justswipe`.
+  - Browser verified the idea target selector can choose `Marketing copy thread` and changes the action to `Send to selected thread`.
+  - Follow-up verification passed:
+    - `npm run build`
+    - `npm run ui:smoke:card-shapes`
+    - `npm --silent run bridge:doctor:ready:local`
+- Rough edges:
+  - A blocking active handoff correctly takes over the home surface, so the multi-thread table should be tested in the no-card project view.
+  - On mobile, hidden target selector options can duplicate visible row text; Playwright assertions need to target visible row title elements.
+- Result:
+  - Project-level multi-thread visibility is browser-tested for multiple tracked threads, queued ideas, active/idle filtering, project filtering, and sending ideas to an existing thread.
+
 ## Open Experiment Areas
 
-- `gap`: long-running multi-thread use over hours or days.
+- `partial`: long-running multi-thread use over hours or days.
 - `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
