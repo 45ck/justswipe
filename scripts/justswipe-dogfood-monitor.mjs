@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,14 +8,61 @@ const appUrl = valueAfter("--app-url") || "http://localhost:3001";
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") || "900000", 10);
 const maxRuns = Number.parseInt(valueAfter("--max-runs") || "0", 10);
 const logPath = resolve(valueAfter("--log") || join(root, "docs", "dogfood-monitor-runs.md"));
+const daemon = process.argv.includes("--daemon");
+const monitorDir = join(root, ".lakebed", "dogfood-monitor");
+const daemonName = safeName(valueAfter("--name") || appUrl);
 
 function valueAfter(flag) {
   const index = process.argv.indexOf(flag);
   return index >= 0 ? process.argv[index + 1] : "";
 }
 
+function safeName(value) {
+  return value
+    .replace(/^https?:\/\//, "")
+    .replace(/[^a-zA-Z0-9.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "local";
+}
+
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+async function startDaemon() {
+  await mkdir(monitorDir, { recursive: true });
+  const pidPath = join(monitorDir, `${daemonName}.pid`);
+  const outPath = join(monitorDir, `${daemonName}.out.log`);
+  const errPath = join(monitorDir, `${daemonName}.err.log`);
+  const args = process.argv
+    .slice(1)
+    .filter((arg) => arg !== "--daemon");
+
+  const child = spawn(process.execPath, args, {
+    cwd: root,
+    detached: true,
+    stdio: [
+      "ignore",
+      await openAppend(outPath),
+      await openAppend(errPath),
+    ],
+    windowsHide: true,
+  });
+
+  child.unref();
+  await writeFile(pidPath, `${child.pid}\n`);
+  console.log("Started JustSwipe dogfood monitor in the background.");
+  console.log(`pid: ${child.pid}`);
+  console.log(`pidFile: ${pidPath}`);
+  console.log(`stdout: ${outPath}`);
+  console.log(`stderr: ${errPath}`);
+  console.log(`log: ${logPath}`);
+}
+
+async function openAppend(path) {
+  const { open } = await import("node:fs/promises");
+  const handle = await open(path, "a");
+  return handle.fd;
 }
 
 function runSnapshot() {
@@ -91,6 +138,11 @@ async function appendMonitorRun(index, result) {
 }
 
 async function main() {
+  if (daemon) {
+    await startDaemon();
+    return;
+  }
+
   if (!Number.isFinite(intervalMs) || intervalMs < 1000) {
     throw new Error("--interval-ms must be at least 1000.");
   }
