@@ -2209,6 +2209,19 @@ async function runSmoke() {
     throw new Error("Smoke failed: invalid required-field response queued a bridge event.");
   }
 
+  const quickReplyBypassResult = JSON.parse(
+    await runMutation("submitCardResponse", [
+      requiredHandoff.id,
+      "smoke-required-card",
+      "yes",
+      JSON.stringify({ quick_reply: "Looks good" }),
+    ]),
+  );
+
+  if (quickReplyBypassResult.ok || !String(quickReplyBypassResult.error || "").includes("decision_note")) {
+    throw new Error("Smoke failed: quick reply bypassed a required schema field.");
+  }
+
   const filledRequiredResult = JSON.parse(
     await runMutation("submitCardResponse", [
       requiredHandoff.id,
@@ -2235,6 +2248,144 @@ async function runSmoke() {
     throw new Error("Smoke failed: required-field payload was not preserved.");
   }
 
+  const richThreadMeta = threadMetadataFromEvent({
+    threadId: "smoke-rich-schema-thread",
+    threadTitle: "Smoke rich schema thread",
+    cwd: root,
+    projectName: "justswipe",
+    threadStatus: "awaiting_justswipe",
+  });
+  const richHtmlPreview =
+    "<section><h2>Three-screen app review</h2><p>Choose the sharper direction after seeing the actual UI evidence.</p><ul><li>Home is readable</li><li>Empty state is clear</li><li>Save path needs confirmation</li></ul><button>Keep direction</button></section>";
+  const richHandoffId = await runMutation("createHandoffFromBridge", [
+    connectionId,
+    richThreadMeta.threadId,
+    JSON.stringify([
+      {
+        cardId: "smoke-rich-schema-card",
+        title: "Smoke rich schema card",
+        summary: "A model-made form can ask for structured feedback.",
+        recommendedAction: "yes",
+        visualContext: "HTML artifact, UI evidence, and structured follow-up fields.",
+        questionType: "adaptive_form",
+        yesPayloadSchema: [
+          {
+            id: "direction",
+            label: "Direction",
+            type: "select",
+            required: true,
+            options: ["Keep direction", "Simplify", "Try bolder"],
+          },
+          {
+            id: "implementation_note",
+            label: "Implementation note",
+            type: "text",
+            required: true,
+            placeholder: "What should Codex preserve?",
+          },
+          {
+            id: "mobile_first",
+            label: "Mobile first",
+            type: "toggle",
+            helper: "Keep the phone swipe surface as the primary experience.",
+          },
+          {
+            id: "evidence_checked",
+            label: "Evidence checked",
+            type: "checklist",
+            required: true,
+            options: ["HTML preview", "Thread context", "Failure path"],
+          },
+          {
+            id: "confidence",
+            label: "Confidence",
+            type: "rating",
+            required: true,
+            helper: "5 means Codex can continue without another card.",
+          },
+          {
+            id: "artifact_context",
+            label: "Artifact context",
+            type: "evidence",
+            helper: "Inline preview is rendered as native card context, not executed as arbitrary app code.",
+          },
+        ],
+        noPayloadSchema: [],
+        morePayloadSchema: [],
+        laterPayloadSchema: [],
+        optionPayloadSchemas: {},
+        requiredFieldsByAction: {
+          yes: ["direction", "implementation_note", "evidence_checked", "confidence"],
+        },
+        quickRepliesByAction: {
+          yes: ["Keep direction"],
+          no: ["Needs another pass"],
+        },
+        agentHtmlPreview: richHtmlPreview,
+      },
+    ]),
+    "Smoke rich schema handoff.",
+    metadataJson(richThreadMeta),
+  ]);
+
+  db = await dumpDb();
+  const richHandoff = activeHandoffRows(db).find((row) => row.handoffId === richHandoffId);
+
+  if (!richHandoff) {
+    throw new Error("Smoke failed: rich schema handoff was not active.");
+  }
+
+  const richCards = JSON.parse(richHandoff.cardsJson || "[]");
+  const richCard = richCards[0];
+
+  if (
+    richCard?.agentHtmlPreview !== richHtmlPreview ||
+    richCard?.yesPayloadSchema?.length !== 6 ||
+    richCard?.yesPayloadSchema?.some((field) => !field.id || !field.label || !field.type)
+  ) {
+    throw new Error("Smoke failed: rich schema card was not preserved.");
+  }
+
+  const richResult = JSON.parse(
+    await runMutation("submitCardResponse", [
+      richHandoff.id,
+      "smoke-rich-schema-card",
+      "yes",
+      JSON.stringify({
+        direction: "Keep direction",
+        implementation_note: "Preserve the compact swipe surface.",
+        mobile_first: true,
+        evidence_checked: ["HTML preview", "Thread context"],
+        confidence: "5",
+      }),
+    ]),
+  );
+
+  if (!richResult.ok || !richResult.completed) {
+    throw new Error(`Smoke failed: rich schema response did not complete: ${richResult.error || "unknown error"}`);
+  }
+
+  db = await dumpDb();
+  const richEvent = queuedEvents(db).find((row) => row.handoffId === richHandoffId);
+
+  if (!richEvent) {
+    throw new Error("Smoke failed: rich schema response did not queue a bridge event.");
+  }
+
+  const richResponses = JSON.parse(richEvent.feedback || "[]");
+  const richPayload = richResponses[0]?.payload || {};
+
+  if (
+    richPayload.direction !== "Keep direction" ||
+    richPayload.implementation_note !== "Preserve the compact swipe surface." ||
+    richPayload.mobile_first !== true ||
+    !Array.isArray(richPayload.evidence_checked) ||
+    richPayload.evidence_checked.length !== 2 ||
+    richPayload.confidence !== "5"
+  ) {
+    throw new Error("Smoke failed: rich schema payload was not preserved.");
+  }
+
   await clearConnectionState();
 
   console.log("JustSwipe bridge smoke passed.");
@@ -2243,7 +2394,8 @@ async function runSmoke() {
   console.log(`Queued packet: ${event.action} / ${event.handoffId}`);
   console.log("Duplicate claim blocked.");
   console.log(`Multi-card bundle advanced and queued: ${multiHandoffId}`);
-  console.log(`Required-field validation blocked empty payload: ${requiredHandoffId}`);
+  console.log(`Required-field validation blocked empty payload and quick-reply bypass: ${requiredHandoffId}`);
+  console.log(`Rich schema and HTML preview preserved: ${richHandoffId}`);
   console.log("Quota fallback guidance verified.");
 }
 

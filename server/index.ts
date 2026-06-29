@@ -608,10 +608,6 @@ function missingRequiredFields(
   action: SwipeAction,
   payload: Record<string, unknown>,
 ): string[] {
-  if (payload.quick_reply || payload.custom_response) {
-    return [];
-  }
-
   return requiredFieldsForAction(card, action).filter((fieldId) => {
     const value = payload[fieldId];
 

@@ -97,11 +97,45 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - The local bridge mechanics are covered better than before.
   - The app should no longer imply the bridge is offline just because heartbeat copy lags while Codex is actively resuming.
 
+### EXP-005: Rich Schema Cards And Local E2E Regression
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`
+- Commands:
+  - `npm run build`
+  - `npm run bridge:smoke`
+  - `npm run bridge:e2e-local -- --app-url http://localhost:3001 --timeout-ms 180000 --json`
+  - `npm run dogfood:local`
+  - `npm --silent run dogfood:local:verify`
+- Evidence:
+  - Client now renders model-defined schema fields in the response sheet: text, textarea, select, toggle, checklist, rating, evidence, plus unknown-safe fallback.
+  - Schema-only payloads can enable submit; required schema fields block submit until filled.
+  - Server validation no longer lets `quick_reply` or `custom_response` bypass required model fields.
+  - Smoke verified required-field rejection for empty payload and quick-reply bypass.
+  - Smoke verified rich schema preservation for select, text, toggle, checklist, rating, evidence, and `agentHtmlPreview`.
+  - Local E2E created disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782703998599-18164`.
+  - Local E2E created Codex thread `019f1170-4c24-78f0-a326-bf5a4437df33`.
+  - Codex emitted handoff `handoff-mqyo0yb3-nzl5f1` with card `doctor-fixture`.
+  - Simulated swipe response `Build doctor fixture` relayed back into Codex.
+  - Codex generated `scripts/justswipe-doctor.ps1` and updated the fixture README.
+  - Normal and `-Json` doctor checks passed with 8/8 contract checks.
+  - Local dogfood restored to `E:\justswipe` with thread `019f1175-56d5-7861-b5d7-0be86bd0b94a`.
+  - Final doctor returned `doctor.status: ready`, expected cwd matched `E:\justswipe`, and queued/running/failed bridge events were all `0`.
+- Rough edges:
+  - The E2E can be quiet for 1-2 minutes before first progress output, which feels like a hang even when it later passes.
+  - Browser-click UI proof for schema fields was not completed because the available Playwright package had no Chromium binary installed on this machine.
+- Result:
+  - Rich schema payloads and HTML preview preservation are now repeatably smoke-tested.
+  - Local Codex handoff/response/build verification still passes after the schema changes.
+  - The next QA improvement should add a reliable browser-click runner or install browser binaries for mobile-width UI verification.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
 - `gap`: failure recovery UX from a human perspective.
-- `gap`: rich schema forms and HTML artifact previews across many card shapes.
+- `partial`: rich schema forms and HTML artifact previews across many card shapes.
 - `partial`: natural greenfield planning behavior beyond controlled prompts.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
 - `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.
+- `gap`: browser-click proof for schema fields on mobile width.

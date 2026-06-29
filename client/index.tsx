@@ -16,6 +16,8 @@ import {
   defaultCustomPrompt,
   parseCards,
   parseResponses,
+  requiredFieldsForAction,
+  schemaForAction,
   type BridgeHeartbeat,
   type BridgeEvent,
   type CodexThread,
@@ -25,6 +27,7 @@ import {
   type Integration,
   type PairedDevice,
   type PairingCode,
+  type PayloadField,
   type SwipeAction,
   type SwipeCard,
 } from "../shared/decision";
@@ -81,7 +84,12 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 function hasResponseDraft(values: FormValues): boolean {
-  return String(values.quick_reply || "").length > 0 || String(values.custom_response || "").trim().length > 0;
+  return Object.entries(values).some(([key, value]) => {
+    if (["answer_mode", "show_note"].includes(key)) return false;
+    if (typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.length > 0;
+    return String(value || "").trim().length > 0;
+  });
 }
 
 function tryVibrate(pattern: VibratePattern) {
@@ -536,7 +544,20 @@ function requiredMissing(
   action: SwipeAction,
   values: FormValues,
 ): string[] {
-  if (values.quick_reply || values.custom_response) {
+  const schema = schemaForAction(card, action);
+  const missingSchemaFields = requiredFieldsForAction(card, action).filter((fieldId) => {
+    const value = values[fieldId];
+
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === "boolean") return false;
+    return String(value || "").trim().length === 0;
+  });
+
+  if (missingSchemaFields.length > 0) {
+    return missingSchemaFields;
+  }
+
+  if (schema.length > 0 || values.quick_reply || values.custom_response) {
     return [];
   }
 
@@ -1947,6 +1968,196 @@ function ActionDock(props: {
   );
 }
 
+function schemaFieldValue(values: FormValues, field: PayloadField): FormValues[string] {
+  if (field.id in values) return values[field.id];
+  if (field.type === "checklist") return [];
+  if (field.type === "toggle") return false;
+  return "";
+}
+
+function FieldShell(props: {
+  field: PayloadField;
+  children: ComponentChildren;
+}) {
+  return (
+    <label class="grid gap-2 rounded border border-white/10 bg-white/[0.03] p-3">
+      <span class="flex items-start justify-between gap-3">
+        <span class="text-sm font-medium text-zinc-100">
+          {props.field.label}
+          {props.field.required ? <span class="text-lime-300"> *</span> : null}
+        </span>
+        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">
+          {props.field.type}
+        </span>
+      </span>
+      {props.field.helper ? (
+        <span class="text-xs leading-5 text-zinc-500">{props.field.helper}</span>
+      ) : null}
+      {props.children}
+    </label>
+  );
+}
+
+function SchemaField(props: {
+  field: PayloadField;
+  value: FormValues[string];
+  submitting: boolean;
+  onChange: (fieldId: string, value: FormValues[string]) => void;
+}) {
+  const commonClass =
+    "min-h-11 w-full rounded border border-white/10 bg-[#05080c] px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70";
+
+  if (props.field.type === "textarea") {
+    return (
+      <FieldShell field={props.field}>
+        <textarea
+          class={`${commonClass} min-h-24 resize-none`}
+          disabled={props.submitting}
+          placeholder={props.field.placeholder || ""}
+          value={String(props.value || "")}
+          onInput={(event) => props.onChange(props.field.id, event.currentTarget.value)}
+        />
+      </FieldShell>
+    );
+  }
+
+  if (props.field.type === "select") {
+    return (
+      <FieldShell field={props.field}>
+        <select
+          class={commonClass}
+          disabled={props.submitting}
+          value={String(props.value || "")}
+          onInput={(event) => props.onChange(props.field.id, event.currentTarget.value)}
+        >
+          <option value="">{props.field.placeholder || "Choose one"}</option>
+          {(props.field.options || []).map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </FieldShell>
+    );
+  }
+
+  if (props.field.type === "toggle") {
+    const checked = props.value === true || props.value === "true";
+
+    return (
+      <FieldShell field={props.field}>
+        <button
+          class={`flex h-11 items-center justify-between rounded border px-3 text-left text-sm transition ${
+            checked
+              ? "border-lime-300/60 bg-lime-300/15 text-lime-50"
+              : "border-white/10 bg-[#05080c] text-zinc-300"
+          }`}
+          disabled={props.submitting}
+          type="button"
+          onClick={() => props.onChange(props.field.id, !checked)}
+        >
+          <span>{checked ? "On" : "Off"}</span>
+          <span class={`h-5 w-9 rounded-full p-0.5 transition ${checked ? "bg-lime-300" : "bg-white/15"}`}>
+            <span class={`block h-4 w-4 rounded-full bg-black transition ${checked ? "translate-x-4" : ""}`} />
+          </span>
+        </button>
+      </FieldShell>
+    );
+  }
+
+  if (props.field.type === "checklist") {
+    const selected = Array.isArray(props.value) ? props.value : [];
+
+    return (
+      <FieldShell field={props.field}>
+        <div class="grid gap-2">
+          {(props.field.options || []).map((option) => {
+            const checked = selected.includes(option);
+
+            return (
+              <button
+                class={`flex min-h-10 items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition ${
+                  checked
+                    ? "border-cyan-300/60 bg-cyan-300/12 text-cyan-50"
+                    : "border-white/10 bg-[#05080c] text-zinc-300"
+                }`}
+                disabled={props.submitting}
+                key={option}
+                type="button"
+                onClick={() => {
+                  props.onChange(
+                    props.field.id,
+                    checked ? selected.filter((item) => item !== option) : [...selected, option],
+                  );
+                }}
+              >
+                <span>{option}</span>
+                {checked ? <Icon name="yes" class="h-4 w-4 shrink-0" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </FieldShell>
+    );
+  }
+
+  if (props.field.type === "rating") {
+    const current = Number.parseInt(String(props.value || "0"), 10);
+
+    return (
+      <FieldShell field={props.field}>
+        <div class="grid grid-cols-5 gap-2">
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <button
+              class={`h-11 rounded border text-sm font-semibold transition ${
+                current === rating
+                  ? "border-lime-300/70 bg-lime-300 text-black"
+                  : "border-white/10 bg-[#05080c] text-zinc-300 hover:bg-white/[0.06]"
+              }`}
+              disabled={props.submitting}
+              key={rating}
+              type="button"
+              onClick={() => props.onChange(props.field.id, String(rating))}
+            >
+              {rating}
+            </button>
+          ))}
+        </div>
+      </FieldShell>
+    );
+  }
+
+  if (props.field.type === "evidence") {
+    return (
+      <div class="rounded border border-cyan-300/20 bg-cyan-300/[0.06] p-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">{props.field.label}</p>
+        <p class="mt-2 text-sm leading-6 text-zinc-200">{props.field.helper || props.field.placeholder || "Evidence attached."}</p>
+      </div>
+    );
+  }
+
+  if (props.field.type === "text") {
+    return (
+      <FieldShell field={props.field}>
+        <input
+          class={commonClass}
+          disabled={props.submitting}
+          placeholder={props.field.placeholder || ""}
+          type="text"
+          value={String(props.value || "")}
+          onInput={(event) => props.onChange(props.field.id, event.currentTarget.value)}
+        />
+      </FieldShell>
+    );
+  }
+
+  return (
+    <div class="rounded border border-orange-300/30 bg-orange-300/10 p-3 text-sm text-orange-100">
+      Unsupported field type for `{props.field.label}`.
+    </div>
+  );
+}
+
 function PayloadSheet(props: {
   card: SwipeCard;
   action: SwipeAction;
@@ -1959,6 +2170,7 @@ function PayloadSheet(props: {
   onSubmit: () => void;
 }) {
   const quickReplies = quickRepliesForAction(props.card, props.action);
+  const schema = schemaForAction(props.card, props.action);
   const selectedQuickReply = String(props.values.quick_reply || "");
   const customResponse = String(props.values.custom_response || "");
   const optionalNote = String(props.values.optional_note || "");
@@ -2081,6 +2293,25 @@ function PayloadSheet(props: {
               </button>
             )}
           </div>
+        ) : null}
+
+        {schema.length > 0 ? (
+          <details class="mt-4 rounded border border-white/10 bg-white/[0.02] p-3" open={!selectedQuickReply}>
+            <summary class="cursor-pointer text-sm font-semibold text-zinc-100">
+              Details Codex needs
+            </summary>
+            <div class="mt-3 grid gap-3">
+              {schema.map((field) => (
+                <SchemaField
+                  field={field}
+                  key={field.id}
+                  submitting={props.submitting}
+                  value={schemaFieldValue(props.values, field)}
+                  onChange={props.onChange}
+                />
+              ))}
+            </div>
+          </details>
         ) : null}
 
         {props.error ? (
