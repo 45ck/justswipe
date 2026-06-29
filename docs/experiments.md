@@ -703,14 +703,63 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The current UI smoke coverage is materially stronger, but the tests should be treated as serial stateful browser tests unless each mode gets isolated app/guest data.
 
+### EXP-027: Natural Greenfield Ritual Lab Dogfood
+
+- Date: 2026-06-29
+- Status: proven locally, with one bridge heartbeat fix
+- Target repo:
+  - `E:\justswipe-greenfield-ritual-lab`
+  - Setup commit: `c0db3cc Install JustSwipe steering contract`
+  - App commit: `30759f1 Build ritual planner via JustSwipe`
+- Flow:
+  - Created a fresh disposable repo with only `README.md`.
+  - Ran additive setup through JustSwipe for `E:\justswipe-greenfield-ritual-lab`.
+  - Setup created `AGENTS.md` and `skills/justswipe/SKILL.md`, preserved the README purpose, and did not build a replacement JustSwipe UI.
+  - Sent a normal greenfield app idea to the current Ritual Lab thread:
+    - "Build a tiny greenfield browser app ... Use JustSwipe for steering whenever you need a human product/taste/scope decision."
+  - Codex naturally emitted a planning card without being directly forced to emit a marker:
+    - Handoff `handoff-mqz3rc7y-bi03hy`
+    - Card `ritual-first-slice`
+    - Title `Start practical?`
+    - Included quick replies and inline `agentHtmlPreview`.
+  - Answered the planning card with `npm run bridge:answer-first-card -- --app-url http://localhost:3001`.
+  - Codex resumed, built the static local-first Ritual Lab app, verified it, and naturally emitted a review card:
+    - Handoff `handoff-mqz42hi9-qxwmzv`
+    - Card `review-ritual-first-slice`
+    - Title `Keep this direction?`
+    - Included evidence in inline HTML preview.
+  - Answered the review card with the default quick reply.
+  - Codex resumed again and completed a polish pass.
+- App result:
+  - Generated `index.html`, `styles.css`, `app.js`, `assets/morning-ritual.svg`, and `ritual-lab-mobile-proof.png`.
+  - Static local-first app with ritual presets, today status, short review note, local history, local stats, current streak, last-picked ritual, note character count, save feedback, and safe saved-note escaping.
+  - No JustSwipe UI, dashboard, bridge UI, or auth shell was built in the target repo.
+- Verification:
+  - Target Codex reported `node --check app.js`, Edge/Playwright smoke, reload persistence, saved-note escaping, no page errors, and no desktop/mobile overflow.
+  - Independent browser smoke passed from this thread:
+    - mobile viewport `390x844`
+    - picked a ritual with `Pick a ritual for me`
+    - marked `Done`
+    - saved `<b>steady start</b>`
+    - reloaded and confirmed the note persisted as text
+    - confirmed no raw/rendered saved HTML and no horizontal overflow
+  - Final JustSwipe status reported `threads: 5`, all idle, `activeHandoffs: 0`, `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
+  - Final snapshot reported `readyForDogfood: yes`, `threads: 5`, and `cachedThreads: 5`.
+- Rough edges:
+  - During both build and polish turns, the bridge heartbeat became stale while Codex was still doing a long relay. The relay eventually completed, but the UI could look less trustworthy while waiting.
+  - Fixed bridge code so the relay lease interval now also forces `touchBridgeHeartbeat`, keeping the app visibly online during long Codex turns.
+  - Setup took more than a minute; the app should make setup/running state feel intentional and visible.
+- Result:
+  - This is the strongest local proof so far of the intended core loop: start from JustSwipe, Codex asks one planning card, user swipes, Codex builds, Codex asks a review card, user swipes, Codex polishes, and the system returns to clean idle.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
 - `partial`: long-running multi-thread use over hours or days. Local multi-thread recovery is now proven, but multi-day continuity is not.
-- `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke and restored-thread relay.
+- `partial`: long-running relay UX from a human perspective. Local long-turn heartbeat is improved, but still needs repeated observation over hours/days.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
-- `proven`: natural greenfield planning behavior for local disposable static apps, including planning and review cards.
+- `proven`: natural greenfield planning behavior for local disposable static apps, including planning, build, review, polish, and return-to-idle.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
 - `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.
 - `proven`: browser-click proof for schema fields on mobile-width Chromium.

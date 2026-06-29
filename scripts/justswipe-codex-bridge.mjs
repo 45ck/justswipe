@@ -3492,8 +3492,12 @@ async function processQueued({ all, quiet }) {
     console.log(`Relaying JustSwipe response ${event.handoffId || event.id}: ${event.title}`);
     let leaseTimer = null;
     try {
+      await touchBridgeHeartbeat({ force: true });
       leaseTimer = setInterval(() => {
-        touchRunningEvent(event).catch(() => {});
+        Promise.all([
+          touchRunningEvent(event),
+          touchBridgeHeartbeat({ force: true }),
+        ]).catch(() => {});
       }, Math.max(15_000, Math.min(heartbeatMs, 60_000)));
       leaseTimer.unref?.();
       const relayResult = await runCodexWithTransientRetry(event, { quiet });
