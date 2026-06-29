@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { openSync } from "node:fs";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -272,6 +272,32 @@ function isProcessAlive(pid) {
   }
 }
 
+async function readLogTail(path, maxChars = 2000) {
+  try {
+    const text = await readFile(path, "utf8");
+    return text.slice(-maxChars).trim();
+  } catch {
+    return "";
+  }
+}
+
+async function fileSize(path) {
+  try {
+    return (await stat(path)).size;
+  } catch {
+    return 0;
+  }
+}
+
+async function readLogSince(path, offset, maxChars = 2000) {
+  try {
+    const text = await readFile(path, "utf8");
+    return text.slice(offset).slice(-maxChars).trim();
+  } catch {
+    return "";
+  }
+}
+
 async function startWatcherDaemon() {
   await mkdir(join(root, ".lakebed"), { recursive: true });
 
@@ -303,6 +329,8 @@ async function startWatcherDaemon() {
 
   const outFd = openSync(outLog, "a");
   const errFd = openSync(errLog, "a");
+  const outStart = await fileSize(outLog);
+  const errStart = await fileSize(errLog);
   const watcherArgs = [
     scriptPath,
     "--watch",
@@ -333,6 +361,24 @@ async function startWatcherDaemon() {
 
   child.unref();
   await writeFile(pidFile, String(child.pid || ""));
+
+  await sleep(2500);
+
+  if (!isProcessAlive(child.pid)) {
+    await rm(pidFile, { force: true });
+    const stderr = (await readLogSince(errLog, errStart)) || (await readLogTail(errLog));
+    const stdout = (await readLogSince(outLog, outStart)) || (await readLogTail(outLog));
+    console.error("JustSwipe bridge watcher exited before the first heartbeat.");
+    console.error(`stdout: ${outLog}`);
+    console.error(`stderr: ${errLog}`);
+    if (stderr) {
+      console.error(stderr);
+    } else if (stdout) {
+      console.error(stdout);
+    }
+    process.exitCode = 1;
+    return null;
+  }
 
   console.log("Started JustSwipe bridge watcher in the background.");
   console.log(`pid: ${child.pid}`);

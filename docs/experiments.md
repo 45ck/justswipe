@@ -417,9 +417,35 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Same-thread local JustSwipe idea routing works end to end for a read-only self-dogfood request: idea queued, bridge claimed it, Codex replied, and the bridge returned to idle with no stuck events.
 
+### EXP-015: Hosted Watcher Quota Failure UX
+
+- Date: 2026-06-29
+- Status: improved, hosted still blocked
+- Surface: `E:\justswipe`, hosted app `https://clear-harbor-b4fc257b5a.lakebed.app`
+- Commands:
+  - `npm run bridge:watch -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --daemon`
+  - `npm run build`
+  - `npm --silent run bridge:doctor:ready:local`
+  - `npm run ui:smoke:relay-state`
+- Evidence:
+  - Foreground hosted watcher failed on first heartbeat with `hosted mutation quota exhausted; switch bridge app URL to local dev`.
+  - Daemon startup now waits for the first heartbeat window and exits non-zero if the child process dies before the heartbeat lands.
+  - Re-run daemon output now reports the current startup failure directly instead of claiming the watcher started:
+    - `JustSwipe bridge watcher exited before the first heartbeat.`
+    - `hosted mutation quota exhausted; switch bridge app URL to local dev`
+    - `Run: npm run dev`
+    - `Then use: --app-url http://localhost:3001`
+  - Hosted stale-heartbeat UI copy now tells the user that if the hosted watcher exits immediately, hosted quota is likely exhausted and local dev should be used until hosted mutations reset.
+  - Verification passed:
+    - `npm run build`
+    - `npm --silent run bridge:doctor:ready:local`
+    - `npm run ui:smoke:relay-state`
+- Result:
+  - The hosted app is still not usable for live relay while hosted mutations are exhausted, but the bridge startup now fails honestly instead of giving a false “started” signal.
+
 ## Open Experiment Areas
 
-- `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline` with the last hosted heartbeat stale by about 4 hours. Starting `npm run bridge:watch -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --daemon` launched a watcher process, but the hosted status still showed the stale heartbeat; prior watcher stderr included `hosted mutation quota exhausted; switch bridge app URL to local dev` and a transient Codex state DB lock. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
+- `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
 - `partial`: long-running multi-thread use over hours or days.
 - `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.

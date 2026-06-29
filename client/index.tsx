@@ -1053,13 +1053,19 @@ function bridgeHealthState(props: {
   }
 
   if (!heartbeatFresh) {
+    const hostedApp =
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
     return {
       status: "warning",
       label: "Bridge not observed",
       detail: props.heartbeat?.lastSeenAt
         ? `Last bridge heartbeat was ${heartbeatAge} ago.`
         : "No bridge watcher heartbeat has reached this connection.",
-      action: "Start the background watcher for this app URL.",
+      action: hostedApp
+        ? "Start the watcher. If it exits immediately, hosted quota is likely exhausted; use local dev until hosted mutations reset."
+        : "Start the background watcher for this app URL.",
       icon: "clock",
       queuedEvents,
       runningEvents,
