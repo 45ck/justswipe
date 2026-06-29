@@ -811,10 +811,32 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Long-running dogfood can now be left running as a background evidence collector. The bounded proof passed; the next proof is a real multi-hour run.
 
+### EXP-031: Active Local Long-Run Monitor Started
+
+- Date: 2026-06-29
+- Status: active collection started
+- Flow:
+  - Started the real local dogfood monitor daemon with `npm run dogfood:monitor:daemon -- --name local-longrun`.
+  - Daemon pid: `13884`.
+  - Pid file: `.lakebed/dogfood-monitor/local-longrun.pid`.
+  - Stdout log: `.lakebed/dogfood-monitor/local-longrun.out.log`.
+  - Stderr log: `.lakebed/dogfood-monitor/local-longrun.err.log`.
+  - Interval: `900000ms` / 15 minutes.
+  - Max runs: unbounded.
+- First evidence:
+  - First daemon snapshot appended at `2026-06-29T12:03:58.625Z`.
+  - `readyForDogfood: yes`.
+  - `threads: 5`.
+  - `cachedThreads: 5`.
+  - Bridge events: `queued=0 running=0 failed=0`.
+  - Snapshot captured Ritual, Breath, Stretch, Notes, and Habit threads idle.
+- Result:
+  - Multi-hour/multi-day reliability evidence is now actively collecting locally. This is not yet proof of hours/days continuity; it is the start of the long-run observation window.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
-- `partial`: long-running multi-thread use over hours or days. Local multi-thread recovery, foreground monitor tooling, and daemon monitor tooling are proven, but multi-hour/multi-day continuity is not.
+- `partial`: long-running multi-thread use over hours or days. Local multi-thread recovery, foreground monitor tooling, and daemon monitor tooling are proven; an active local long-run monitor is now collecting evidence, but multi-hour/multi-day continuity is not yet proven.
 - `partial`: long-running relay UX from a human perspective. Local long-turn heartbeat is improved, but still needs repeated observation over hours/days.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
