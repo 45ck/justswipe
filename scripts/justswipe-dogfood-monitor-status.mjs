@@ -13,6 +13,7 @@ const outPath = join(monitorDir, `${monitorName}.out.log`);
 const errPath = join(monitorDir, `${monitorName}.err.log`);
 const monitorLogPath = resolve(valueAfter("--log") || join(root, "docs", "dogfood-monitor-runs.md"));
 const snapshotPath = resolve(valueAfter("--snapshot-log") || join(root, "docs", "dogfood-snapshots.md"));
+const intervalMs = Number.parseInt(valueAfter("--interval-ms") || "900000", 10);
 
 function valueAfter(flag) {
   const index = process.argv.indexOf(flag);
@@ -90,6 +91,52 @@ function findInline(body, pattern) {
   return match?.[1]?.trim() || "";
 }
 
+function formatAge(seconds) {
+  if (!Number.isFinite(seconds)) {
+    return "unknown";
+  }
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  }
+  if (seconds < 3600) {
+    return `${Math.round(seconds / 60)}m`;
+  }
+  return `${(seconds / 3600).toFixed(2)}h`;
+}
+
+function monitorTimingLine(latestMonitor) {
+  if (!latestMonitor) {
+    return {
+      lines: ["monitorAge: unknown", "monitorNextDue: unknown", "monitorOverdue: unknown"],
+      overdue: false,
+    };
+  }
+
+  const latestTime = new Date(latestMonitor.timestamp).getTime();
+  const now = Date.now();
+  const validLatest = Number.isFinite(latestTime);
+  const validInterval = Number.isFinite(intervalMs) && intervalMs > 0;
+  if (!validLatest || !validInterval) {
+    return {
+      lines: ["monitorAge: unknown", "monitorNextDue: unknown", "monitorOverdue: unknown"],
+      overdue: false,
+    };
+  }
+
+  const ageSeconds = Math.max(0, (now - latestTime) / 1000);
+  const nextDue = new Date(latestTime + intervalMs);
+  const overdueGraceMs = Math.max(120000, intervalMs * 0.25);
+  const overdue = now > latestTime + intervalMs + overdueGraceMs;
+  return {
+    lines: [
+      `monitorAge: ${formatAge(ageSeconds)}`,
+      `monitorNextDue: ${nextDue.toISOString()}`,
+      `monitorOverdue: ${overdue ? "yes" : "no"}`,
+    ],
+    overdue,
+  };
+}
+
 async function getBridgeStatus() {
   const result = await runNode(["scripts/justswipe-codex-bridge.mjs", "--status", "--json", "--app-url", appUrl]);
   if (!result.ok) {
@@ -150,6 +197,11 @@ async function main() {
     console.log("latestMonitor: none");
   }
 
+  const monitorTiming = monitorTimingLine(latestMonitor);
+  for (const line of monitorTiming.lines) {
+    console.log(line);
+  }
+
   if (latestSnapshot) {
     console.log(`latestSnapshot: ${latestSnapshot.timestamp}`);
     console.log(`snapshotReady: ${findValue(latestSnapshot.body, "readyForDogfood") || "unknown"}`);
@@ -169,6 +221,7 @@ async function main() {
   const failed =
     !alive ||
     !bridgeStatus.ok ||
+    monitorTiming.overdue ||
     bridgeStatus.report?.bridgeHeartbeat?.fresh !== true ||
     (latestMonitor && /status:\s*failed/i.test(latestMonitor.body));
   if (failed) {

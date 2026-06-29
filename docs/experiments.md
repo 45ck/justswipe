@@ -950,6 +950,27 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Local dogfood is stable beyond the initial smoke window and across six known threads. This remains `partial` for the goal because it is only about 1.27h of monitor evidence, not hours/days.
 
+### EXP-037: Monitor Freshness Visibility
+
+- Date: 2026-06-30
+- Status: monitor healthy, freshness now explicit
+- Flow:
+  - Ran `npm run dogfood:monitor:status -- --name local-longrun`.
+  - Confirmed the daemon pid `13884` is alive and the bridge is `online`, `fresh=true`, with events `0/0/0`.
+  - Latest persisted scheduled monitor run was `9`, passed, ready, with 6 observed threads.
+  - Added monitor freshness output to `scripts/justswipe-dogfood-monitor-status.mjs`.
+  - Ran `node --check scripts\justswipe-dogfood-monitor-status.mjs`.
+  - Ran `npm run dogfood:monitor:status -- --name local-longrun`.
+  - Ran `npm run build`.
+  - Ran `npm run bridge:dry-run`.
+- Evidence:
+  - Status now prints `monitorAge`, `monitorNextDue`, and `monitorOverdue`.
+  - Current run 9 status showed `monitorAge: 9m`, `monitorNextDue: 2026-06-29T14:20:40.972Z`, and `monitorOverdue: no`.
+  - `npm run build` passed.
+  - `npm run bridge:dry-run` reported no JustSwipe responses waiting for Codex.
+- Result:
+  - The long-run proof can now distinguish a healthy between-interval monitor from a stale or stuck daemon. This keeps `process alive` from being mistaken for proof that scheduled evidence is still advancing.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
