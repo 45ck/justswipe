@@ -363,3 +363,83 @@ Threads:
   - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0
   - idle | justswipe-greenfield-notes-lab | justswipe-greenfield-notes-lab thread 019f12ec | cards=0 ideas=0
   - idle | justswipe-greenfield-habit-lab | justswipe-greenfield-habit-lab thread 019f12e7 | cards=0 ideas=0
+
+## 2026-06-29T12:49:44.492Z
+
+- appUrl: http://localhost:3001
+- connectionId: conn-mqz1ie67-5fqnku
+- currentProject: justswipe-greenfield-focus-lab
+- currentCwd: E:\justswipe-greenfield-focus-lab
+- currentThread: justswipe-greenfield-focus-lab thread 019f1365
+- heartbeat: online / fresh=true / ageSeconds=7
+- activeHandoffs: 1
+- bridgeEvents: queued=0 running=1 failed=0
+- threads: 6 (justswipe-greenfield-focus-lab, justswipe-greenfield-ritual-lab, justswipe-greenfield-breath-lab, justswipe-greenfield-stretch-lab, justswipe-greenfield-notes-lab)
+- readyForDogfood: no
+
+Threads:
+  - running | justswipe-greenfield-focus-lab | justswipe-greenfield-focus-lab thread 019f1365 | cards=0 ideas=0
+  - idle | justswipe-greenfield-ritual-lab | justswipe-greenfield-ritual-lab thread 019f1301 | cards=0 ideas=0
+  - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f12e3 | cards=0 ideas=0
+  - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0
+  - idle | justswipe-greenfield-notes-lab | justswipe-greenfield-notes-lab thread 019f12ec | cards=0 ideas=0
+
+## 2026-06-29T13:03:31.260Z
+
+- appUrl: http://localhost:3001
+- connectionId: conn-mqz1ie67-5fqnku
+- currentProject: justswipe-greenfield-focus-lab
+- currentCwd: E:\justswipe-greenfield-focus-lab
+- currentThread: justswipe-greenfield-focus-lab thread 019f1365
+- heartbeat: online / fresh=true / ageSeconds=88
+- activeHandoffs: 0
+- bridgeEvents: queued=0 running=0 failed=0
+- threads: 6 (justswipe-greenfield-focus-lab, justswipe-greenfield-ritual-lab, justswipe-greenfield-breath-lab, justswipe-greenfield-stretch-lab, justswipe-greenfield-notes-lab)
+- readyForDogfood: yes
+
+Threads:
+  - idle | justswipe-greenfield-focus-lab | justswipe-greenfield-focus-lab thread 019f1365 | cards=0 ideas=0
+  - idle | justswipe-greenfield-ritual-lab | justswipe-greenfield-ritual-lab thread 019f1301 | cards=0 ideas=0
+  - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f12e3 | cards=0 ideas=0
+  - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0
+  - idle | justswipe-greenfield-notes-lab | justswipe-greenfield-notes-lab thread 019f12ec | cards=0 ideas=0
+
+## 2026-06-29T13:04:53.785Z
+
+- appUrl: http://localhost:3001
+- connectionId: conn-mqz1ie67-5fqnku
+- currentProject: justswipe-greenfield-focus-lab
+- currentCwd: E:\justswipe-greenfield-focus-lab
+- currentThread: justswipe-greenfield-focus-lab thread 019f1365
+- heartbeat: online / fresh=true / ageSeconds=72
+- activeHandoffs: 0
+- bridgeEvents: queued=0 running=0 failed=0
+- threads: 6 (justswipe-greenfield-focus-lab, justswipe-greenfield-ritual-lab, justswipe-greenfield-breath-lab, justswipe-greenfield-stretch-lab, justswipe-greenfield-notes-lab)
+- readyForDogfood: yes
+
+Threads:
+  - idle | justswipe-greenfield-focus-lab | justswipe-greenfield-focus-lab thread 019f1365 | cards=0 ideas=0
+  - idle | justswipe-greenfield-ritual-lab | justswipe-greenfield-ritual-lab thread 019f1301 | cards=0 ideas=0
+  - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f12e3 | cards=0 ideas=0
+  - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0
+  - idle | justswipe-greenfield-notes-lab | justswipe-greenfield-notes-lab thread 019f12ec | cards=0 ideas=0
+
+## 2026-06-29T13:07:33.243Z
+
+- appUrl: http://localhost:3001
+- connectionId: conn-mqz1ie67-5fqnku
+- currentProject: justswipe-greenfield-focus-lab
+- currentCwd: E:\justswipe-greenfield-focus-lab
+- currentThread: justswipe-greenfield-focus-lab thread 019f1365
+- heartbeat: online / fresh=true / ageSeconds=42
+- activeHandoffs: 0
+- bridgeEvents: queued=0 running=0 failed=0
+- threads: 6 (justswipe-greenfield-focus-lab, justswipe-greenfield-ritual-lab, justswipe-greenfield-breath-lab, justswipe-greenfield-stretch-lab, justswipe-greenfield-notes-lab)
+- readyForDogfood: yes
+
+Threads:
+  - idle | justswipe-greenfield-focus-lab | justswipe-greenfield-focus-lab thread 019f1365 | cards=0 ideas=0
+  - idle | justswipe-greenfield-ritual-lab | justswipe-greenfield-ritual-lab thread 019f1301 | cards=0 ideas=0
+  - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f12e3 | cards=0 ideas=0
+  - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0
+  - idle | justswipe-greenfield-notes-lab | justswipe-greenfield-notes-lab thread 019f12ec | cards=0 ideas=0

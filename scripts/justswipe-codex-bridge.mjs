@@ -40,6 +40,7 @@ const rehydrateThreads = args.has("--rehydrate-threads");
 const retryFailed = args.has("--retry-failed");
 const forceSetupCard = args.has("--setup-card");
 const answerFirstCard = args.has("--answer-first-card");
+const answerActionArg = valueAfter("--action") ?? "yes";
 const replyArg = valueAfter("--reply") ?? "";
 const ideaPrompt = valueAfter("--idea") ?? "";
 const relayMode = valueAfter("--relay") ?? process.env.JUSTSWIPE_CODEX_RELAY ?? "app-server";
@@ -2996,7 +2997,7 @@ function parseCardsJson(cardsJson) {
   }
 }
 
-async function submitFirstYesReply(handoff, preferredReply = "") {
+async function submitFirstCardResponse(handoff, action = "yes", preferredReply = "") {
   const cards = parseCardsJson(handoff.cardsJson);
   const activeIndex = Number.parseInt(handoff.activeCardIndex || "0", 10) || 0;
   const card = cards[activeIndex];
@@ -3005,8 +3006,10 @@ async function submitFirstYesReply(handoff, preferredReply = "") {
     throw new Error(`E2E failed: handoff ${handoff.handoffId || handoff.id} has no active card.`);
   }
 
+  const normalizedAction = ["yes", "no", "more", "later"].includes(action) ? action : "yes";
   const reply =
     preferredReply ||
+    card.quickRepliesByAction?.[normalizedAction]?.[0] ||
     card.quickRepliesByAction?.yes?.[0] ||
     card.quickRepliesByAction?.more?.[0] ||
     "Continue";
@@ -3014,7 +3017,7 @@ async function submitFirstYesReply(handoff, preferredReply = "") {
     await runMutation("submitCardResponse", [
       handoff.id,
       card.cardId,
-      "yes",
+      normalizedAction,
       JSON.stringify({ quick_reply: reply }),
     ]),
   );
@@ -3026,8 +3029,13 @@ async function submitFirstYesReply(handoff, preferredReply = "") {
   return {
     cardId: card.cardId,
     title: card.title || card.cardId,
+    action: normalizedAction,
     reply,
   };
+}
+
+async function submitFirstYesReply(handoff, preferredReply = "") {
+  return submitFirstCardResponse(handoff, "yes", preferredReply);
 }
 
 async function answerFirstActiveCard() {
@@ -3038,7 +3046,7 @@ async function answerFirstActiveCard() {
     throw new Error("No active JustSwipe card is waiting.");
   }
 
-  const response = await submitFirstYesReply(handoff, replyArg);
+  const response = await submitFirstCardResponse(handoff, answerActionArg, replyArg);
   const report = {
     handoffId: handoff.handoffId || handoff.id,
     threadId: handoff.threadId || "",
@@ -3046,6 +3054,7 @@ async function answerFirstActiveCard() {
     projectName: handoff.projectName || "",
     cardId: response.cardId,
     title: response.title,
+    action: response.action,
     reply: response.reply,
   };
 
@@ -3057,6 +3066,7 @@ async function answerFirstActiveCard() {
   console.log(`Answered JustSwipe card: ${report.handoffId}`);
   console.log(`thread: ${report.threadTitle || report.threadId || "unknown"}`);
   console.log(`card: ${report.title}`);
+  console.log(`action: ${report.action}`);
   console.log(`reply: ${report.reply}`);
 }
 

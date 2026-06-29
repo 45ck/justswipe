@@ -876,6 +876,34 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The remaining completion gaps are now machine-readable and documented. The goal remains active because hours/days continuity, repeated natural greenfield use, and hosted/phone proof are not complete.
 
+### EXP-034: Natural Focus Lab Greenfield Dogfood With Negative Review
+
+- Date: 2026-06-29
+- Status: second current greenfield loop passed with feedback correction
+- Target repo:
+  - `E:\justswipe-greenfield-focus-lab`
+  - Codex thread `019f1365-9e13-7f81-8475-383b48fd0ddd`
+  - Target commit `078fb70 Build Focus Lab through JustSwipe`
+- Flow:
+  - Created a fresh disposable repo and initial commit.
+  - Ran `npm run dogfood:target:add -- --cwd E:\justswipe-greenfield-focus-lab`.
+  - Setup installed only `AGENTS.md` and `skills/justswipe/SKILL.md`; no replacement JustSwipe UI was created.
+  - Sent a normal app idea through `npm run dogfood:target:idea`: build a tiny local-first Focus Lab app for choosing a 10-minute work session.
+  - Codex naturally emitted planning handoff `handoff-mqz7mnro-dl0j3s` with card `focus-first-slice`.
+  - Answered the planning card with `Build calm chooser`.
+  - Codex built `index.html`, `styles.css`, and `app.js`, then naturally emitted review handoff `handoff-mqz7x55y-5q9eyf` with card `review-focus-first-slice`.
+  - Manual browser smoke found a real accessibility defect: intent controls were buttons but had `role="listitem"`, so role-based access and Playwright could not find Write/Clear/Plan as buttons.
+  - Added `--action` support to `bridge:answer-first-card` and submitted a `no` response with that feedback.
+  - Codex applied the feedback, removed the incorrect roles, verified the target app, and returned to idle.
+- Verification:
+  - Target repo `node --check app.js` passed.
+  - Independent Playwright smoke at `390x844` loaded `file:///E:/justswipe-greenfield-focus-lab/index.html`.
+  - Smoke selected `Clear` by role, filled the outcome, started, paused, and reset the timer.
+  - No page errors, no console errors, and no horizontal overflow.
+  - Final bridge status showed `currentProject: justswipe-greenfield-focus-lab`, `activeHandoffs: 0`, all 6 threads idle, and bridge events `queued=0 running=0 failed=0`.
+- Result:
+  - This is a stronger proof than a happy-path auto-yes flow: JustSwipe carried planning, build review, negative feedback, correction, and return-to-idle for a fresh greenfield app.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.

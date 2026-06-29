@@ -98,7 +98,9 @@ async function main() {
   ]);
   const failureUxProven = experiments.includes("browser-tested failure recovery for failed relay");
   const richCardsProven = experiments.includes("rich schema forms and inline HTML previews");
-  const naturalGreenfieldProven = experiments.includes("natural greenfield planning behavior");
+  const naturalGreenfieldProofs = [
+    ...experiments.matchAll(/^### EXP-\d+:\s+(.+)$/gm),
+  ].filter((match) => /natural .*greenfield|greenfield .*dogfood|greenfield planning/i.test(match[1])).length;
   const hostedGap = experiments.includes("hosted cloud proof after Lakebed quota reset");
   const phoneGap = experiments.includes("mobile/phone ergonomics");
 
@@ -128,9 +130,11 @@ async function main() {
       latestVerifyPassed ? "card shapes smoke covers schema fields, unsupported fallback, HTML preview, multi-card order" : "coverage not recently verified",
     ),
     statusLine(
-      naturalGreenfieldProven ? "partial" : "gap",
+      naturalGreenfieldProofs >= 2 ? "proven-local" : naturalGreenfieldProofs === 1 ? "partial" : "gap",
       "Codex naturally uses JustSwipe in greenfield planning",
-      naturalGreenfieldProven ? "one local disposable app proved plan/build/review/polish loop" : "no documented natural greenfield proof",
+      naturalGreenfieldProofs
+        ? `${naturalGreenfieldProofs} documented local greenfield proof${naturalGreenfieldProofs === 1 ? "" : "s"} include planning cards, build/review loops, or return-to-idle evidence`
+        : "no documented natural greenfield proof",
     ),
     statusLine(
       hostedGap ? "gap" : "unknown",

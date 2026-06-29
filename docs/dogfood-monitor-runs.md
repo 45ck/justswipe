@@ -142,3 +142,35 @@ cachedThreads: 5
 bridgeEvents: queued=0 running=0 failed=0
 ```
 
+## 2026-06-29T12:49:44.535Z
+
+- appUrl: http://localhost:3001
+- run: 4
+- status: passed
+- exitCode: 0
+- durationMs: 10042
+
+```text
+Dogfood snapshot appended: E:\justswipe\docs\dogfood-snapshots.md
+readyForDogfood: no
+threads: 6
+cachedThreads: 6
+bridgeEvents: queued=0 running=1 failed=0
+```
+
+## 2026-06-29T13:04:53.825Z
+
+- appUrl: http://localhost:3001
+- run: 5
+- status: passed
+- exitCode: 0
+- durationMs: 9283
+
+```text
+Dogfood snapshot appended: E:\justswipe\docs\dogfood-snapshots.md
+readyForDogfood: yes
+threads: 6
+cachedThreads: 6
+bridgeEvents: queued=0 running=0 failed=0
+```
+
