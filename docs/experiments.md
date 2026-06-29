@@ -650,11 +650,64 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Local long-running dogfood has a recovery primitive now. The next reliability proof should intentionally cache multiple active project threads, restart local dev, rehydrate, and confirm the thread list comes back intact.
 
+### EXP-025: Multi-Thread Rehydrate And Restored-Thread Relay
+
+- Date: 2026-06-29
+- Status: improved and proven locally
+- Flow:
+  - Rebuilt a richer local dogfood state with additive setup across:
+    - `E:\justswipe-greenfield-stretch-lab`
+    - `E:\justswipe-greenfield-breath-lab`
+    - `E:\justswipe-greenfield-habit-lab`
+  - Ran `npm run dogfood:snapshot`; it reported `readyForDogfood: yes`, `threads: 3`, `cachedThreads: 3`, and bridge events `queued=0 running=0 failed=0`.
+  - Cleared active local connection state with `npm run bridge:clear -- --app-url http://localhost:3001`.
+  - Confirmed the degraded state: connected browser record still existed, but heartbeat was missing and `threads: 0`.
+  - Re-established a fresh connection through `E:\justswipe-greenfield-notes-lab`.
+  - Ran `npm run dogfood:rehydrate`.
+  - Rehydrate restored the 3 cached threads into the active connection, producing 4 visible idle threads across Notes, Breath, Stretch, and Habit.
+  - Sent an idea to the restored Notes thread `019f12ec-52e1-7201-b71d-3747372bac6d`.
+  - Watcher relayed `idea-mqz2y40b-if1rjc`; the Notes thread moved `running` then back to `idle`.
+- Evidence:
+  - Final status showed `threads: 4`, `threadStatuses: {"idle":4}`, heartbeat online/fresh, `activeHandoffs: 0`, `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
+  - Watcher log showed `Relaying JustSwipe response idea-mqz2y40b-if1rjc` and `Codex handled JustSwipe response: idea-mqz2y40b-if1rjc`.
+  - The restored Notes thread performed a read-only contract check, edited no files, and did not emit an unnecessary card.
+  - Target repos `notes`, `breath`, `habit`, and `stretch` were clean after the relay.
+- Rough edges:
+  - Rehydrate can change `currentProject` / `currentThread` to the most recently touched cached thread. The thread list is correct, but the "current" headline can feel surprising after recovery.
+  - Clearing connection state can leave a connected browser record but missing heartbeat/thread metadata. The UI must keep this state visually obvious as "bridge needs recovery", not "ready".
+- Result:
+  - Multi-thread local recovery is now proven for the practical failure case: lose thread metadata, recover from cache, route an idea to a restored thread, and return to clean idle state.
+
+### EXP-026: Serial UI Smoke Matrix
+
+- Date: 2026-06-29
+- Status: proven serially, not parallel-safe
+- Verification:
+  - `npm run ui:smoke` passed.
+    - Verified mobile render, HTML preview, schema fields, resume evidence, submit, and queued payload.
+  - `npm run ui:smoke:card-shapes` passed when run serially.
+    - Verified yes/no, free text, adaptive form, unsupported field fallback, more action, and multi-card order.
+  - `npm run ui:smoke:multi-thread` passed when run serially.
+    - Verified multiple thread rows, active/empty waiting filters, project filter, and existing-thread idea target.
+  - `npm run ui:smoke:relay-state` passed when run serially.
+    - Verified running relay is not presented as offline, and stale heartbeat copy explains Codex work.
+  - `npm run ui:smoke:failure` passed when run serially.
+    - Verified failed relay banner, failure detail, retry requeue, and retry sent state.
+  - `npm run build` passed.
+- Test isolation issue:
+  - Running some UI smoke modes concurrently against the same local app state caused false failures:
+    - card-shapes: final card did not queue a bridge event
+    - multi-thread: idle idea composer was not visible
+    - relay/failure: relay copy or retry event was missing
+  - The same modes passed when rerun one at a time.
+- Result:
+  - The current UI smoke coverage is materially stronger, but the tests should be treated as serial stateful browser tests unless each mode gets isolated app/guest data.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
-- `partial`: long-running multi-thread use over hours or days.
-- `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
+- `partial`: long-running multi-thread use over hours or days. Local multi-thread recovery is now proven, but multi-day continuity is not.
+- `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke and restored-thread relay.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
 - `proven`: natural greenfield planning behavior for local disposable static apps, including planning and review cards.
