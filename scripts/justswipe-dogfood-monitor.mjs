@@ -7,6 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appUrl = valueAfter("--app-url") || "http://localhost:3001";
 const intervalMs = Number.parseInt(valueAfter("--interval-ms") || "900000", 10);
 const maxRuns = Number.parseInt(valueAfter("--max-runs") || "0", 10);
+const snapshotRetries = Number.parseInt(valueAfter("--snapshot-retries") || "2", 10);
 const logPath = resolve(valueAfter("--log") || join(root, "docs", "dogfood-monitor-runs.md"));
 const daemon = process.argv.includes("--daemon");
 const monitorDir = join(root, ".lakebed", "dogfood-monitor");
@@ -81,7 +82,7 @@ async function readHighestRunNumber(path) {
   return runs.length ? Math.max(...runs) : 0;
 }
 
-function runSnapshot() {
+function runSnapshotOnce(attempt) {
   return new Promise((resolveSnapshot) => {
     const startedAt = new Date();
     const child = spawn(
@@ -89,7 +90,7 @@ function runSnapshot() {
       ["scripts/justswipe-dogfood-snapshot.mjs", "--app-url", appUrl],
       {
         cwd: root,
-        shell: process.platform === "win32",
+        windowsHide: true,
       },
     );
 
@@ -112,6 +113,7 @@ function runSnapshot() {
       const finishedAt = new Date();
       resolveSnapshot({
         code,
+        attempt,
         startedAt: startedAt.toISOString(),
         finishedAt: finishedAt.toISOString(),
         durationMs: finishedAt.getTime() - startedAt.getTime(),
@@ -120,6 +122,34 @@ function runSnapshot() {
       });
     });
   });
+}
+
+async function runSnapshot() {
+  const maxAttempts = Math.max(1, snapshotRetries + 1);
+  const failures = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = await runSnapshotOnce(attempt);
+    if (result.code === 0) {
+      return { ...result, failures };
+    }
+
+    failures.push(result);
+    const summary = compactOutput(result);
+    console.error(
+      `Snapshot attempt ${attempt}/${maxAttempts} failed with exitCode=${result.code}.`,
+    );
+    for (const line of summary) {
+      console.error(line);
+    }
+
+    if (attempt < maxAttempts) {
+      await sleep(5000);
+    }
+  }
+
+  const finalFailure = failures.at(-1);
+  return { ...finalFailure, failures };
 }
 
 function compactOutput(result) {
@@ -134,6 +164,10 @@ function compactOutput(result) {
 
 async function appendMonitorRun(index, result) {
   const status = result.code === 0 ? "passed" : "failed";
+  const output = compactOutput(result);
+  const retryLines = (result.failures || []).map(
+    (failure) => `snapshotAttempt=${failure.attempt} exitCode=${failure.code} durationMs=${failure.durationMs}`,
+  );
   const lines = [
     `## ${result.finishedAt}`,
     "",
@@ -144,7 +178,8 @@ async function appendMonitorRun(index, result) {
     `- durationMs: ${result.durationMs}`,
     "",
     "```text",
-    ...compactOutput(result),
+    ...retryLines,
+    ...(output.length ? output : status === "failed" ? [`snapshot failed with exitCode=${result.code}`] : []),
     "```",
     "",
   ];
@@ -166,6 +201,7 @@ async function main() {
   console.log(`JustSwipe dogfood monitor: ${appUrl}`);
   console.log(`intervalMs: ${intervalMs}`);
   console.log(`maxRuns: ${maxRuns || "unbounded"}`);
+  console.log(`snapshotRetries: ${snapshotRetries}`);
   console.log(`log: ${logPath}`);
 
   let completedRuns = 0;
