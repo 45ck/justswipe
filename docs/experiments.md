@@ -130,6 +130,35 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - Local Codex handoff/response/build verification still passes after the schema changes.
   - The next QA improvement should add a reliable browser-click runner or install browser binaries for mobile-width UI verification.
 
+### EXP-006: Mobile Browser UI Schema Smoke
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, Playwright Chromium
+- Commands:
+  - `npm install --save-dev playwright`
+  - `npm run ui:smoke`
+  - `npm run build`
+  - `npm run bridge:smoke`
+  - `npm --silent run bridge:doctor:ready:local`
+- Evidence:
+  - `ui:smoke` uses isolated guest `guest:ui-smoke`, so it does not disturb the normal local pairing.
+  - The script creates a rich schema handoff, opens JustSwipe at `390x844`, pairs through the URL, and verifies the card title plus inline `agentHtmlPreview`.
+  - It opens the Yes response sheet and fills a select, text input, toggle, checklist, and rating field.
+  - It submits through the UI and verifies a visible sent/resuming state.
+  - It dumps Lakebed state and verifies the queued bridge event payload includes the expected schema values.
+  - It checks mobile horizontal overflow before and after filling the form.
+  - Passing run used handoff `handoff-mqyp19zd-i6ixll`.
+  - Build passed with Lakebed artifact hash `sha256:327c7595644d0783c23ea779be28bc873f4d4c746e745fab2e0a859e5b724d1a`.
+  - Bridge smoke still passed after adding the browser UI smoke.
+  - Local doctor returned `doctor.status: ready` with queued/running/failed all `0`.
+- Rough edges:
+  - The first browser test attempts found brittle selectors around the toggle, checklist, and success state; the final script scopes selectors to field containers.
+  - This proves desktop Chromium at mobile viewport, not a real phone browser, notification permission, or vibration.
+- Result:
+  - Browser-click proof for schema fields on mobile width is now covered by a repeatable script.
+  - The rich schema gap moves from backend-only proof to real rendered UI proof.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
@@ -138,4 +167,4 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - `partial`: natural greenfield planning behavior beyond controlled prompts.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
 - `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.
-- `gap`: browser-click proof for schema fields on mobile width.
+- `proven`: browser-click proof for schema fields on mobile-width Chromium.
