@@ -430,7 +430,7 @@ async function setupQuickHandoff(reason = "UI smoke relay state handoff.") {
     }),
   ]);
 
-  return { handoffId, connectionId: integration.connectionId };
+  return { handoffId, connectionId: integration.connectionId, threadId };
 }
 
 function guestUrl(code) {
@@ -731,6 +731,38 @@ async function runFailureUiSmoke() {
       throw new Error(`Failure UI smoke failed: retry did not requeue event, got ${retried?.status || "missing"}.`);
     }
 
+    const retryClaim = JSON.parse(String(await runMutation("claimBridgeEvent", [event.id])));
+
+    if (!retryClaim.ok) {
+      throw new Error(`Failure UI smoke failed: could not claim retried bridge event: ${retryClaim.error || "unknown error"}`);
+    }
+
+    await runMutation("markBridgeSent", [
+      event.id,
+      "Simulated retry success for UI smoke.",
+      JSON.stringify({
+        threadId: failureSetup.threadId,
+        threadTitle: "UI failure smoke thread",
+        threadStatus: "idle",
+        cwd: root,
+        projectName: "justswipe",
+        lastActivityAt: new Date().toISOString(),
+      }),
+    ]);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText(/Codex resumed|Last thread state: Codex resumed/i).first().waitFor({ timeout: 15_000 });
+
+    const sentDb = await dumpDb();
+    const sent = (sentDb.tables?.bridgeEvents || []).find((row) => row.id === event.id);
+
+    if (sent?.status !== "sent") {
+      throw new Error(`Failure UI smoke failed: retried event did not mark sent, got ${sent?.status || "missing"}.`);
+    }
+
+    if (!String(sent.response || "").includes("Simulated retry success for UI smoke.")) {
+      throw new Error("Failure UI smoke failed: sent retry response was not preserved.");
+    }
+
     if (consoleErrors.length > 0) {
       throw new Error(`Failure UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
     }
@@ -743,7 +775,7 @@ async function runFailureUiSmoke() {
     console.log(`appUrl: ${appBaseUrl()}`);
     console.log(`guest: guest:${guest}`);
     console.log(`handoffId: ${failureSetup.handoffId}`);
-    console.log("verified: failed relay banner, failure detail, thread log retry, queued retry payload");
+    console.log("verified: failed relay banner, failure detail, retry requeue, retry sent state");
   } finally {
     await browser.close();
   }

@@ -177,12 +177,14 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - Browser verifies the exact failure detail appears to the user.
   - Browser opens the thread log, clicks `Retry relay`, and verifies the retry toast.
   - Lakebed state verifies the same bridge event returns to `queued`.
+  - Later enhancement also claims the retried event, marks it sent, reloads the UI, verifies `Codex resumed` / `Last thread state: Codex resumed`, and verifies the retry success response is preserved in the sent bridge event.
   - Passing run used handoff `handoff-mqypihvh-l5ffl8`.
+  - Enhanced retry-to-sent run passed with handoff `handoff-mqyu5nsa-w0dwcn`.
   - Follow-up schema UI smoke still passed with handoff `handoff-mqypjy3v-2uyt55`.
   - Build passed with Lakebed artifact hash `sha256:1f033647ab4b2314d9ae8fc32ff9a67f1f11865b6d8ecf0c5c34dac241d25884`.
   - Bridge smoke and local doctor passed with queued/running/failed all `0`.
 - Result:
-  - Failure recovery UX is now covered by browser-click proof for the main failed-relay path.
+  - Failure recovery UX is now covered by browser-click proof for failed-relay visibility, retry requeue, and retry-to-sent completion.
   - This does not prove every possible Codex or hosted failure, but it proves the user can see the saved error and retry from the app.
 
 ### EXP-008: Natural Notes App Dogfood
@@ -368,7 +370,7 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 
 - `gap`: long-running multi-thread use over hours or days.
 - `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
-- `partial`: failure recovery UX from a human perspective.
+- `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
 - `proven`: natural greenfield planning behavior for local disposable static apps, including planning and review cards.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
