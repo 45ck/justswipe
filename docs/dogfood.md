@@ -74,6 +74,17 @@ Pass condition:
 
 Use this while hosted deploy work is not the priority and this repo should control itself through local JustSwipe.
 
+Full local proof:
+
+```powershell
+Set-Location E:\justswipe
+npm --silent run dogfood:local:proof
+```
+
+This verifies the current local connection, runs the disposable card/swipe E2E, restores local dogfood to `E:\justswipe`, and verifies the restored connection.
+
+Fast local self-check:
+
 ```powershell
 Set-Location E:\justswipe
 npm run dogfood:local
@@ -160,4 +171,5 @@ Recent proven states:
 - Local self-dogfood repeat on `E:\justswipe` routed `dogfood:local:idea` to thread `019f10c5-f7c8-7873-a97f-416d62ca3e78`; the watcher relayed it, the thread returned idle, and `bridge:status:local -- --json` returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
 - Generic real-project dogfood passed using `dogfood:target -- --cwd E:\random-number-generator`; setup created thread `019f10e0-a0a2-7953-813f-d258a1ff2563`, `dogfood:target:idea` relayed a read-only test request, RNG stayed clean, and `python -m unittest discover -s tests` passed 15 tests. Running `dogfood:local` afterward restored the local app to `E:\justswipe` with thread `019f10e7-90cc-7040-993e-fd21c8f80725`.
 - Local card/swipe E2E passed after accepting target doctor JSON status `ok`: disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782697612435-21520`, thread `019f110e-d8b4-78a0-9e39-3a93e1800773`, handoff `handoff-mqyk8fqd-vwsr65`, simulated swipe `Build doctor fixture`, generated `scripts/justswipe-doctor.ps1`, and normal/JSON doctor modes passed.
+- Full local proof command passed: `dogfood:local:proof` verified `E:\justswipe`, ran disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782698576308-3412`, thread `019f111d-8dfd-7352-a521-e26418c88a59`, handoff `handoff-mqyksxs2-5t4e6g`, simulated swipe `Build doctor fixture`, restored local dogfood to `E:\justswipe` with thread `019f1122-6400-7693-b327-622c9edeeff9`, and final doctor returned ready with all bridge event counts `0`.
 - `bridge:status` now exposes `bridgeHeartbeat` so stale watcher state is visible before the user swipes.
