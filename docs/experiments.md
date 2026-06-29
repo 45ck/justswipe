@@ -78,6 +78,25 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - Review-after-build works locally.
   - Failure/long-running UX needs polish so stale heartbeat during active relay feels less alarming.
 
+### EXP-004: Bridge Mechanics Smoke And Busy Relay Copy
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`
+- Commands:
+  - `npm run build`
+  - `npm --silent run bridge:doctor:ready:local`
+  - `npm run bridge:smoke`
+- Evidence:
+  - Build passed with Lakebed artifact hash `sha256:7133147a22134053264cdd2997037161430aa7784b8df7c63a0e587f8bb5b897`.
+  - Local doctor returned `doctor.status: ready` with `currentCwd` set to `E:\justswipe`.
+  - Doctor reported queued/running/failed bridge events all `0`.
+  - Smoke verified pair code format, superseded-code hiding, idea queueing, duplicate-claim blocking, multi-card advancement, required-field validation, and quota fallback guidance.
+  - UI bridge health now prioritizes active relay state before queued/offline state and labels stale heartbeat during active relay as `Busy relaying`.
+- Result:
+  - The local bridge mechanics are covered better than before.
+  - The app should no longer imply the bridge is offline just because heartbeat copy lags while Codex is actively resuming.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
@@ -85,3 +104,4 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - `gap`: rich schema forms and HTML artifact previews across many card shapes.
 - `partial`: natural greenfield planning behavior beyond controlled prompts.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
+- `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.

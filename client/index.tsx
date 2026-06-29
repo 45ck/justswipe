@@ -855,6 +855,7 @@ function bridgeHealthState(props: {
   const fixtureProject = isFixtureProjectPath(context.cwd);
   const heartbeatFresh = isFreshBridgeHeartbeat(props.heartbeat);
   const heartbeatAge = props.heartbeat?.lastSeenAt ? formatAgo(props.heartbeat.lastSeenAt) : "";
+  const relayActive = runningEvents > 0 || props.handoff?.status === "responding_to_codex";
 
   if (!props.connected) {
     return {
@@ -881,6 +882,26 @@ function bridgeHealthState(props: {
       detail: "This browser is connected to an E2E fixture, not a normal repo.",
       action: "Forget this project, then re-pair from the real repo.",
       icon: "folder",
+      queuedEvents,
+      runningEvents,
+      failedEvents,
+      failureDetail,
+      fixtureProject,
+      heartbeatFresh,
+      heartbeatAge,
+      ...context,
+    };
+  }
+
+  if (relayActive) {
+    return {
+      status: "running",
+      label: "Codex resuming",
+      detail: "The local bridge is sending your swipe to Codex.",
+      action: heartbeatFresh
+        ? "The watcher is active. Keep it running while Codex works."
+        : "Relay is in progress. The heartbeat may lag while Codex is working.",
+      icon: "play",
       queuedEvents,
       runningEvents,
       failedEvents,
@@ -935,24 +956,6 @@ function bridgeHealthState(props: {
       detail: "A relay failed. The response is saved for retry.",
       action: "Open the thread log, fix the bridge error, then retry the watcher.",
       icon: "log",
-      queuedEvents,
-      runningEvents,
-      failedEvents,
-      failureDetail,
-      fixtureProject,
-      heartbeatFresh,
-      heartbeatAge,
-      ...context,
-    };
-  }
-
-  if (runningEvents > 0 || props.handoff?.status === "responding_to_codex") {
-    return {
-      status: "running",
-      label: "Codex resuming",
-      detail: "The local bridge is sending your swipe to Codex.",
-      action: "The watcher is active. Keep it running while Codex works.",
-      icon: "play",
       queuedEvents,
       runningEvents,
       failedEvents,
@@ -1030,6 +1033,12 @@ function BridgeHealthPanel(props: {
     props.health.label === "Bridge watcher offline" ||
     props.health.label === "Bridge not observed";
   const watcherCommand = bridgeWatcherCommand();
+  const heartbeatLabel =
+    props.health.status === "running" && !props.health.heartbeatFresh
+      ? "Busy relaying"
+      : props.health.heartbeatFresh
+        ? "Online"
+        : "Stale";
   const [copyState, setCopyState] = useState<"" | "copied" | "failed">("");
 
   return (
@@ -1074,7 +1083,7 @@ function BridgeHealthPanel(props: {
               <div class="rounded border border-white/10 bg-black/15 px-2 py-2">
                 <p class="text-zinc-500">Bridge heartbeat</p>
                 <p class="mt-1 font-medium text-zinc-100">
-                  {props.health.heartbeatFresh ? "Online" : "Stale"} · {props.health.heartbeatAge}
+                  {heartbeatLabel} · {props.health.heartbeatAge}
                 </p>
               </div>
             ) : null}
