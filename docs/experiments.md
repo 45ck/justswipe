@@ -290,12 +290,58 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Rich card/form coverage is stronger: JustSwipe now has browser proof for yes/no, free text, adaptive form, unsupported schema fallback, options-style More, inline HTML preview, and multi-card bundle ordering.
 
+### EXP-011: Natural Habit App Greenfield Dogfood
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe-greenfield-habit-lab`, local app `http://localhost:3001`
+- Vague idea sent from JustSwipe:
+  - `I want a tiny local web app that helps me pick and stick to one small habit for today. Make it calm, fast, and actually useful. Start from this empty repo and do what setup makes sense.`
+- Evidence:
+  - Created fresh repo `E:\justswipe-greenfield-habit-lab` with initial commit `a77ec0c Initial habit lab`.
+  - Installed the JustSwipe target contract through `npm run dogfood:target -- --cwd E:\justswipe-greenfield-habit-lab`.
+  - Setup created Codex thread `019f11d9-1680-7bb3-a6c8-2ea87b7a34d0`.
+  - Target setup committed at `25e6628 Install JustSwipe steering contract`.
+  - Sent the vague app idea through `npm --silent run dogfood:target:idea`, not directly into the Codex thread.
+  - Codex naturally emitted planning handoff `handoff-mqys8mhd-c3jcmv` with card `today-focus-mvp`.
+  - The planning card used inline HTML context showing the proposed first screen and asked one product-shape decision: `Build the today habit MVP?`.
+  - Answered through JustSwipe with `Build today focus`.
+  - Codex built a static dependency-free app:
+    - `index.html`
+    - `styles.css`
+    - `app.js`
+    - README usage note.
+  - Codex naturally emitted review handoff `handoff-mqysjbch-kuknpb` with card `review-today-focus-slice`.
+  - The review card included inline HTML evidence: current app flow, Chrome evidence, mobile viewport note, and quick replies.
+  - Answered review through JustSwipe with `Keep first slice`.
+  - Independent verification from the supervising thread:
+    - `node --check app.js` passed.
+    - temporary static server loaded `http://127.0.0.1:5191/index.html`.
+    - Playwright Chromium at `390x844` verified title `Pick one small habit for today`.
+    - committed preset habit.
+    - marked it done.
+    - ring value changed to `1`.
+    - reload preserved done state through localStorage.
+    - reset returned to the empty plan state.
+    - no mobile horizontal overflow.
+    - no browser console errors.
+  - Target app committed at `8c2f255 Build habit app through JustSwipe dogfood`.
+  - Local JustSwipe pairing was restored to `E:\justswipe` with thread `019f11eb-046f-78c2-b57e-9f958a1a9ab8`.
+  - Final bridge status returned `currentCwd: E:\justswipe`, watcher online, and queued/running/failed bridge events all `0`.
+- Rough edges:
+  - `dogfood:target` setup took long enough that an early status check still showed the previous JustSwipe project before the final setup status corrected to the target repo.
+  - During the build relay, bridge heartbeat looked stale while `runningBridgeEvents: 1`; it later recovered and emitted the review card.
+  - The Codex worker turn was visible as `interrupted` during browser verification, even though files were created and the bridge later completed. Supervising verification was still required.
+- Result:
+  - This is the strongest natural-greenfield proof so far: vague idea from JustSwipe, natural planning card, swipe response, build, natural review card, review swipe, verified app, clean idle bridge state.
+  - Remaining gap is not the core local loop; it is long-running reliability, hosted/phone proof, and clearer UX during stale-heartbeat active relays.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
 - `partial`: failure recovery UX from a human perspective.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
-- `partial`: natural greenfield planning behavior beyond controlled prompts.
+- `proven`: natural greenfield planning behavior for local disposable static apps, including planning and review cards.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
 - `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.
 - `proven`: browser-click proof for schema fields on mobile-width Chromium.
