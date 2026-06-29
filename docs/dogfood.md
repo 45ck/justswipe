@@ -103,15 +103,16 @@ Use this to prove a separate repo can be steered through JustSwipe.
 
 ```powershell
 Set-Location E:\justswipe
-npm --silent run bridge:idea:current -- --idea "Real-project dogfood proof for RNG: inspect current repo state read-only, run python -m unittest discover -s tests, report briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
+npm run dogfood:target -- --cwd E:\random-number-generator
+npm --silent run dogfood:target:idea -- --idea "Real-project dogfood proof for RNG: inspect current repo state read-only, run python -m unittest discover -s tests, report briefly, and do not edit files. Emit a JustSwipe handoff only if a real decision is needed."
 ```
 
-Use `--thread-id <thread-id>` instead of `--current-thread` when proving a specific older thread.
+Use `--thread-id <thread-id>` instead of the current-thread script when proving a specific older thread.
 
 Then verify:
 
 ```powershell
-npm --silent run bridge:status -- --json
+npm --silent run bridge:status:local -- --json
 Get-Content .lakebed\bridge-watch-local-localhost-local.out.log -Tail 50
 Set-Location E:\random-number-generator
 git status -sb
@@ -124,6 +125,14 @@ Pass condition:
 - RNG thread returns `idle`
 - RNG worktree is clean for read-only proofs
 - tests pass
+
+After a real-project proof, point local dogfood back at this repo when continuing JustSwipe development:
+
+```powershell
+Set-Location E:\justswipe
+npm run dogfood:local
+npm --silent run dogfood:local:verify
+```
 
 ## If A Card Appears
 
@@ -147,4 +156,5 @@ Recent proven states:
 - Local isolated E2E passed against `http://localhost:3001`: disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782690731069-16628`, thread `019f10a5-d994-7092-9c17-f73d24861302`, initial handoff `handoff-mqyg5dnu-qv32c4`, simulated swipe `Build doctor fixture`, bridge relay back into Codex, generated `scripts/justswipe-doctor.ps1`, and normal/JSON doctor checks passed.
 - Local self-dogfood is active for `E:\justswipe`: `bridge:up -- --app-url http://localhost:3001 --cwd E:\justswipe` created thread `019f10af-c1ce-7e83-bfa1-7543e40b8b8b`; `bridge:idea:current` relayed to that thread, `npm run build` passed, the worktree stayed clean, and `bridge:doctor:ready -- --app-url http://localhost:3001` returned `doctor.status: ready` with `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
 - Local self-dogfood repeat on `E:\justswipe` routed `dogfood:local:idea` to thread `019f10c5-f7c8-7873-a97f-416d62ca3e78`; the watcher relayed it, the thread returned idle, and `bridge:status:local -- --json` returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
+- Generic real-project dogfood passed using `dogfood:target -- --cwd E:\random-number-generator`; setup created thread `019f10e0-a0a2-7953-813f-d258a1ff2563`, `dogfood:target:idea` relayed a read-only test request, RNG stayed clean, and `python -m unittest discover -s tests` passed 15 tests. Running `dogfood:local` afterward restored the local app to `E:\justswipe` with thread `019f10e7-90cc-7040-993e-fd21c8f80725`.
 - `bridge:status` now exposes `bridgeHeartbeat` so stale watcher state is visible before the user swipes.
