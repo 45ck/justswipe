@@ -1,12 +1,12 @@
 # JustSwipe Dogfood Audit
 
-Generated: 2026-06-29T19:26:34.243Z
+Generated: 2026-06-29T19:41:16.642Z
 App URL: http://localhost:3001
 
 | Status | Requirement | Current evidence |
 | --- | --- | --- |
 | proven-local | Current local bridge can relay | bridge=online, fresh=true, threads=6, events=0/0/0 |
-| partial | Long-running multi-thread use over hours/days | 36 passed monitor runs from 2026-06-29T11:48:48.765Z to 2026-06-29T19:23:53.262Z (7.58h); 49 ready snapshots; latest snapshot 2026-06-29T19:23:53.221Z; 16.42h remaining to 24h proof |
+| partial | Long-running multi-thread use over hours/days | 37 passed monitor runs from 2026-06-29T11:48:48.765Z to 2026-06-29T19:39:04.754Z (7.84h); 50 ready snapshots; latest snapshot 2026-06-29T19:39:04.714Z; 16.16h remaining to 24h proof |
 | proven-local | Failure recovery UX from user perspective | failure UI smoke and documented retry flow passed |
 | proven-local | Rich schema forms and HTML artifact previews | card shapes smoke covers schema fields, unsupported fallback, HTML preview, multi-card order |
 | proven-local | Codex naturally uses JustSwipe in greenfield planning | 5 documented local greenfield proofs include planning cards, build/review loops, or return-to-idle evidence |
