@@ -518,6 +518,23 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - The CLI now makes the authoritative routing source explicit, reducing confusion when a reused watcher daemon has stale-looking process arguments.
 
+### EXP-019: Setup Prose Defers To Bridge Status
+
+- Date: 2026-06-29
+- Status: improved and verified locally
+- Context:
+  - EXP-017 found that Codex setup prose could briefly claim stale bridge pairing state even when the authoritative bridge status printed afterward was correct.
+- Change:
+  - Added a setup prompt rule: Codex must not report bridge pairing, watcher heartbeat, queue, or current-thread state as authoritative in prose because the bridge CLI prints that status after the setup turn.
+- Verification:
+  - Re-ran `npm run dogfood:target -- --cwd E:\justswipe-greenfield-breath-lab`.
+  - Codex setup prose now said it was not reporting bridge pairing/heartbeat/queue/current-thread state as authoritative and deferred to the bridge CLI.
+  - The bridge CLI then printed the authoritative state: `currentProject: justswipe-greenfield-breath-lab`, `currentCwd: E:\justswipe-greenfield-breath-lab`, `expectedCwdMatches: yes`, heartbeat online, and `queued=0 running=0 failed=0`.
+  - Direct doctor passed for `E:\justswipe-greenfield-breath-lab`.
+  - `npm run build` passed.
+- Result:
+  - Setup output now separates model-managed repo setup from bridge-managed routing truth, which is less confusing during dogfood.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.

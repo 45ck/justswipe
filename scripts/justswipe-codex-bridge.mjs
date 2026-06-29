@@ -87,6 +87,7 @@ function setupThreadPrompt(prompt) {
     "4. Create or update skills/justswipe/SKILL.md.",
     "5. State that hosted/local JustSwipe is the only UI and this repo only consumes steering packets.",
     "6. If you need user direction, emit a JUSTSWIPE_HANDOFF_JSON card or bundle and stop.",
+    "7. Do not report bridge pairing, watcher heartbeat, queue, or current-thread state as authoritative in your prose. The bridge CLI prints that status after this setup turn.",
     "",
     "Skill requirements:",
     "- Consume JUSTSWIPE RESPONSE PACKET messages as user steering.",
