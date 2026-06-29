@@ -62,6 +62,7 @@
     "dogfood:snapshot": "node scripts/justswipe-dogfood-snapshot.mjs --app-url http://localhost:3001",
     "dogfood:snapshot:hosted": "node scripts/justswipe-dogfood-snapshot.mjs --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "dogfood:rehydrate": "node scripts/justswipe-codex-bridge.mjs --rehydrate-threads --app-url http://localhost:3001",
+    "dogfood:verify": "node scripts/justswipe-dogfood-verify.mjs --app-url http://localhost:3001",
     "bridge:clear": "node scripts/justswipe-codex-bridge.mjs --clear",
     "bridge:forget:hosted": "node scripts/justswipe-codex-bridge.mjs --forget --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:start-thread": "node scripts/justswipe-codex-bridge.mjs --start-thread",

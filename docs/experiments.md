@@ -752,6 +752,31 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - This is the strongest local proof so far of the intended core loop: start from JustSwipe, Codex asks one planning card, user swipes, Codex builds, Codex asks a review card, user swipes, Codex polishes, and the system returns to clean idle.
 
+### EXP-028: Serial Dogfood Verify Command
+
+- Date: 2026-06-29
+- Status: repeatable local verification added and passed
+- Change:
+  - Added `scripts/justswipe-dogfood-verify.mjs`.
+  - Added `npm run dogfood:verify`.
+  - The verifier runs stateful browser smokes serially to avoid the false failures seen when shared Lakebed/UI state was exercised in parallel.
+  - The verifier appends a compact run report to `docs/dogfood-verify-runs.md`.
+- Verification run:
+  - Ran `npm run dogfood:verify` twice against `http://localhost:3001`; the second run used the richer bridge-status report summarizer.
+  - Passed `npm run build`.
+  - Passed initial bridge status with connection `conn-mqz1ie67-5fqnku`, 5 idle threads, fresh heartbeat, and no queued/running/failed events.
+  - Passed `ui:smoke`.
+  - Passed `ui:smoke:card-shapes`.
+  - Passed `ui:smoke:multi-thread`.
+  - Passed `ui:smoke:relay-state`.
+  - Passed `ui:smoke:failure`.
+  - Passed `bridge:dry-run`.
+  - Appended a dogfood snapshot with `readyForDogfood: yes`, `threads: 5`, `cachedThreads: 5`, and bridge events `queued=0 running=0 failed=0`.
+  - Final bridge status again showed 5 idle threads, no active handoffs, and no queued/running/failed events.
+  - Latest report artifact: `docs/dogfood-verify-runs.md`, timestamp `2026-06-29T11:42:32.538Z`.
+- Result:
+  - Local dogfood now has one command for a high-signal regression pass across build, core UI card behavior, schema/card shape handling, multi-thread UI, relay state UX, failure recovery UX, bridge idle state, and snapshot evidence.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
