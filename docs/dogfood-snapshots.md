@@ -19,3 +19,34 @@ Threads:
   - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12a5 | cards=0 ideas=0
   - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f1288 | cards=0 ideas=0
   - idle | justswipe-greenfield-breath-lab | justswipe-greenfield-breath-lab thread 019f127c | cards=0 ideas=0
+
+## 2026-06-29T09:46:44.514Z
+
+- appUrl: http://localhost:3001
+- connectionId: none
+- currentProject: unknown
+- currentCwd: unknown
+- currentThread: unknown
+- heartbeat: missing / fresh=false / ageSeconds=unknown
+- activeHandoffs: 0
+- bridgeEvents: queued=0 running=0 failed=0
+- threads: 0 (no projects)
+- readyForDogfood: no
+
+Threads:
+
+## 2026-06-29T09:56:46.021Z
+
+- appUrl: http://localhost:3001
+- connectionId: conn-mqz1ie67-5fqnku
+- currentProject: justswipe-greenfield-stretch-lab
+- currentCwd: E:\justswipe-greenfield-stretch-lab
+- currentThread: justswipe-greenfield-stretch-lab thread 019f12cc
+- heartbeat: online / fresh=true / ageSeconds=5
+- activeHandoffs: 0
+- bridgeEvents: queued=0 running=0 failed=0
+- threads: 1 (justswipe-greenfield-stretch-lab)
+- readyForDogfood: yes
+
+Threads:
+  - idle | justswipe-greenfield-stretch-lab | justswipe-greenfield-stretch-lab thread 019f12cc | cards=0 ideas=0

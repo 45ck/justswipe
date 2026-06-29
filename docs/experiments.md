@@ -607,6 +607,30 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Long-running dogfood now has a repeatable evidence collection command. This does not prove multi-day reliability yet, but it makes repeated checks comparable over time.
 
+### EXP-023: Local Dev Restart Recovery Snapshot
+
+- Date: 2026-06-29
+- Status: failure captured, partial recovery proven
+- Flow:
+  - Ran a second `npm run dogfood:snapshot` after the first healthy multi-project snapshot.
+  - The snapshot reported `readyForDogfood: no`, `connectionId: none`, missing heartbeat, and `threads: 0`.
+  - Direct status explained the cause: `local JustSwipe app is not reachable at http://localhost:3001. Start it with: npm run dev`.
+  - Restarted local Lakebed dev with `npm run dev`.
+  - Started the watcher with `npm run bridge:watch -- --app-url http://localhost:3001 --daemon`.
+  - Re-ran additive setup for `E:\justswipe-greenfield-stretch-lab`.
+  - Ran `npm run dogfood:snapshot` again.
+- Evidence:
+  - `docs/dogfood-snapshots.md` now has:
+    - healthy 3-thread snapshot across Stretch/Breath at `2026-06-29T09:37:15.687Z`
+    - failed unavailable-app snapshot at `2026-06-29T09:46:44.514Z`
+    - recovered 1-thread Stretch snapshot at `2026-06-29T09:56:46.021Z`
+  - Recovery status returned heartbeat online/fresh and bridge events `queued=0 running=0 failed=0`.
+- Rough edges:
+  - Restarting local dev lost the previous in-memory multi-project state; recovery restored a fresh Stretch connection only.
+  - This is a serious long-running local reliability limit unless the app persists or rehydrates prior known threads across dev restarts.
+- Result:
+  - Snapshot tooling caught a real failure and proved partial recovery. It also exposed that local dev restart does not preserve the richer multi-project thread set.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
