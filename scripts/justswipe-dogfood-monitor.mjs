@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,6 +63,22 @@ async function openAppend(path) {
   const { open } = await import("node:fs/promises");
   const handle = await open(path, "a");
   return handle.fd;
+}
+
+async function readText(path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function readHighestRunNumber(path) {
+  const text = await readText(path);
+  const runs = [...text.matchAll(/^- run:\s*([0-9]+)\s*$/gm)]
+    .map((match) => Number.parseInt(match[1], 10))
+    .filter(Number.isFinite);
+  return runs.length ? Math.max(...runs) : 0;
 }
 
 function runSnapshot() {
@@ -152,9 +168,11 @@ async function main() {
   console.log(`maxRuns: ${maxRuns || "unbounded"}`);
   console.log(`log: ${logPath}`);
 
-  let run = 0;
-  while (maxRuns === 0 || run < maxRuns) {
+  let completedRuns = 0;
+  let run = await readHighestRunNumber(logPath);
+  while (maxRuns === 0 || completedRuns < maxRuns) {
     run += 1;
+    completedRuns += 1;
     console.log(`\n== dogfood monitor run ${run} ==`);
     const result = await runSnapshot();
     await appendMonitorRun(run, result);
@@ -164,7 +182,7 @@ async function main() {
       break;
     }
 
-    if (maxRuns !== 0 && run >= maxRuns) {
+    if (maxRuns !== 0 && completedRuns >= maxRuns) {
       break;
     }
 

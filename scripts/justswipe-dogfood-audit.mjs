@@ -95,6 +95,7 @@ async function main() {
   const latestMonitorAt = monitorTimes.at(-1);
   const latestSnapshotAt = snapshotTimes.at(-1);
   const passedMonitorRuns = count(/- status:\s*passed/g, monitorLog);
+  const failedMonitorRuns = count(/- status:\s*failed/g, monitorLog);
   const readySnapshots = count(/- readyForDogfood:\s*yes/g, snapshotLog);
   const latestVerifyPassed = hasAll(verifyLog, [
     "JustSwipe UI smoke passed.",
@@ -126,7 +127,7 @@ async function main() {
     statusLine(
       monitorHours >= 24 ? "proven" : passedMonitorRuns >= 2 ? "partial" : "gap",
       "Long-running multi-thread use over hours/days",
-      `${passedMonitorRuns} passed monitor runs from ${isoOrUnknown(firstMonitorAt)} to ${isoOrUnknown(latestMonitorAt)} (${monitorHours.toFixed(2)}h); ${readySnapshots} ready snapshots; latest snapshot ${isoOrUnknown(latestSnapshotAt)}; ${remainingLongRunHours.toFixed(2)}h remaining to 24h proof`,
+      `${passedMonitorRuns} passed monitor runs, ${failedMonitorRuns} failed, from ${isoOrUnknown(firstMonitorAt)} to ${isoOrUnknown(latestMonitorAt)} (${monitorHours.toFixed(2)}h); ${readySnapshots} ready snapshots; latest snapshot ${isoOrUnknown(latestSnapshotAt)}; ${remainingLongRunHours.toFixed(2)}h remaining to 24h proof`,
     ),
     statusLine(
       latestVerifyPassed && failureUxProven ? "proven-local" : "gap",
