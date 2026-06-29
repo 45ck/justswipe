@@ -535,6 +535,30 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Setup output now separates model-managed repo setup from bridge-managed routing truth, which is less confusing during dogfood.
 
+### EXP-020: Existing Non-Current Thread Routing
+
+- Date: 2026-06-29
+- Status: proven locally with a scope limitation
+- Target repo: `E:\justswipe-greenfield-breath-lab`
+- Threads:
+  - Current/newer thread before test: `019f1288-7988-7571-9ec8-371c3ad4d679`
+  - Explicitly targeted older thread: `019f127c-1e88-7c63-822d-b7c68f31cf46`
+- Flow:
+  - Queried Lakebed DB for known `codexThreads`.
+  - Sent an idea explicitly to the older thread with `--thread-id 019f127c-1e88-7c63-822d-b7c68f31cf46`.
+  - The event was queued as `idea-mqyzd0ut-spii04`.
+  - Status showed the older thread `running` while the newer Breath Lab thread stayed `idle`.
+  - Watcher relayed the response and Codex completed a read-only inspection.
+- Evidence:
+  - Final status returned `currentThread: justswipe-greenfield-breath-lab thread 019f127c`, `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, and both known Breath Lab threads idle.
+  - Target repo `git status -sb` stayed clean.
+  - Watcher log showed `Relaying JustSwipe response idea-mqyzd0ut-spii04` and `Codex handled JustSwipe response: idea-mqyzd0ut-spii04`.
+- Rough edges:
+  - Because `dogfood:target` clears connection state for a new target setup, older cross-project threads such as the Timer Lab thread were no longer visible in the active connection. Multi-thread routing is proven within the current project connection, but long-running multi-project continuity is not yet proven.
+  - Normal idea responses can still include bridge-status prose. The setup prompt now defers bridge status to the CLI, but a broader packet-response instruction may be needed if this keeps causing confusion.
+- Result:
+  - Existing-thread routing works for a non-current thread in the active project: JustSwipe can target an older thread, relay work, and return to a clean idle state.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
