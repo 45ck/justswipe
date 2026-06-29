@@ -1,6 +1,6 @@
 # JustSwipe Dogfood Audit
 
-Generated: 2026-06-29T13:51:26.262Z
+Generated: 2026-06-29T13:58:15.673Z
 App URL: http://localhost:3001
 
 | Status | Requirement | Current evidence |
