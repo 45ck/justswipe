@@ -31,6 +31,7 @@ const smokeHandoff = args.has("--smoke-handoff");
 const startThread = args.has("--start-thread");
 const setupHandoff = args.has("--setup-handoff");
 const setup = args.has("--setup");
+const preserveConnection = args.has("--preserve-connection") || args.has("--no-clear");
 const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const forgetConnection = args.has("--forget");
@@ -3289,7 +3290,11 @@ async function main() {
   }
 
   if (setup) {
-    await clearConnectionState();
+    if (preserveConnection) {
+      console.log("Preserving existing JustSwipe connection state for additional target setup.");
+    } else {
+      await clearConnectionState();
+    }
     const code = await createPairingCode();
     let setupSucceeded = false;
 

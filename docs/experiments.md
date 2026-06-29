@@ -559,6 +559,35 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Existing-thread routing works for a non-current thread in the active project: JustSwipe can target an older thread, relay work, and return to a clean idle state.
 
+### EXP-021: Additive Cross-Project Setup And Routing
+
+- Date: 2026-06-29
+- Status: improved and proven locally
+- Change:
+  - Added `--preserve-connection` / `--no-clear` to the bridge setup path.
+  - Added `npm run dogfood:target:add` for additive target setup without clearing the existing JustSwipe connection.
+- Target repos:
+  - Existing: `E:\justswipe-greenfield-breath-lab`
+  - Added: `E:\justswipe-greenfield-stretch-lab`
+- Target commits:
+  - Stretch Lab `f4a9223 Initial stretch lab`
+  - Stretch Lab `393c98d Install JustSwipe contract additively`
+- Flow:
+  - Before additive setup, the connection had two Breath Lab threads.
+  - Ran `npm run dogfood:target:add -- --cwd E:\justswipe-greenfield-stretch-lab`.
+  - Setup preserved existing connection state, installed `AGENTS.md` and `skills/justswipe/SKILL.md` in Stretch Lab, and kept the Breath Lab threads visible.
+  - After setup, status showed three threads across two projects:
+    - `019f12a5-8814-7873-86f9-7fa1aa31820f` Stretch Lab
+    - `019f1288-7988-7571-9ec8-371c3ad4d679` Breath Lab
+    - `019f127c-1e88-7c63-822d-b7c68f31cf46` Breath Lab
+  - Sent a cross-project read-only idea to the older Breath Lab thread while Stretch Lab was also present.
+  - The Breath thread ran, Stretch stayed idle, and final status returned all three threads idle with `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
+- Verification:
+  - Both Breath Lab and Stretch Lab `git status -sb` were clean after the cross-project relay.
+  - Watcher relayed `idea-mqz0ag56-yuevkz` to the older Breath Lab thread.
+- Result:
+  - The active local JustSwipe connection can now keep multiple projects visible and route to an older cross-project thread, as long as setup uses the additive path.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
