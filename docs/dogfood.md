@@ -23,9 +23,8 @@ git status -sb
 npm run build
 npm --silent run bridge:status -- --json
 npm --silent run bridge:status:hosted -- --json
-npm --silent run bridge:doctor -- --app-url http://localhost:3001 --json
+npm --silent run bridge:doctor:ready:local
 npm --silent run bridge:doctor -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --json
-npm --silent run bridge:doctor:ready -- --app-url http://localhost:3001
 npm --silent run bridge:doctor:ready:hosted
 ```
 
@@ -43,7 +42,7 @@ If `bridgeHeartbeat.status` is `stale` or `missing`, start the watcher for that 
 
 ```powershell
 npm run bridge:watch -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --daemon
-npm run bridge:watch -- --app-url http://localhost:3001 --daemon
+npm run bridge:watch:local:daemon
 ```
 
 ## Hosted Self-Dogfood
@@ -78,13 +77,14 @@ Use this while hosted deploy work is not the priority and this repo should contr
 Set-Location E:\justswipe
 npm run dogfood:local
 npm --silent run dogfood:local:idea
+npm --silent run dogfood:local:verify
 ```
 
 Then verify:
 
 ```powershell
-npm --silent run bridge:doctor:ready -- --app-url http://localhost:3001
-npm --silent run bridge:status -- --app-url http://localhost:3001 --json
+npm --silent run bridge:doctor:ready:local
+npm --silent run bridge:status:local -- --json
 Get-Content .lakebed\bridge-watch-local-localhost-local.out.log -Tail 50
 git status -sb
 ```
@@ -146,4 +146,5 @@ Recent proven states:
 - Local current-thread real-project proof on `E:\random-number-generator` routed through `bridge:idea:current`, relayed to thread `019f1047-6dcb-7690-8286-549c9d77cfb4`, returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, left the RNG worktree clean, and passed 15 tests.
 - Local isolated E2E passed against `http://localhost:3001`: disposable target `E:\justswipe\.lakebed\e2e-targets\run-1782690731069-16628`, thread `019f10a5-d994-7092-9c17-f73d24861302`, initial handoff `handoff-mqyg5dnu-qv32c4`, simulated swipe `Build doctor fixture`, bridge relay back into Codex, generated `scripts/justswipe-doctor.ps1`, and normal/JSON doctor checks passed.
 - Local self-dogfood is active for `E:\justswipe`: `bridge:up -- --app-url http://localhost:3001 --cwd E:\justswipe` created thread `019f10af-c1ce-7e83-bfa1-7543e40b8b8b`; `bridge:idea:current` relayed to that thread, `npm run build` passed, the worktree stayed clean, and `bridge:doctor:ready -- --app-url http://localhost:3001` returned `doctor.status: ready` with `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
+- Local self-dogfood repeat on `E:\justswipe` routed `dogfood:local:idea` to thread `019f10c5-f7c8-7873-a97f-416d62ca3e78`; the watcher relayed it, the thread returned idle, and `bridge:status:local -- --json` returned `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, and `failedBridgeEvents: 0`.
 - `bridge:status` now exposes `bridgeHeartbeat` so stale watcher state is visible before the user swipes.
