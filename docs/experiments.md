@@ -926,6 +926,30 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Hosted is not ready for the phone/cloud proof yet. The app is readable and paired, but the bridge cannot update hosted heartbeat while hosted mutations are exhausted. Continue active dogfood against `http://localhost:3001` until hosted mutation quota resets.
 
+### EXP-036: Local Long-Run Evidence Checkpoint
+
+- Date: 2026-06-29
+- Status: local long-run still healthy, not yet hours/days complete
+- Flow:
+  - Ran `npm run dogfood:monitor:status -- --name local-longrun`.
+  - Ran `npm run dogfood:snapshot`.
+  - Ran `npm run bridge:status:local -- --json`.
+  - Ran `npm run dogfood:audit`.
+  - Ran `npm run build`.
+  - Ran `npm run bridge:dry-run`.
+- Evidence:
+  - Long-run daemon pid `13884` is alive.
+  - Latest scheduled monitor run: `5`.
+  - Latest scheduled monitor readiness: `yes`.
+  - Latest fresh snapshot: `2026-06-29T13:17:08.048Z`.
+  - Snapshot reported `readyForDogfood: yes`, `threads: 6`, `cachedThreads: 6`, and bridge events `queued=0 running=0 failed=0`.
+  - Bridge status reported current project `justswipe-greenfield-focus-lab`, all 6 threads idle, no active handoffs, and no queued/running/failed events.
+  - Audit reported long-running coverage as 11 passed monitor runs across 1.27h with 22 ready snapshots.
+  - `npm run build` passed.
+  - `npm run bridge:dry-run` reported no JustSwipe responses waiting for Codex.
+- Result:
+  - Local dogfood is stable beyond the initial smoke window and across six known threads. This remains `partial` for the goal because it is only about 1.27h of monitor evidence, not hours/days.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
