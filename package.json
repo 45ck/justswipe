@@ -43,6 +43,8 @@
     "bridge:setup": "node scripts/justswipe-codex-bridge.mjs --setup",
     "bridge:up": "node scripts/justswipe-codex-bridge.mjs --setup --daemon",
     "bridge:up:hosted": "node scripts/justswipe-codex-bridge.mjs --setup --daemon --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
+    "dogfood:local": "node scripts/justswipe-codex-bridge.mjs --setup --daemon --app-url http://localhost:3001 --cwd E:\\justswipe --prompt \"Local JustSwipe dogfood setup. Use JustSwipe for steering this repo. Do not build a replacement JustSwipe UI. Inspect the repo read-only, report current local bridge status briefly, and emit a JustSwipe handoff only if a real decision is needed.\"",
+    "dogfood:local:idea": "node scripts/justswipe-codex-bridge.mjs --current-thread --app-url http://localhost:3001 --idea \"Local JustSwipe self-dogfood proof: inspect E:\\justswipe read-only, run npm run build, report current local bridge status, and do not edit files. Emit a JustSwipe handoff only if a real product or integration decision is needed.\"",
     "bridge:clear": "node scripts/justswipe-codex-bridge.mjs --clear",
     "bridge:forget:hosted": "node scripts/justswipe-codex-bridge.mjs --forget --app-url https://clear-harbor-b4fc257b5a.lakebed.app",
     "bridge:start-thread": "node scripts/justswipe-codex-bridge.mjs --start-thread",

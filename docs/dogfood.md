@@ -70,6 +70,33 @@ Pass condition:
 - `bridgeHeartbeat.status` stays `online`
 - `git status -sb` in `E:\justswipe` stays clean unless the dogfood task intentionally edited files
 
+## Local Self-Dogfood
+
+Use this while hosted deploy work is not the priority and this repo should control itself through local JustSwipe.
+
+```powershell
+Set-Location E:\justswipe
+npm run dogfood:local
+npm --silent run dogfood:local:idea
+```
+
+Then verify:
+
+```powershell
+npm --silent run bridge:doctor:ready -- --app-url http://localhost:3001
+npm --silent run bridge:status -- --app-url http://localhost:3001 --json
+Get-Content .lakebed\bridge-watch-local-localhost-local.out.log -Tail 50
+git status -sb
+```
+
+Pass condition:
+
+- local status says `currentProject: justswipe`
+- local status says `currentCwd: E:\justswipe`
+- `doctor.status: ready`
+- bridge event counts return to `0`
+- `git status -sb` stays clean unless the dogfood task intentionally edited files
+
 ## Real-Project Dogfood
 
 Use this to prove a separate repo can be steered through JustSwipe.
