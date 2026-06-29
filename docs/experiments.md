@@ -852,6 +852,30 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Dogfood health is now easy to inspect without manually tailing several files. This improves long-running reliability work, but it is still a monitoring improvement rather than proof of multi-day usage.
 
+### EXP-033: Requirement-Level Dogfood Audit
+
+- Date: 2026-06-29
+- Status: audit command added and first audit recorded
+- Change:
+  - Added `scripts/justswipe-dogfood-audit.mjs`.
+  - Added `npm run dogfood:audit`.
+  - Added generated audit output at `docs/dogfood-audit.md`.
+  - The audit maps the current dogfood evidence against the actual goal: local bridge relay, long-running multi-thread use, failure recovery UX, rich schema/HTML cards, natural greenfield planning, and hosted/phone pairing.
+- Verification:
+  - Ran `node --check scripts\justswipe-dogfood-audit.mjs`.
+  - Ran `npm run dogfood:audit`; it wrote `docs/dogfood-audit.md`.
+  - Audit result:
+    - `proven-local`: current local bridge can relay.
+    - `partial`: long-running multi-thread use over hours/days, with 8 passed monitor runs across 0.51h and 17 ready snapshots.
+    - `proven-local`: failure recovery UX from the user perspective.
+    - `proven-local`: rich schema forms and HTML artifact previews.
+    - `partial`: Codex naturally uses JustSwipe during greenfield planning, based on one local disposable app.
+    - `gap`: hosted cloud and phone pairing path.
+  - Ran `npm run build`; Lakebed build passed.
+  - Ran `npm run bridge:dry-run`; no JustSwipe responses were waiting for Codex.
+- Result:
+  - The remaining completion gaps are now machine-readable and documented. The goal remains active because hours/days continuity, repeated natural greenfield use, and hosted/phone proof are not complete.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
