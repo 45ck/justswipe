@@ -397,6 +397,26 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Project-level multi-thread visibility is browser-tested for multiple tracked threads, queued ideas, active/idle filtering, project filtering, and sending ideas to an existing thread.
 
+### EXP-014: Same-Thread Local Dogfood Idea
+
+- Date: 2026-06-29
+- Status: proven locally
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, current thread `019f11eb-046f-78c2-b57e-9f958a1a9ab8`
+- Commands:
+  - `npm run dogfood:local:idea`
+  - `npm --silent run bridge:status:local -- --json --expect-cwd .`
+- Evidence:
+  - `npm run dogfood:local:idea` queued `idea-mqyw3uib-jp0uoz` to the existing current thread.
+  - Local status immediately after queueing showed `queuedBridgeEvents: 0`, `runningBridgeEvents: 1`, `failedBridgeEvents: 0`, and the current thread `justswipe thread 019f11eb` as `running`.
+  - Local watcher stdout showed `Relaying JustSwipe response idea-mqyw3uib-jp0uoz` and `Codex handled JustSwipe response: idea-mqyw3uib-jp0uoz`.
+  - Codex responded with the requested read-only proof: `npm run build` passed, `.lakebed/artifacts/app.json` was produced, `git status --short` stayed clean, and no handoff was emitted because no real product/integration decision was needed.
+  - Final local status returned `activeHandoffs: 0`, `queuedBridgeEvents: 0`, `runningBridgeEvents: 0`, `failedBridgeEvents: 0`, and both known threads `idle`.
+- Rough edges:
+  - During the same-thread relay, status correctly read as `running` for about a minute while Codex generated the response. This is a trust-sensitive state: the UI copy must make clear that the bridge has claimed the work and Codex is replying.
+  - The local watcher stderr still contains older environmental failures: no available credits, Lakebed DB dump failures, a Windows paging-file error, and a transient Codex sqlite database lock. Those were not active in this proof, but they explain why long-running dogfood needs repeated observation.
+- Result:
+  - Same-thread local JustSwipe idea routing works end to end for a read-only self-dogfood request: idea queued, bridge claimed it, Codex replied, and the bridge returned to idle with no stuck events.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline` with the last hosted heartbeat stale by about 4 hours. Starting `npm run bridge:watch -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --daemon` launched a watcher process, but the hosted status still showed the stale heartbeat; prior watcher stderr included `hosted mutation quota exhausted; switch bridge app URL to local dev` and a transient Codex state DB lock. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
