@@ -190,3 +190,19 @@ cachedThreads: 6
 bridgeEvents: queued=0 running=0 failed=0
 ```
 
+## 2026-06-29T13:35:15.670Z
+
+- appUrl: http://localhost:3001
+- run: 7
+- status: passed
+- exitCode: 0
+- durationMs: 9650
+
+```text
+Dogfood snapshot appended: E:\justswipe\docs\dogfood-snapshots.md
+readyForDogfood: yes
+threads: 6
+cachedThreads: 6
+bridgeEvents: queued=0 running=0 failed=0
+```
+
