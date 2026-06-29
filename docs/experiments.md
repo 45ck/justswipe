@@ -336,9 +336,38 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - This is the strongest natural-greenfield proof so far: vague idea from JustSwipe, natural planning card, swipe response, build, natural review card, review swipe, verified app, clean idle bridge state.
   - Remaining gap is not the core local loop; it is long-running reliability, hosted/phone proof, and clearer UX during stale-heartbeat active relays.
 
+### EXP-012: Active Relay Stale-Heartbeat UX Smoke
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, Playwright Chromium at `390x844`
+- Command:
+  - `npm run ui:smoke:relay-state`
+- Evidence:
+  - Added a repeatable browser smoke mode that creates a handoff, submits a response, claims the bridge event, and leaves it in `running`.
+  - Passing handoff: `handoff-mqytmuk4-fq5cld`.
+  - The post-swipe state showed `Codex resuming`.
+  - It showed the new user-facing copy: `Your response is in the relay path... a stale heartbeat during active work is not by itself a failure.`
+  - It showed the resume evidence strip, including `Bridge relay`.
+  - The smoke asserted the active relay was not presented as `Bridge not observed`.
+  - The smoke asserted the UI did not show `Start watcher` for this active relay state.
+  - Sequential follow-up `npm run ui:smoke:failure` passed with handoff `handoff-mqytnkml-qyrhh8`.
+  - Follow-up verification passed:
+    - `npm run build`
+    - `npm run ui:smoke`
+    - `npm run bridge:smoke`
+    - `npm --silent run bridge:doctor:ready:local`
+  - Final local status returned `currentCwd: E:\justswipe`, watcher online, and queued/running/failed bridge events all `0`.
+- Rough edges:
+  - Running bridge smoke and UI relay-state smoke in parallel can contend on Lakebed DB dumps; run them sequentially.
+  - Failure smoke had one timing miss while waiting for bridge event creation, so the event wait for failure and relay-state smokes was increased to 30 seconds.
+- Result:
+  - The most common long-running local trust issue is now explicitly covered: an active relay with stale/missing heartbeat reads as Codex work in progress, not as an offline bridge.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
+- `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
 - `partial`: failure recovery UX from a human perspective.
 - `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
 - `proven`: natural greenfield planning behavior for local disposable static apps, including planning and review cards.

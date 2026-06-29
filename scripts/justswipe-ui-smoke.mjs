@@ -621,6 +621,69 @@ async function runCardShapesUiSmoke() {
   console.log("verified: yes/no, free text, adaptive form, unsupported field fallback, more action, multi-card order");
 }
 
+async function runRelayStateUiSmoke() {
+  const setup = await setupConnection();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  try {
+    await page.goto(guestUrl(setup.code), { waitUntil: "networkidle", timeout: 30_000 });
+    const relaySetup = await setupQuickHandoff("UI smoke running relay state handoff.");
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Trigger relay failure state").waitFor({ timeout: 15_000 });
+    await page.locator('button[title^="Yes / Continue"]').click();
+    await page.getByRole("button", { name: "Trigger failure" }).click({ force: true });
+    await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
+
+    const event = await waitForBridgeEvent(relaySetup.handoffId, 30_000);
+
+    if (!event) {
+      throw new Error("Relay state UI smoke failed: submitted card did not create bridge event.");
+    }
+
+    const claim = JSON.parse(String(await runMutation("claimBridgeEvent", [event.id])));
+
+    if (!claim.ok) {
+      throw new Error(`Relay state UI smoke failed: could not claim bridge event: ${claim.error || "unknown error"}`);
+    }
+
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Codex resuming").first().waitFor({ timeout: 15_000 });
+    await page.getByText("Your response is in the relay path.").waitFor({ timeout: 10_000 });
+    await page.getByText("a stale heartbeat during active work is not by itself a failure").waitFor({ timeout: 10_000 });
+    await page.getByText("Bridge relay").waitFor({ timeout: 10_000 });
+
+    const notObserved = await page.getByText("Bridge not observed").count();
+    const startWatcher = await page.getByText("Start watcher").count();
+
+    if (notObserved > 0 || startWatcher > 0) {
+      throw new Error("Relay state UI smoke failed: active relay looked like an offline watcher.");
+    }
+
+    if (consoleErrors.length > 0) {
+      throw new Error(`Relay state UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
+    }
+
+    if (!keepState) {
+      await runMutation("clearConnectionState", []);
+    }
+
+    console.log("JustSwipe relay state UI smoke passed.");
+    console.log(`appUrl: ${appBaseUrl()}`);
+    console.log(`guest: guest:${guest}`);
+    console.log(`handoffId: ${relaySetup.handoffId}`);
+    console.log("verified: running relay is not presented as offline, stale heartbeat copy explains Codex work");
+  } finally {
+    await browser.close();
+  }
+}
+
 async function runFailureUiSmoke() {
   const setup = await setupConnection();
   const browser = await chromium.launch({ headless: true });
@@ -641,7 +704,7 @@ async function runFailureUiSmoke() {
     await page.getByRole("button", { name: "Trigger failure" }).click({ force: true });
     await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
 
-    const event = await waitForBridgeEvent(failureSetup.handoffId);
+    const event = await waitForBridgeEvent(failureSetup.handoffId, 30_000);
 
     if (!event) {
       throw new Error("Failure UI smoke failed: submitted card did not create bridge event.");
@@ -691,6 +754,7 @@ const runners = {
   schema: runUiSmoke,
   failure: runFailureUiSmoke,
   "card-shapes": runCardShapesUiSmoke,
+  "relay-state": runRelayStateUiSmoke,
 };
 const runner = runners[runMode] || runUiSmoke;
 

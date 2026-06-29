@@ -962,10 +962,12 @@ function bridgeHealthState(props: {
     return {
       status: "running",
       label: "Codex resuming",
-      detail: "The local bridge is sending your swipe to Codex.",
+      detail: heartbeatFresh
+        ? "The local bridge is sending your swipe to Codex."
+        : "Your response is already in the relay path. A stale heartbeat during Codex work is not by itself a failure.",
       action: heartbeatFresh
         ? "The watcher is active. Keep it running while Codex works."
-        : "Relay is in progress. The heartbeat may lag while Codex is working.",
+        : "Relay is in progress. Wait for Codex to finish or open the thread log if this stays here too long.",
       icon: "play",
       queuedEvents,
       runningEvents,
@@ -2889,6 +2891,8 @@ function SentState(props: {
             ? "The local bridge could not resume Codex. The response is saved and can be retried from the bridge."
             : status === "sent" || status === "codex_resumed"
               ? "Codex has the structured response and can continue or ask the next JustSwipe card."
+              : status === "running" || status === "responding_to_codex"
+                ? "Your response is in the relay path. Codex may take a while here; a stale heartbeat during active work is not by itself a failure."
               : "Your swipe is saved. The bridge is handing it back to Codex."}
         </p>
         <ResumeEvidenceStrip status={status} />
