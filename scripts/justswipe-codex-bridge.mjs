@@ -36,6 +36,7 @@ const todoHandoff = args.has("--todo-handoff");
 const clearState = args.has("--clear");
 const forgetConnection = args.has("--forget");
 const syncThreads = args.has("--sync-threads");
+const rehydrateThreads = args.has("--rehydrate-threads");
 const retryFailed = args.has("--retry-failed");
 const forceSetupCard = args.has("--setup-card");
 const answerFirstCard = args.has("--answer-first-card");
@@ -51,6 +52,7 @@ const codexTimeoutMs = Number.parseInt(valueAfter("--timeout-ms") ?? "900000", 1
 const codexRetryDelayMs = Number.parseInt(valueAfter("--codex-retry-delay-ms") ?? "7000", 10);
 const threadCwd = valueAfter("--cwd") ?? root;
 const expectedCwd = valueAfter("--expect-cwd") ?? "";
+const threadCachePath = resolve(valueAfter("--thread-cache") ?? join(root, ".lakebed", "dogfood-thread-cache.json"));
 const threadPromptArg = valueAfter("--prompt");
 const threadPromptFile = valueAfter("--prompt-file");
 const defaultThreadPrompt =
@@ -2839,6 +2841,46 @@ async function syncKnownThreads({ force = false, quiet = false } = {}) {
   return synced;
 }
 
+async function rehydrateThreadsFromCache() {
+  const db = await dumpDb();
+  const connectionId = bridgeConnectionId(db);
+
+  if (!connectionId) {
+    throw new Error("No active JustSwipe connection exists. Run setup or pair before rehydrating threads.");
+  }
+
+  let cache;
+  try {
+    cache = JSON.parse(await readFile(threadCachePath, "utf8"));
+  } catch (error) {
+    throw new Error(`Could not read thread cache at ${threadCachePath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const threads = Array.isArray(cache.threads) ? cache.threads.filter((thread) => thread.threadId) : [];
+  let saved = 0;
+
+  for (const thread of threads) {
+    const metadata = threadMetadataFromEvent({
+      threadId: thread.threadId,
+      threadTitle: thread.threadTitle,
+      cwd: thread.cwd,
+      projectName: thread.projectName,
+      threadStatus: thread.threadStatus || "idle",
+      lastActivityAt: thread.lastActivityAt || thread.lastObservedAt,
+    });
+    await runMutation("saveThreadMetadata", [
+      connectionId,
+      thread.threadId,
+      metadataJson(metadata),
+    ]);
+    saved += 1;
+  }
+
+  console.log(`Rehydrated ${saved} cached ${saved === 1 ? "thread" : "threads"} into the current JustSwipe connection.`);
+  console.log(`cache: ${threadCachePath}`);
+  return saved;
+}
+
 async function startNativeThread(options = {}) {
   const cwd = resolve(options.cwd ?? threadCwd);
   const rawPrompt = options.prompt ?? await readThreadPrompt();
@@ -3239,6 +3281,13 @@ async function printSetupCurrentState() {
 }
 
 async function main() {
+  if (rehydrateThreads) {
+    await rehydrateThreadsFromCache();
+    await syncKnownThreads({ force: true, quiet: true });
+    await printStatusReport();
+    return;
+  }
+
   if (statusReport) {
     await printStatusReport();
     return;

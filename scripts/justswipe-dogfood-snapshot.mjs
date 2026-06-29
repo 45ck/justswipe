@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appUrl = valueAfter("--app-url") || "http://localhost:3001";
 const outPath = resolve(valueAfter("--out") || join(root, "docs", "dogfood-snapshots.md"));
+const cachePath = resolve(valueAfter("--cache") || join(root, ".lakebed", "dogfood-thread-cache.json"));
 const expectedCwd = valueAfter("--expect-cwd") || "";
 
 function valueAfter(flag) {
@@ -32,6 +33,52 @@ function asCount(value) {
 
 function threadLine(thread) {
   return `  - ${thread.threadStatus || "unknown"} | ${thread.projectName || "unknown"} | ${thread.threadTitle || thread.threadId || "unknown"} | cards=${thread.pendingCards || "0"} ideas=${thread.pendingIdeas || "0"}`;
+}
+
+async function updateThreadCache(report, threads) {
+  if (!threads.length) {
+    return 0;
+  }
+
+  let cache = { threads: [] };
+  try {
+    cache = JSON.parse(await readFile(cachePath, "utf8"));
+  } catch {
+    cache = { threads: [] };
+  }
+
+  const byId = new Map((Array.isArray(cache.threads) ? cache.threads : [])
+    .filter((thread) => thread.threadId)
+    .map((thread) => [thread.threadId, thread]));
+
+  const observedAt = new Date().toISOString();
+  for (const thread of threads) {
+    if (!thread.threadId) {
+      continue;
+    }
+    byId.set(thread.threadId, {
+      ...byId.get(thread.threadId),
+      threadId: thread.threadId,
+      threadTitle: thread.threadTitle || thread.threadId,
+      threadStatus: thread.threadStatus || "unknown",
+      projectName: thread.projectName || "",
+      cwd: thread.cwd || "",
+      pendingCards: thread.pendingCards || "0",
+      pendingIdeas: thread.pendingIdeas || "0",
+      lastActivityAt: thread.lastActivityAt || observedAt,
+      lastObservedAt: observedAt,
+      sourceAppUrl: report.appUrl || appUrl,
+    });
+  }
+
+  const merged = [...byId.values()].sort((left, right) =>
+    String(right.lastObservedAt || right.lastActivityAt || "").localeCompare(
+      String(left.lastObservedAt || left.lastActivityAt || ""),
+    ),
+  );
+  await mkdir(dirname(cachePath), { recursive: true });
+  await writeFile(cachePath, `${JSON.stringify({ updatedAt: observedAt, threads: merged }, null, 2)}\n`);
+  return merged.length;
 }
 
 async function main() {
@@ -77,6 +124,7 @@ async function main() {
   ];
 
   await mkdir(dirname(outPath), { recursive: true });
+  const cachedThreads = await updateThreadCache(report, threads);
   let existing = "";
   try {
     existing = await readFile(outPath, "utf8");
@@ -88,6 +136,7 @@ async function main() {
   console.log(`Dogfood snapshot appended: ${outPath}`);
   console.log(`readyForDogfood: ${ready ? "yes" : "no"}`);
   console.log(`threads: ${report.threads || threads.length}`);
+  console.log(`cachedThreads: ${cachedThreads}`);
   console.log(`bridgeEvents: queued=${eventCounts.queued} running=${eventCounts.running} failed=${eventCounts.failed}`);
 }
 

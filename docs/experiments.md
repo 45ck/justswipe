@@ -631,6 +631,25 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Snapshot tooling caught a real failure and proved partial recovery. It also exposed that local dev restart does not preserve the richer multi-project thread set.
 
+### EXP-024: Dogfood Thread Cache Rehydrate Command
+
+- Date: 2026-06-29
+- Status: command path proven, richer recovery still partial
+- Change:
+  - `npm run dogfood:snapshot` now writes a local sidecar cache at `.lakebed/dogfood-thread-cache.json`.
+  - Added `--rehydrate-threads` to the bridge CLI and `npm run dogfood:rehydrate` for local recovery.
+- Evidence:
+  - Ran `npm run dogfood:snapshot` against `http://localhost:3001`.
+  - Snapshot reported `readyForDogfood: yes`, `threads: 1`, `cachedThreads: 1`, and bridge events `queued=0 running=0 failed=0`.
+  - Ran `npm run dogfood:rehydrate`.
+  - The command rehydrated 1 cached thread into connection `conn-mqz1ie67-5fqnku`, then printed healthy local status with heartbeat online/fresh, `activeHandoffs: 0`, and no queued/running/failed bridge events.
+  - Ran `npm run build`; Lakebed build passed.
+- Limit:
+  - This proves the cache and rehydrate command path, but only against the currently cached one-thread state.
+  - It does not yet prove full recovery of the earlier richer three-thread, two-project dogfood state after a local dev restart.
+- Result:
+  - Local long-running dogfood has a recovery primitive now. The next reliability proof should intentionally cache multiple active project threads, restart local dev, rehydrate, and confirm the thread list comes back intact.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
