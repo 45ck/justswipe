@@ -51,6 +51,10 @@ function hoursBetween(first, last) {
   return (last.getTime() - first.getTime()) / 36e5;
 }
 
+function isoOrUnknown(date) {
+  return date ? date.toISOString() : "unknown";
+}
+
 function count(pattern, text) {
   return (text.match(pattern) || []).length;
 }
@@ -86,6 +90,9 @@ async function main() {
   const monitorTimes = timestamps(monitorLog);
   const snapshotTimes = timestamps(snapshotLog);
   const monitorHours = hoursBetween(monitorTimes[0], monitorTimes.at(-1));
+  const firstMonitorAt = monitorTimes[0];
+  const latestMonitorAt = monitorTimes.at(-1);
+  const latestSnapshotAt = snapshotTimes.at(-1);
   const passedMonitorRuns = count(/- status:\s*passed/g, monitorLog);
   const readySnapshots = count(/- readyForDogfood:\s*yes/g, snapshotLog);
   const latestVerifyPassed = hasAll(verifyLog, [
@@ -118,7 +125,7 @@ async function main() {
     statusLine(
       monitorHours >= 24 ? "proven" : passedMonitorRuns >= 2 ? "partial" : "gap",
       "Long-running multi-thread use over hours/days",
-      `${passedMonitorRuns} passed monitor runs across ${monitorHours.toFixed(2)}h; ${readySnapshots} ready snapshots`,
+      `${passedMonitorRuns} passed monitor runs from ${isoOrUnknown(firstMonitorAt)} to ${isoOrUnknown(latestMonitorAt)} (${monitorHours.toFixed(2)}h); ${readySnapshots} ready snapshots; latest snapshot ${isoOrUnknown(latestSnapshotAt)}`,
     ),
     statusLine(
       latestVerifyPassed && failureUxProven ? "proven-local" : "gap",
