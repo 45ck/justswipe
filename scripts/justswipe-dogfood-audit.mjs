@@ -90,6 +90,7 @@ async function main() {
   const monitorTimes = timestamps(monitorLog);
   const snapshotTimes = timestamps(snapshotLog);
   const monitorHours = hoursBetween(monitorTimes[0], monitorTimes.at(-1));
+  const remainingLongRunHours = Math.max(0, 24 - monitorHours);
   const firstMonitorAt = monitorTimes[0];
   const latestMonitorAt = monitorTimes.at(-1);
   const latestSnapshotAt = snapshotTimes.at(-1);
@@ -125,7 +126,7 @@ async function main() {
     statusLine(
       monitorHours >= 24 ? "proven" : passedMonitorRuns >= 2 ? "partial" : "gap",
       "Long-running multi-thread use over hours/days",
-      `${passedMonitorRuns} passed monitor runs from ${isoOrUnknown(firstMonitorAt)} to ${isoOrUnknown(latestMonitorAt)} (${monitorHours.toFixed(2)}h); ${readySnapshots} ready snapshots; latest snapshot ${isoOrUnknown(latestSnapshotAt)}`,
+      `${passedMonitorRuns} passed monitor runs from ${isoOrUnknown(firstMonitorAt)} to ${isoOrUnknown(latestMonitorAt)} (${monitorHours.toFixed(2)}h); ${readySnapshots} ready snapshots; latest snapshot ${isoOrUnknown(latestSnapshotAt)}; ${remainingLongRunHours.toFixed(2)}h remaining to 24h proof`,
     ),
     statusLine(
       latestVerifyPassed && failureUxProven ? "proven-local" : "gap",
