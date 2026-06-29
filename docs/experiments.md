@@ -258,11 +258,43 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - The improvement directly targets post-swipe trust without adding dashboard scope.
   - The interrupted-thread ambiguity remains an integration reliability gap to keep dogfooding.
 
+### EXP-010: Multi-Shape Card Bundle Browser Smoke
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, Playwright Chromium at `390x844`
+- Command:
+  - `npm run ui:smoke:card-shapes`
+- Evidence:
+  - Added a repeatable browser smoke mode that creates a four-card bundle and answers it one card at a time through the UI.
+  - Passing handoff: `handoff-mqyrl43j-shjikz`.
+  - Covered card shapes and actions:
+    - `yes_no` card answered with `No / Reject` and quick reply `Too noisy`.
+    - `free_text` card answered with `Yes / Continue` and custom response `Keep the prompt short and phone-friendly.`
+    - `adaptive_form` card answered with required textarea `review_note`.
+    - unsupported schema field type `slider` rendered as a harmless unsupported-field fallback.
+    - `options`-style card answered with `More / Alternatives` and quick reply `Show 3 cleaner variants`.
+  - Verified multi-card order: one card at a time, next card appears after each response, bridge event is queued only after the final card.
+  - Verified final bridge event feedback contained all four responses with expected actions and payloads.
+  - Verified no mobile horizontal overflow and no browser console errors.
+  - Follow-up verification passed:
+    - `npm run build`
+    - `npm run ui:smoke`
+    - `npm run ui:smoke:failure`
+    - `npm run bridge:smoke`
+    - `npm --silent run bridge:doctor:ready:local`
+  - Final local status returned `currentCwd: E:\justswipe`, watcher online, and queued/running/failed bridge events all `0`.
+- Rough edges:
+  - Existing quick-reply behavior is intentionally one-tap submit when no extra required schema fields exist. The smoke initially expected an extra `Submit` tap and had to be corrected.
+  - Failure smoke also needed a forced quick-reply tap because the card detached as the one-tap response submitted. This is acceptable for the script, but worth remembering when writing future Playwright tests.
+- Result:
+  - Rich card/form coverage is stronger: JustSwipe now has browser proof for yes/no, free text, adaptive form, unsupported schema fallback, options-style More, inline HTML preview, and multi-card bundle ordering.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
 - `partial`: failure recovery UX from a human perspective.
-- `partial`: rich schema forms and HTML artifact previews across many card shapes.
+- `proven`: rich schema forms and inline HTML previews across the current supported browser-tested card shapes.
 - `partial`: natural greenfield planning behavior beyond controlled prompts.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
 - `gap`: hosted cloud proof after Lakebed quota reset, including phone pairing and notification permission.

@@ -213,6 +213,106 @@ function richUiSmokeCard() {
   };
 }
 
+function multiShapeCards() {
+  return [
+    {
+      cardId: "shape-yes-no",
+      title: "Reject noisy dashboard?",
+      summary: "Confirm the core should stay swipe-first.",
+      recommendedAction: "no",
+      visualContext: "Shape smoke | Yes/no card | No action",
+      questionType: "yes_no",
+      yesPayloadSchema: [],
+      noPayloadSchema: [],
+      morePayloadSchema: [],
+      laterPayloadSchema: [],
+      optionPayloadSchemas: {},
+      requiredFieldsByAction: {},
+      quickRepliesByAction: {
+        yes: ["Keep dashboard"],
+        no: ["Too noisy", "Swipe first", "Hide panels"],
+      },
+      agentHtmlPreview:
+        "<section><h2>Yes/no proof</h2><p>This card tests the No path and quick replies.</p><ul><li>Decision: avoid noisy dashboard expansion.</li><li>Next: show the next card in the bundle.</li></ul><button>Too noisy</button></section>",
+    },
+    {
+      cardId: "shape-free-text",
+      title: "Write Codex steering",
+      summary: "Use a custom response instead of a canned reply.",
+      recommendedAction: "yes",
+      visualContext: "Shape smoke | Free text card | Custom answer",
+      questionType: "free_text",
+      yesPayloadSchema: [],
+      noPayloadSchema: [],
+      morePayloadSchema: [],
+      laterPayloadSchema: [],
+      optionPayloadSchemas: {},
+      requiredFieldsByAction: {
+        yes: ["custom_response"],
+      },
+      quickRepliesByAction: {
+        yes: ["Use concise copy"],
+      },
+      agentHtmlPreview:
+        "<section><h2>Free text proof</h2><p>This card tests a custom answer when a quick reply is not enough.</p><button>Write custom</button></section>",
+    },
+    {
+      cardId: "shape-adaptive-form",
+      title: "Give review detail",
+      summary: "Fill textarea and confirm unsupported fields do not break rendering.",
+      recommendedAction: "yes",
+      visualContext: "Shape smoke | Adaptive form | Textarea | Unsupported fallback",
+      questionType: "adaptive_form",
+      yesPayloadSchema: [
+        {
+          id: "review_note",
+          label: "Review note",
+          type: "textarea",
+          required: true,
+          placeholder: "What should Codex change?",
+        },
+        {
+          id: "unknown_widget",
+          label: "Model-made unsupported widget",
+          type: "slider",
+          helper: "Unsupported field types should be visible but harmless.",
+        },
+      ],
+      noPayloadSchema: [],
+      morePayloadSchema: [],
+      laterPayloadSchema: [],
+      optionPayloadSchemas: {},
+      requiredFieldsByAction: {
+        yes: ["review_note"],
+      },
+      quickRepliesByAction: {
+        yes: ["Add detail"],
+      },
+      agentHtmlPreview:
+        "<section><h2>Adaptive form proof</h2><p>This card tests textarea fields and unsupported schema fallback.</p><ul><li>Required: review note.</li><li>Fallback: slider is shown as unsupported.</li></ul></section>",
+    },
+    {
+      cardId: "shape-options-more",
+      title: "Ask for alternatives?",
+      summary: "Use the More action to request another route.",
+      recommendedAction: "more",
+      visualContext: "Shape smoke | Options-style card | More action",
+      questionType: "options",
+      yesPayloadSchema: [],
+      noPayloadSchema: [],
+      morePayloadSchema: [],
+      laterPayloadSchema: [],
+      optionPayloadSchemas: {},
+      requiredFieldsByAction: {},
+      quickRepliesByAction: {
+        more: ["Show 3 cleaner variants", "Try tighter flow", "Compare options"],
+      },
+      agentHtmlPreview:
+        "<section><h2>Options proof</h2><p>This final card tests the More path and completes the bundle.</p><button>Show 3 cleaner variants</button><button>Try tighter flow</button></section>",
+    },
+  ];
+}
+
 async function setupConnection() {
   await runMutation("clearConnectionState", []);
   const deviceJson = JSON.stringify({
@@ -252,6 +352,27 @@ async function setupHandoff() {
     JSON.stringify({
       threadId,
       threadTitle: "UI smoke thread",
+      threadStatus: "awaiting_justswipe",
+      cwd: root,
+      projectName: "justswipe",
+      lastActivityAt: new Date().toISOString(),
+    }),
+  ]);
+
+  return { ...connection, handoffId };
+}
+
+async function setupMultiShapeHandoff() {
+  const connection = await setupConnection();
+  const threadId = "ui-card-shapes-thread";
+  const handoffId = await runMutation("createHandoffFromBridge", [
+    connection.connectionId,
+    threadId,
+    JSON.stringify(multiShapeCards()),
+    "UI smoke multi-shape handoff.",
+    JSON.stringify({
+      threadId,
+      threadTitle: "UI card shapes thread",
       threadStatus: "awaiting_justswipe",
       cwd: root,
       projectName: "justswipe",
@@ -417,6 +538,89 @@ async function runUiSmoke() {
   console.log("verified: mobile render, HTML preview, schema fields, resume evidence, submit, queued payload");
 }
 
+async function runCardShapesUiSmoke() {
+  const setup = await setupMultiShapeHandoff();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  try {
+    await page.goto(guestUrl(setup.code), { waitUntil: "networkidle", timeout: 30_000 });
+    await page.getByText("Reject noisy dashboard?").waitFor({ timeout: 15_000 });
+    await page.getByText("Yes/no proof").waitFor({ timeout: 10_000 });
+    await assertNoOverflow(page);
+
+    await page.locator('button[title^="No / Reject"]').click();
+    await page.getByRole("button", { name: "Too noisy" }).click();
+    await page.getByText("Write Codex steering").waitFor({ timeout: 15_000 });
+
+    await page.locator('button[title^="Yes / Continue"]').click();
+    await page.getByRole("button", { name: "Write a custom answer" }).click();
+    await page.getByPlaceholder("Write a different answer for Codex.").fill("Keep the prompt short and phone-friendly.");
+    await page.getByRole("button", { name: "Submit Yes" }).click();
+    await page.getByText("Give review detail").waitFor({ timeout: 15_000 });
+
+    await page.locator('button[title^="Yes / Continue"]').click();
+    await page.getByText("Unsupported field type for `Model-made unsupported widget`.").waitFor({ timeout: 10_000 });
+    await page.getByPlaceholder("What should Codex change?").fill("Make the card easier to understand in under ten seconds.");
+    await page.getByRole("button", { name: "Submit Yes" }).click();
+    await page.getByText("Ask for alternatives?").waitFor({ timeout: 15_000 });
+
+    await page.locator('button[title^="More / Alternatives"]').click();
+    await page.getByRole("button", { name: "Show 3 cleaner variants" }).click();
+    await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
+    await page.getByText("Swipe saved").waitFor({ timeout: 10_000 });
+    await assertNoOverflow(page);
+
+    if (consoleErrors.length > 0) {
+      throw new Error(`Card shapes UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  const event = await waitForBridgeEvent(setup.handoffId);
+
+  if (!event) {
+    throw new Error("Card shapes UI smoke failed: final card did not queue a bridge event.");
+  }
+
+  const responses = JSON.parse(event.feedback || "[]");
+
+  if (responses.length !== 4) {
+    throw new Error(`Card shapes UI smoke failed: expected 4 responses, got ${responses.length}.`);
+  }
+
+  const [first, second, third, fourth] = responses;
+
+  if (
+    first.action !== "no" ||
+    first.payload?.quick_reply !== "Too noisy" ||
+    second.action !== "yes" ||
+    second.payload?.custom_response !== "Keep the prompt short and phone-friendly." ||
+    third.payload?.review_note !== "Make the card easier to understand in under ten seconds." ||
+    fourth.action !== "more" ||
+    fourth.payload?.quick_reply !== "Show 3 cleaner variants"
+  ) {
+    throw new Error(`Card shapes UI smoke failed: unexpected responses ${JSON.stringify(responses)}`);
+  }
+
+  if (!keepState) {
+    await runMutation("clearConnectionState", []);
+  }
+
+  console.log("JustSwipe card shapes UI smoke passed.");
+  console.log(`appUrl: ${appBaseUrl()}`);
+  console.log(`guest: guest:${guest}`);
+  console.log(`handoffId: ${setup.handoffId}`);
+  console.log("verified: yes/no, free text, adaptive form, unsupported field fallback, more action, multi-card order");
+}
+
 async function runFailureUiSmoke() {
   const setup = await setupConnection();
   const browser = await chromium.launch({ headless: true });
@@ -434,7 +638,7 @@ async function runFailureUiSmoke() {
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText("Trigger relay failure state").waitFor({ timeout: 15_000 });
     await page.locator('button[title^="Yes / Continue"]').click();
-    await page.getByRole("button", { name: "Trigger failure" }).click();
+    await page.getByRole("button", { name: "Trigger failure" }).click({ force: true });
     await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
 
     const event = await waitForBridgeEvent(failureSetup.handoffId);
@@ -483,7 +687,12 @@ async function runFailureUiSmoke() {
 }
 
 const runMode = valueAfter("--mode") || "schema";
-const runner = runMode === "failure" ? runFailureUiSmoke : runUiSmoke;
+const runners = {
+  schema: runUiSmoke,
+  failure: runFailureUiSmoke,
+  "card-shapes": runCardShapesUiSmoke,
+};
+const runner = runners[runMode] || runUiSmoke;
 
 runner().catch(async (error) => {
   try {
