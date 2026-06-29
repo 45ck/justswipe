@@ -6,17 +6,11 @@
 
 **Pause. Decide. Move forward.**
 
-JustSwipe is a swipe-first decision layer for Codex.
+JustSwipe is Tinder for Codex decisions.
 
-Codex can build faster than you can watch every thread. JustSwipe lets Codex pause when it needs human taste, scope, risk, or review input, send one clear card to your browser or phone, then continue after you swipe or add a short answer.
+Codex pauses when it needs human taste, scope, risk, or review input. JustSwipe turns that interruption into one clear card you can answer from your browser or phone, then Codex continues.
 
-Use it when you want to:
-
-- steer Codex without sitting in chat all day
-- answer one clear decision instead of reading a long interruption
-- review app screens, HTML artifacts, diagrams, diffs, screenshots, or evidence quickly
-- start a planning discussion from your phone or browser
-- keep agent work moving while still giving high-quality human signal
+Use it to steer agent work without sitting in chat all day: swipe through decisions, review screens or HTML artifacts, answer planning questions, and send quick ideas into a repo while you are away from the keyboard.
 
 ## Paste Into Codex
 
@@ -43,11 +37,3 @@ If hosted Lakebed reports mutations quota exceeded, stop retrying hosted setup a
 
 After setup is proven, continue my project normally. When you need human taste, scope, risk, planning, review, or clarification, send a concise JustSwipe card or bundle and stop until the response packet arrives.
 ```
-
-## More
-
-- Full install instructions: [INSTALL.md](INSTALL.md)
-- Agent contract: [AGENTS.md](AGENTS.md)
-- Protocol notes: [docs/protocol.md](docs/protocol.md)
-- Dogfood proof runbook: [docs/dogfood.md](docs/dogfood.md)
-- Why this exists: [RATIONALE.md](RATIONALE.md)
