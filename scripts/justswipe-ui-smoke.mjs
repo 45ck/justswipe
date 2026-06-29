@@ -375,6 +375,9 @@ async function runUiSmoke() {
     await assertNoOverflow(page);
     await page.getByRole("button", { name: "Submit Yes" }).click();
     await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
+    await page.getByText("Swipe saved").waitFor({ timeout: 10_000 });
+    await page.getByText("Bridge relay").waitFor({ timeout: 10_000 });
+    await page.getByText("Codex continues").waitFor({ timeout: 10_000 });
 
     if (consoleErrors.length > 0) {
       throw new Error(`UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
@@ -411,7 +414,7 @@ async function runUiSmoke() {
   console.log(`appUrl: ${appBaseUrl()}`);
   console.log(`guest: guest:${guest}`);
   console.log(`handoffId: ${setup.handoffId}`);
-  console.log("verified: mobile render, HTML preview, schema fields, submit, queued payload");
+  console.log("verified: mobile render, HTML preview, schema fields, resume evidence, submit, queued payload");
 }
 
 async function runFailureUiSmoke() {

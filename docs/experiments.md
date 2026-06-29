@@ -226,6 +226,38 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - A normal vague greenfield idea can start in JustSwipe, cause Codex to ask a planning card, accept a swipe, build a real static app slice, and return to idle locally.
   - This is useful evidence for the core loop, but still local-only and not enough to claim phone/hosted/multi-day reliability.
 
+### EXP-009: Self-Dogfood Trust Cue Improvement
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`
+- Prompt sent from JustSwipe:
+  - `Self-dogfood JustSwipe core sprint: inspect the app and docs, identify one small improvement that makes the core Codex asks -> swipe -> Codex continues loop feel more trustworthy, use JustSwipe cards if you need a decision, otherwise make the improvement, run focused verification, and report exact evidence. Do not expand dashboard features.`
+- Evidence:
+  - Idea was queued through JustSwipe to existing thread `019f11af-f4b9-76b2-ac6e-0ecbb4ab2dad`.
+  - Bridge event `idea-mqyquxo0-ime6zw` moved to `running`, then completed and returned the app to idle.
+  - Codex identified a core trust gap: after swiping, the sent state did not explain the saved -> bridge relay -> Codex resumes chain clearly enough.
+  - Codex changed `client/index.tsx` to add a compact `ResumeEvidenceStrip` in the sent state:
+    - `Swipe saved`
+    - `Bridge relay`
+    - `Codex continues` / `Codex resumed`
+    - failed state copy points to retry via thread log.
+  - Codex changed `scripts/justswipe-ui-smoke.mjs` so the mobile UI smoke asserts those three labels after submit.
+  - Verification passed:
+    - `npm run build`
+    - `npm run ui:smoke`
+    - `npm run bridge:smoke`
+    - `npm --silent run bridge:doctor:ready:local`
+  - `ui:smoke` passed with handoff `handoff-mqyr1iz6-y97fz7` and explicitly verified mobile render, HTML preview, schema fields, resume evidence, submit, and queued payload.
+  - Final local status returned `currentCwd: E:\justswipe`, watcher online/fresh, and queued/running/failed bridge events all `0`.
+- Rough edges:
+  - The worker thread was visible as `interrupted` when read through Codex even though file changes were applied and the bridge event later completed. The supervising thread had to take over verification and commit.
+  - During active relay, heartbeat temporarily appeared stale while `runningBridgeEvents: 1`; this reinforces that long-running relay state needs continued UX hardening.
+- Result:
+  - JustSwipe successfully improved itself through its own idea -> Codex worker -> verification path.
+  - The improvement directly targets post-swipe trust without adding dashboard scope.
+  - The interrupted-thread ambiguity remains an integration reliability gap to keep dogfooding.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.

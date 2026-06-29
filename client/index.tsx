@@ -501,6 +501,50 @@ function threadStatusLabel(status: string): string {
   return "Unknown";
 }
 
+function resumeStepTone(status: string, active: boolean): string {
+  if (status === "failed" && active) return "border-orange-300/45 bg-orange-300/12 text-orange-100";
+  if (active) return "border-lime-300/45 bg-lime-300/12 text-lime-50";
+  return "border-white/10 bg-black/15 text-zinc-400";
+}
+
+function ResumeEvidenceStrip(props: { status: string }) {
+  const status = props.status;
+  const resumeActive = ["queued", "running", "responding_to_codex"].includes(status);
+  const resumed = ["sent", "codex_resumed"].includes(status);
+  const failed = status === "failed";
+  const steps = [
+    {
+      key: "saved",
+      label: "Swipe saved",
+      detail: failed ? "Response preserved" : "Structured response captured",
+      active: !resumed && !resumeActive && !failed,
+    },
+    {
+      key: "relay",
+      label: failed ? "Relay needs retry" : "Bridge relay",
+      detail: failed ? "Open thread log" : "Local watcher hands it to Codex",
+      active: resumeActive || failed,
+    },
+    {
+      key: "codex",
+      label: resumed ? "Codex resumed" : "Codex continues",
+      detail: resumed ? "Thread has the packet" : "Next card appears only if needed",
+      active: resumed,
+    },
+  ];
+
+  return (
+    <div class="mt-5 grid gap-2 text-left sm:grid-cols-3">
+      {steps.map((step) => (
+        <div class={`min-h-24 rounded border p-3 ${resumeStepTone(status, step.active)}`} key={step.key}>
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] opacity-75">{step.label}</p>
+          <p class="mt-2 text-xs leading-5 opacity-85">{step.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function threadStatusTone(status: string): string {
   if (status === "idle") return "border-teal-300/30 bg-teal-300/10 text-teal-100";
   if (status === "running") return "border-cyan-300/35 bg-cyan-300/10 text-cyan-100";
@@ -2847,6 +2891,7 @@ function SentState(props: {
               ? "Codex has the structured response and can continue or ask the next JustSwipe card."
               : "Your swipe is saved. The bridge is handing it back to Codex."}
         </p>
+        <ResumeEvidenceStrip status={status} />
         <div class="mt-5 rounded border border-white/10 bg-black/20 p-3 text-left">
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
             Thread state
