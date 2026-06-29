@@ -399,6 +399,7 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 
 ## Open Experiment Areas
 
+- `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline` with the last hosted heartbeat stale by about 4 hours. Starting `npm run bridge:watch -- --app-url https://clear-harbor-b4fc257b5a.lakebed.app --daemon` launched a watcher process, but the hosted status still showed the stale heartbeat; prior watcher stderr included `hosted mutation quota exhausted; switch bridge app URL to local dev` and a transient Codex state DB lock. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
 - `partial`: long-running multi-thread use over hours or days.
 - `partial`: long-running relay UX from a human perspective beyond the active-relay browser smoke.
 - `proven`: browser-tested failure recovery for failed relay, retry requeue, and retry-to-sent completion.
