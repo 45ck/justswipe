@@ -213,7 +213,7 @@ function richUiSmokeCard() {
   };
 }
 
-async function setupHandoff() {
+async function setupConnection() {
   await runMutation("clearConnectionState", []);
   const deviceJson = JSON.stringify({
     deviceId: "justswipe-ui-smoke-browser",
@@ -238,9 +238,14 @@ async function setupHandoff() {
     throw new Error("Could not find ui-smoke connection after pairing.");
   }
 
+  return { code, connectionId: integration.connectionId };
+}
+
+async function setupHandoff() {
+  const connection = await setupConnection();
   const threadId = "ui-smoke-thread";
   const handoffId = await runMutation("createHandoffFromBridge", [
-    integration.connectionId,
+    connection.connectionId,
     threadId,
     JSON.stringify([richUiSmokeCard()]),
     "UI smoke rich schema handoff.",
@@ -254,7 +259,57 @@ async function setupHandoff() {
     }),
   ]);
 
-  return { code, handoffId, connectionId: integration.connectionId };
+  return { ...connection, handoffId };
+}
+
+async function setupQuickHandoff(reason = "UI smoke relay state handoff.") {
+  const db = await dumpDb();
+  const ownerId = `guest:${guest}`;
+  const integration = (db.tables?.integrations || [])
+    .filter((row) => row.ownerId === ownerId)
+    .sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")))[0];
+
+  if (!integration?.connectionId) {
+    throw new Error("Could not find ui-smoke connection for relay state setup.");
+  }
+
+  const threadId = "ui-smoke-failure-thread";
+  const handoffId = await runMutation("createHandoffFromBridge", [
+    integration.connectionId,
+    threadId,
+    JSON.stringify([
+      {
+        cardId: "ui-failure-state-card",
+        title: "Trigger relay failure state",
+        summary: "Submit this card so the smoke can mark its bridge event failed.",
+        recommendedAction: "yes",
+        visualContext: "Failure UX smoke | Thread log | Retry relay",
+        questionType: "yes_no",
+        yesPayloadSchema: [],
+        noPayloadSchema: [],
+        morePayloadSchema: [],
+        laterPayloadSchema: [],
+        optionPayloadSchemas: {},
+        requiredFieldsByAction: {},
+        quickRepliesByAction: {
+          yes: ["Trigger failure"],
+        },
+        agentHtmlPreview:
+          "<section><h2>Failure state proof</h2><p>This card is submitted, then marked failed so the user-facing retry flow can be tested.</p><button>Trigger failure</button></section>",
+      },
+    ]),
+    reason,
+    JSON.stringify({
+      threadId,
+      threadTitle: "UI failure smoke thread",
+      threadStatus: "awaiting_justswipe",
+      cwd: root,
+      projectName: "justswipe",
+      lastActivityAt: new Date().toISOString(),
+    }),
+  ]);
+
+  return { handoffId, connectionId: integration.connectionId };
 }
 
 function guestUrl(code) {
@@ -272,6 +327,23 @@ async function assertNoOverflow(page) {
   if (overflow) {
     throw new Error("UI smoke failed: mobile viewport has horizontal overflow.");
   }
+}
+
+async function waitForBridgeEvent(handoffId, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const db = await dumpDb();
+    const event = (db.tables?.bridgeEvents || []).find((row) => row.handoffId === handoffId);
+
+    if (event) {
+      return event;
+    }
+
+    await new Promise((resolveWait) => setTimeout(resolveWait, 500));
+  }
+
+  return null;
 }
 
 async function runUiSmoke() {
@@ -311,8 +383,7 @@ async function runUiSmoke() {
     await browser.close();
   }
 
-  const db = await dumpDb();
-  const event = (db.tables?.bridgeEvents || []).find((row) => row.handoffId === setup.handoffId);
+  const event = await waitForBridgeEvent(setup.handoffId);
 
   if (!event) {
     throw new Error("UI smoke failed: submitted card did not queue a bridge event.");
@@ -343,7 +414,75 @@ async function runUiSmoke() {
   console.log("verified: mobile render, HTML preview, schema fields, submit, queued payload");
 }
 
-runUiSmoke().catch(async (error) => {
+async function runFailureUiSmoke() {
+  const setup = await setupConnection();
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  try {
+    await page.goto(guestUrl(setup.code), { waitUntil: "networkidle", timeout: 30_000 });
+    const failureSetup = await setupQuickHandoff();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Trigger relay failure state").waitFor({ timeout: 15_000 });
+    await page.locator('button[title^="Yes / Continue"]').click();
+    await page.getByRole("button", { name: "Trigger failure" }).click();
+    await page.getByText(/Response sent|Codex resuming|Sent to Codex/i).first().waitFor({ timeout: 15_000 });
+
+    const event = await waitForBridgeEvent(failureSetup.handoffId);
+
+    if (!event) {
+      throw new Error("Failure UI smoke failed: submitted card did not create bridge event.");
+    }
+
+    const claim = JSON.parse(String(await runMutation("claimBridgeEvent", [event.id])));
+
+    if (!claim.ok) {
+      throw new Error(`Failure UI smoke failed: could not claim bridge event: ${claim.error || "unknown error"}`);
+    }
+
+    await runMutation("markBridgeFailed", [event.id, "Simulated relay failure for UI smoke."]);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByText("Bridge needs attention").first().waitFor({ timeout: 15_000 });
+    await page.getByText("Simulated relay failure for UI smoke.").waitFor({ timeout: 10_000 });
+    await page.locator('button[title="Thread log"]').click();
+    await page.getByRole("button", { name: "Retry relay" }).click();
+    await page.getByText("Retry queued. Keep the bridge watcher running.").waitFor({ timeout: 10_000 });
+
+    const db = await dumpDb();
+    const retried = (db.tables?.bridgeEvents || []).find((row) => row.id === event.id);
+
+    if (retried?.status !== "queued") {
+      throw new Error(`Failure UI smoke failed: retry did not requeue event, got ${retried?.status || "missing"}.`);
+    }
+
+    if (consoleErrors.length > 0) {
+      throw new Error(`Failure UI smoke failed: browser console errors:\n${consoleErrors.join("\n")}`);
+    }
+
+    if (!keepState) {
+      await runMutation("clearConnectionState", []);
+    }
+
+    console.log("JustSwipe failure UI smoke passed.");
+    console.log(`appUrl: ${appBaseUrl()}`);
+    console.log(`guest: guest:${guest}`);
+    console.log(`handoffId: ${failureSetup.handoffId}`);
+    console.log("verified: failed relay banner, failure detail, thread log retry, queued retry payload");
+  } finally {
+    await browser.close();
+  }
+}
+
+const runMode = valueAfter("--mode") || "schema";
+const runner = runMode === "failure" ? runFailureUiSmoke : runUiSmoke;
+
+runner().catch(async (error) => {
   try {
     if (!keepState) {
       await runMutation("clearConnectionState", []);

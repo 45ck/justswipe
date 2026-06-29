@@ -159,10 +159,36 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
   - Browser-click proof for schema fields on mobile width is now covered by a repeatable script.
   - The rich schema gap moves from backend-only proof to real rendered UI proof.
 
+### EXP-007: Failure Recovery UI Smoke
+
+- Date: 2026-06-29
+- Status: proven
+- Surface: `E:\justswipe`, local app `http://localhost:3001`, Playwright Chromium
+- Commands:
+  - `npm run ui:smoke:failure`
+  - `npm run ui:smoke`
+  - `npm run build`
+  - `npm run bridge:smoke`
+  - `npm --silent run bridge:doctor:ready:local`
+- Evidence:
+  - `ui:smoke:failure` uses isolated guest `guest:ui-smoke`.
+  - The script creates a one-card handoff, submits it through the UI, claims the bridge event, then marks it failed with `Simulated relay failure for UI smoke.`
+  - Browser verifies the visible `Bridge needs attention` state.
+  - Browser verifies the exact failure detail appears to the user.
+  - Browser opens the thread log, clicks `Retry relay`, and verifies the retry toast.
+  - Lakebed state verifies the same bridge event returns to `queued`.
+  - Passing run used handoff `handoff-mqypihvh-l5ffl8`.
+  - Follow-up schema UI smoke still passed with handoff `handoff-mqypjy3v-2uyt55`.
+  - Build passed with Lakebed artifact hash `sha256:1f033647ab4b2314d9ae8fc32ff9a67f1f11865b6d8ecf0c5c34dac241d25884`.
+  - Bridge smoke and local doctor passed with queued/running/failed all `0`.
+- Result:
+  - Failure recovery UX is now covered by browser-click proof for the main failed-relay path.
+  - This does not prove every possible Codex or hosted failure, but it proves the user can see the saved error and retry from the app.
+
 ## Open Experiment Areas
 
 - `gap`: long-running multi-thread use over hours or days.
-- `gap`: failure recovery UX from a human perspective.
+- `partial`: failure recovery UX from a human perspective.
 - `partial`: rich schema forms and HTML artifact previews across many card shapes.
 - `partial`: natural greenfield planning behavior beyond controlled prompts.
 - `gap`: mobile/phone ergonomics, notifications, vibration, and real touch gestures.
