@@ -476,6 +476,30 @@ Use this log for evidence that is broader than the repeatable runbook in `docs/d
 - Result:
   - Strong local proof for the core loop: fresh repo, install contract via JustSwipe, vague greenfield idea, natural planning card, swipe response, working app build, browser verification, and clean idle bridge state.
 
+### EXP-017: One-Pass Target Contract Setup
+
+- Date: 2026-06-29
+- Status: improved and proven locally
+- Target repo: `E:\justswipe-greenfield-breath-lab`
+- Target commits:
+  - `abceda6 Initial breath lab`
+  - `6da2600 Install JustSwipe contract through dogfood setup`
+- Thread:
+  - `019f1270-d193-7612-9393-b687ab055c38`
+  - `justswipe-greenfield-breath-lab thread 019f1270`
+- Change:
+  - Updated `package.json` `dogfood:target` prompt so it explicitly installs or updates the target repo JustSwipe contract instead of telling Codex to inspect read-only.
+- Evidence:
+  - Fresh target repo started with only `README.md`.
+  - Ran `npm run dogfood:target -- --cwd E:\justswipe-greenfield-breath-lab`.
+  - In one setup pass, Codex created `AGENTS.md` and `skills/justswipe/SKILL.md`.
+  - README content was preserved.
+  - Final setup state showed `currentProject: justswipe-greenfield-breath-lab`, `currentCwd: E:\justswipe-greenfield-breath-lab`, `expectedCwdMatches: yes`, `bridgeHeartbeat: online`, and `bridgeEvents: queued=0 running=0 failed=0`.
+- Rough edges:
+  - Codex's natural-language setup response briefly claimed the bridge was paired to the previous timer repo, but the authoritative bridge status printed immediately after showed the correct breath repo. The UI/CLI should keep making authoritative status more prominent than model prose.
+- Result:
+  - The target setup path now satisfies the “paste and it works” expectation better: a fresh repo gets the JustSwipe contract in one pass.
+
 ## Open Experiment Areas
 
 - `gap`: hosted bridge readiness is not currently proven live. On 2026-06-29, `npm --silent run bridge:doctor:ready:hosted` returned connected/pairing/project/thread checks as true, but failed `bridgeHeartbeatOnline`; hosted watcher startup now fails fast with `hosted mutation quota exhausted; switch bridge app URL to local dev`. Use local dev for active dogfood until hosted heartbeat can be updated and rechecked.
