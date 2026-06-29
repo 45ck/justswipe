@@ -2943,6 +2943,7 @@ async function runBridgeE2e(mode) {
 
   const doctorJsonPassed =
     doctorJson?.ok === true ||
+    doctorJson?.status === "ok" ||
     doctorJson?.status === "pass" ||
     doctorJson?.status === "passed";
 
